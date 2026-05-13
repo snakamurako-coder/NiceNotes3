@@ -73,26 +73,69 @@ function getFileData(fileId) {
   }
 }
 
-function saveAnnotation(fileName, jsonData) {
-  try {
-    const folder = DriveApp.getRootFolder();
-    const targetName = fileName + '_rev.json';
-    const files = folder.getFilesByName(targetName);
-    if (files.hasNext()) {
-      files.next().setContent(jsonData); 
-    } else {
-      folder.createFile(targetName, jsonData, MimeType.PLAIN_TEXT); 
-    }
-    return { success: true };
-  } catch (e) { return { success: false, error: e.toString() }; }
+/**
+ * 共有 PDF 注釈 JSON の保存先。共有フォルダではなく、ユーザーの MyNiceNotes 配下に集約する。
+ * @param {GoogleAppsScript.Properties.Properties} props ScriptProperties
+ * @return {GoogleAppsScript.Drive.Folder}
+ */
+function nn_getPdfAnnotationsFolder_(props) {
+  const mainId = nn_getMainFolderIdForCurrentUser_(props);
+  if (!mainId) return DriveApp.getRootFolder();
+  const main = DriveApp.getFolderById(mainId);
+  const NAME = 'NiceNotes_PdfAnnotations';
+  const it = main.getFoldersByName(NAME);
+  return it.hasNext() ? it.next() : main.createFolder(NAME);
 }
 
-function loadAnnotation(fileName) {
+/**
+ * 共有レイヤー注釈を保存する。キーは Drive の PDF fileId（共有フォルダ外・ユーザー管理領域）。
+ * @param {string} fileId Google Drive ファイル ID
+ * @param {string} jsonData JSON 文字列
+ */
+function saveAnnotation(fileId, jsonData) {
   try {
-    const files = DriveApp.getRootFolder().getFilesByName(fileName + '_rev.json');
+    const id = String(fileId || '').trim();
+    if (!id) return { success: false, error: 'fileId が空です' };
+    const props = PropertiesService.getScriptProperties();
+    const folder = nn_getPdfAnnotationsFolder_(props);
+    const targetName = 'NN_ann_' + id + '.json';
+    const files = folder.getFilesByName(targetName);
+    if (files.hasNext()) {
+      files.next().setContent(jsonData);
+    } else {
+      folder.createFile(targetName, jsonData, MimeType.PLAIN_TEXT);
+    }
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * 共有レイヤー注釈を読む。まず fileId ベース、無ければ旧形式（マイドライブ直下の baseName_rev.json）を試す。
+ * @param {string} fileId
+ * @param {string=} legacyBaseName 拡張子除いたファイル名（旧データ移行用。省略可）
+ */
+function loadAnnotation(fileId, legacyBaseName) {
+  try {
+    const id = String(fileId || '').trim();
+    if (!id) return { success: true, data: null };
+    const props = PropertiesService.getScriptProperties();
+    const folder = nn_getPdfAnnotationsFolder_(props);
+    const targetName = 'NN_ann_' + id + '.json';
+    const files = folder.getFilesByName(targetName);
     if (files.hasNext()) return { success: true, data: files.next().getBlob().getDataAsString() };
+    const legacy = legacyBaseName != null && String(legacyBaseName).trim() ? String(legacyBaseName).trim() : '';
+    if (legacy) {
+      const root = DriveApp.getRootFolder();
+      const legacyName = legacy + '_rev.json';
+      const lf = root.getFilesByName(legacyName);
+      if (lf.hasNext()) return { success: true, data: lf.next().getBlob().getDataAsString() };
+    }
     return { success: true, data: null };
-  } catch (e) { return { success: false, error: e.toString() }; }
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
 }
 
 // 【新規追加】ストローク配列を受け取りGoogle APIへ送る関数
@@ -252,6 +295,41 @@ function nnSaveCaptureToDrive(base64, mimeType, fileName) {
     const blob = Utilities.newBlob(bytes, mimeType || 'application/octet-stream', fileName || 'capture');
     const file = sub.createFile(blob);
     return { success: true, url: file.getUrl(), fileId: file.getId() };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * 元PDFと同一の親フォルダに、単ページPDFを新規作成する（「○○のコピー.pdf」。同名があれば「○○のコピー (2).pdf」のように連番）。
+ * @param {string} sourceFileId 元ファイルの Drive ファイル ID
+ * @param {string} base64Pdf データ URL プレフィックスなしの Base64
+ * @param {string} baseNameWithoutExt 拡張子なしのベース名（例: 資料）
+ * @return {{ success: boolean, fileId?: string, fileName?: string, error?: string }}
+ */
+function nnSavePdfPageCopyBesideSource(sourceFileId, base64Pdf, baseNameWithoutExt) {
+  try {
+    if (!sourceFileId || !base64Pdf) {
+      return { success: false, error: 'ファイルIDまたはPDFデータがありません。' };
+    }
+    const file = DriveApp.getFileById(sourceFileId);
+    const parents = file.getParents();
+    const parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+    const bytes = Utilities.base64Decode(base64Pdf);
+    let stem = String(baseNameWithoutExt || 'document')
+      .replace(/\.pdf$/i, '')
+      .trim();
+    if (!stem) stem = 'document';
+    const base = stem + 'のコピー';
+    let name = base + '.pdf';
+    let n = 2;
+    while (parent.getFilesByName(name).hasNext()) {
+      name = base + ' (' + n + ').pdf';
+      n++;
+    }
+    const blob = Utilities.newBlob(bytes, MimeType.PDF, name);
+    const created = parent.createFile(blob);
+    return { success: true, fileId: created.getId(), fileName: created.getName() };
   } catch (e) {
     return { success: false, error: e.toString() };
   }

@@ -29,7 +29,7 @@
 
     #status { margin-left: auto; font-size: 12px; color: #888; text-align: right; flex-shrink: 0; padding-left: 10px; }
     #viewer-container { position: relative; margin-top: var(--ui-height); width: 100vw; height: calc(100vh - var(--ui-height)); overflow: auto; background: #555; overscroll-behavior: none; padding: 20px; box-sizing: border-box; display: none; }
-    .nn-pdf-edge-swipe { position: absolute; top: 20px; bottom: 20px; width: 32px; z-index: 12; touch-action: none; pointer-events: auto; }
+    .nn-pdf-edge-swipe { display: none !important; }
     #nn-swipe-left-zone { left: 20px; }
     #nn-swipe-right-zone { right: 20px; }
     #scroll-spacer { position: relative; }
@@ -273,6 +273,16 @@
     .nn-dest-row { margin-bottom: 12px; }
     .nn-dest-row label { display: block; font-size: 12px; color: #5f6368; margin-bottom: 4px; }
     .nn-dest-row input[type="text"], .nn-dest-row select { width: 100%; padding: 8px; box-sizing: border-box; border-radius: 6px; border: 1px solid #dadce0; }
+    #nn-pen-palette { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+    .nn-pen-swatch {
+      width: 22px; height: 22px; border-radius: 50%; border: 2px solid #dadce0; cursor: pointer;
+      box-sizing: border-box; padding: 0; flex-shrink: 0;
+    }
+    .nn-pen-swatch.nn-pen-swatch-active { border-color: #174ea6; box-shadow: 0 0 0 2px #e8f0fe; }
+    #nn-layer-row label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+    #nn-text-style-panel { font-size: 11px; color: #3c4043; max-width: 320px; }
+    #nn-text-style-panel .nn-ts-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: 4px; }
+    #nn-text-style-panel input[type="number"] { width: 52px; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -404,6 +414,19 @@
 
   <div id="color-palette-popover"></div>
 
+  <div id="nn-dup-pdf-page-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseDuplicateCurrentPdfPageModal()">
+    <div role="dialog" aria-modal="true" aria-labelledby="nn-dup-pdf-page-modal-title" style="background:#fff;padding:20px;border-radius:12px;max-width:400px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+      <div id="nn-dup-pdf-page-modal-title" style="font-weight:600;margin-bottom:12px;font-size:15px;color:#202124;">現在ページの複製</div>
+      <p style="font-size:13px;color:#5f6368;margin:0 0 14px 0;">付け方を選んでください。</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button type="button" class="btn-meeting-action" style="width:100%;justify-content:center;" onclick="nnDuplicateCurrentPdfPagePick('after')">① 次のページに追加</button>
+        <button type="button" class="btn-meeting-action" style="width:100%;justify-content:center;background:#188038;" onclick="nnDuplicateCurrentPdfPagePick('before')">② 前のページに追加</button>
+        <button type="button" class="btn-meeting-action" style="width:100%;justify-content:center;background:#9334e6;" onclick="nnDuplicateCurrentPdfPagePick('drive')">③ 別のPDFデータとして複製（Driveに書き出し）</button>
+        <button type="button" class="file-btn-meet" style="margin-top:6px;" onclick="nnCloseDuplicateCurrentPdfPageModal()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
   <div id="add-modal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-tabs">
@@ -521,9 +544,19 @@
       <span id="page-indicator">0/0</span>
       <button onclick="changePage(1)">＞</button>
     </div>
+    <div class="tool-group" id="nn-dup-pdf-page-btn-wrap" style="display:none;max-width:280px;">
+      <button type="button" class="file-btn-meet" id="nn-btn-dup-current-pdf-page" onclick="nnOpenDuplicateCurrentPdfPageModal()" title="今開いているPDFの現在ページを複製">今開いているPDFの現在ページを複製</button>
+    </div>
 
-    <div class="tool-group">
-      <div><label>色</label><input type="color" id="pen-color" value="#000000"></div>
+    <div class="tool-group" style="flex-wrap:wrap;max-width:420px;">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <span style="font-size:11px;color:#5f6368;font-weight:600;">ペン色（6色・「色を変更」で編集）</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div id="nn-pen-palette" aria-label="6色パレット"></div>
+          <input type="color" id="pen-color-edit" value="#000000" title="選択中スウォッチの色" style="width:1px;height:1px;opacity:0;position:absolute;pointer-events:none;" tabindex="-1" />
+          <button type="button" class="file-btn-meet" id="nn-pen-palette-edit-btn" onclick="nnOpenPenColorEditor()">色を変更</button>
+        </div>
+      </div>
       <div>
         <label>太さ</label>
         <div style="display: flex; align-items: center; gap: 4px;">
@@ -531,13 +564,44 @@
           <input type="number" id="pen-width-input" min="0.5" max="30" step="0.1" value="5.0" oninput="updateWidthFromInput()">
         </div>
       </div>
-      <div><label>透明度</label><input type="range" id="pen-opacity" min="0.1" max="1.0" step="0.1" value="1.0"></div>
+      <div><label>ペン透明度</label><input type="range" id="pen-opacity" min="0.1" max="1.0" step="0.1" value="1.0"></div>
     </div>
 
-    <div class="tool-group">
+    <div class="tool-group" id="nn-layer-row" style="flex-wrap:wrap;align-items:center;gap:8px;max-width:520px;">
+      <span style="font-size:11px;color:#5f6368;font-weight:600;">レイヤー表示</span>
+      <label><input type="checkbox" id="nn-lay-sp" checked onchange="nnOnLayerVisChange()" />共有ペン</label>
+      <label><input type="checkbox" id="nn-lay-st" checked onchange="nnOnLayerVisChange()" />共有テキスト</label>
+      <label><input type="checkbox" id="nn-lay-lp" checked onchange="nnOnLayerVisChange()" />自分のペン</label>
+      <label><input type="checkbox" id="nn-lay-lt" checked onchange="nnOnLayerVisChange()" />自分のテキスト</label>
+    </div>
+
+    <div class="tool-group" id="nn-presenter-layer-target" style="display:none;flex-wrap:wrap;gap:10px;max-width:520px;font-size:11px;color:#5f6368;">
+      <span style="font-weight:600;">発表者の書き込み先</span>
+      <label><input type="checkbox" id="nn-pres-pen-shared" checked onchange="nnOnPresenterTargetChange()" />ペン→共有レイヤー（オフ＝自分だけ）</label>
+      <label><input type="checkbox" id="nn-pres-txt-shared" checked onchange="nnOnPresenterTargetChange()" />テキスト框→共有レイヤー（オフ＝自分だけ）</label>
+    </div>
+
+    <div class="tool-group" style="flex-wrap:wrap;align-items:flex-start;gap:8px;">
       <button id="btn-pen" class="active-tool" onclick="setTool('pen')">ペン</button>
       <button id="btn-eraser" onclick="setTool('eraser')">消しゴム</button>
       <button id="btn-laser" onclick="setTool('laser')">レーザー</button>
+      <button id="btn-textbox" onclick="setTool('textbox')">テキスト框</button>
+      <button id="btn-select" onclick="setTool('select')">選択</button>
+      <details id="nn-text-style-details" style="font-size:11px;max-width:280px;">
+        <summary style="cursor:pointer;color:#1a73e8;">新規テキスト框の既定スタイル</summary>
+        <div id="nn-text-style-panel" style="margin-top:6px;padding:6px;border:1px solid #dadce0;border-radius:8px;background:#fafafa;">
+          <div class="nn-ts-row"><label>枠色 <input type="color" id="nn-ts-border" /></label><label>枠α <input type="range" id="nn-ts-border-op" min="0" max="1" step="0.05" value="1" style="width:90px" /></label></div>
+          <div class="nn-ts-row"><label>背景 <input type="color" id="nn-ts-fill" /></label><label>背景α <input type="range" id="nn-ts-fill-op" min="0" max="1" step="0.05" value="0.4" style="width:90px" /></label></div>
+          <div class="nn-ts-row"><label>文字色 <input type="color" id="nn-ts-fg" /></label><label>サイズ <input type="number" id="nn-ts-fs" min="8" max="48" step="1" value="15" /></label></div>
+          <div class="nn-ts-row"><label>フォント
+            <select id="nn-ts-font">
+              <option value='system-ui,-apple-system,"Segoe UI","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif'>システム</option>
+              <option value="Georgia,serif">明朝系</option>
+              <option value="Consolas,monospace">等幅</option>
+            </select>
+          </label></div>
+        </div>
+      </details>
     </div>
 
     <div class="tool-group">
@@ -704,6 +768,28 @@
 
     let sharedStrokesByPage = {};
     let localStrokesByPage = {};
+    let localTextByPage = {};
+    let sharedTextByPage = {};
+    var nnLayerVis = { sharedPen: true, sharedText: true, localPen: true, localText: true };
+    var nnTempTextRect = null;
+    var nnTextCreateDrag = null;
+    var nnTextMove = null;
+    var nnSelectedTextRef = null;
+    var nnTextStyleDefaults = {
+      borderColor: '#1a73e8',
+      borderWidth: 2,
+      borderOpacity: 1,
+      fillColor: '#fff9c4',
+      fillOpacity: 0.4,
+      fontFamily: 'system-ui,-apple-system,"Segoe UI","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif',
+      fontSize: 15,
+      color: '#202124',
+    };
+    var NN_DEFAULT_PEN_PALETTE = ['#212121', '#1a73e8', '#d93025', '#0f9d58', '#f4511e', '#6a1b9a'];
+    var nnPenPalette = NN_DEFAULT_PEN_PALETTE.slice();
+    var nnPenColorIndex = 0;
+    var nnPresenterPenToShared = true;
+    var nnPresenterTextToShared = true;
     let currentUserRole = 'participant';
     let syncIntervalTimer = null;
     let lastStrokeTime = Date.now();
@@ -713,6 +799,421 @@
     let sortOrderMeet = -1;
     let legacyFolderNavActive = false;
     let currentStroke = null;
+
+    function nnBumpStrokeTime() {
+      lastStrokeTime = Date.now();
+    }
+
+    function nnLoadLayerVisFromStorage() {
+      try {
+        var s = localStorage.getItem('nn_layer_vis');
+        if (!s) return;
+        var o = JSON.parse(s);
+        if (o && typeof o === 'object') {
+          if (typeof o.sharedPen === 'boolean') nnLayerVis.sharedPen = o.sharedPen;
+          if (typeof o.sharedText === 'boolean') nnLayerVis.sharedText = o.sharedText;
+          if (typeof o.localPen === 'boolean') nnLayerVis.localPen = o.localPen;
+          if (typeof o.localText === 'boolean') nnLayerVis.localText = o.localText;
+        }
+      } catch (e) {}
+    }
+
+    function nnSaveLayerVisToStorage() {
+      try {
+        localStorage.setItem('nn_layer_vis', JSON.stringify(nnLayerVis));
+      } catch (e) {}
+    }
+
+    function nnSyncLayerVisCheckboxes() {
+      var sp = document.getElementById('nn-lay-sp');
+      var st = document.getElementById('nn-lay-st');
+      var lp = document.getElementById('nn-lay-lp');
+      var lt = document.getElementById('nn-lay-lt');
+      if (sp) sp.checked = !!nnLayerVis.sharedPen;
+      if (st) st.checked = !!nnLayerVis.sharedText;
+      if (lp) lp.checked = !!nnLayerVis.localPen;
+      if (lt) lt.checked = !!nnLayerVis.localText;
+    }
+
+    function nnOnLayerVisChange() {
+      var sp = document.getElementById('nn-lay-sp');
+      var st = document.getElementById('nn-lay-st');
+      var lp = document.getElementById('nn-lay-lp');
+      var lt = document.getElementById('nn-lay-lt');
+      nnLayerVis.sharedPen = sp ? !!sp.checked : true;
+      nnLayerVis.sharedText = st ? !!st.checked : true;
+      nnLayerVis.localPen = lp ? !!lp.checked : true;
+      nnLayerVis.localText = lt ? !!lt.checked : true;
+      nnSaveLayerVisToStorage();
+      redraw();
+    }
+
+    function nnOnPresenterTargetChange() {
+      var p = document.getElementById('nn-pres-pen-shared');
+      var t = document.getElementById('nn-pres-txt-shared');
+      nnPresenterPenToShared = p ? !!p.checked : true;
+      nnPresenterTextToShared = t ? !!t.checked : true;
+      try {
+        localStorage.setItem(
+          'nn_presenter_targets',
+          JSON.stringify({ pen: nnPresenterPenToShared, text: nnPresenterTextToShared })
+        );
+      } catch (e) {}
+    }
+
+    function nnLoadPresenterTargets() {
+      try {
+        var s = localStorage.getItem('nn_presenter_targets');
+        if (!s) return;
+        var o = JSON.parse(s);
+        if (typeof o.pen === 'boolean') nnPresenterPenToShared = o.pen;
+        if (typeof o.text === 'boolean') nnPresenterTextToShared = o.text;
+      } catch (e) {}
+    }
+
+    function nnSyncPresenterTargetUi() {
+      var row = document.getElementById('nn-presenter-layer-target');
+      var p = document.getElementById('nn-pres-pen-shared');
+      var t = document.getElementById('nn-pres-txt-shared');
+      var show = nnRealtimeShareEnabled() && currentUserRole === 'presenter';
+      if (row) row.style.display = show ? 'flex' : 'none';
+      if (p) p.checked = !!nnPresenterPenToShared;
+      if (t) t.checked = !!nnPresenterTextToShared;
+    }
+
+    function nnApplyLocalMemoPayload(str) {
+      localStrokesByPage = {};
+      localTextByPage = {};
+      if (!str || !String(str).trim()) return;
+      var d;
+      try {
+        d = JSON.parse(str);
+      } catch (e) {
+        return;
+      }
+      if (d && d.v === 2 && d.pen && typeof d.pen === 'object') {
+        localStrokesByPage = d.pen;
+        localTextByPage = d.text && typeof d.text === 'object' ? d.text : {};
+        return;
+      }
+      if (d && typeof d === 'object') {
+        localStrokesByPage = d;
+      }
+    }
+
+    function nnSerializeLocalMemo() {
+      return JSON.stringify({ v: 2, pen: localStrokesByPage, text: localTextByPage });
+    }
+
+    function nnApplySharedAnnotationData(dataStr) {
+      sharedStrokesByPage = {};
+      sharedTextByPage = {};
+      if (!dataStr || !String(dataStr).trim()) return;
+      var d;
+      try {
+        d = JSON.parse(dataStr);
+      } catch (e) {
+        return;
+      }
+      if (d && d.v === 2 && d.pen && typeof d.pen === 'object') {
+        sharedStrokesByPage = d.pen;
+        sharedTextByPage = d.text && typeof d.text === 'object' ? d.text : {};
+        return;
+      }
+      if (d && typeof d === 'object') {
+        sharedStrokesByPage = d;
+      }
+    }
+
+    function nnSerializeSharedAnnotation() {
+      return JSON.stringify({ v: 2, pen: sharedStrokesByPage, text: sharedTextByPage });
+    }
+
+    function nnTextMapNonEmpty(map) {
+      if (!map || typeof map !== 'object') return false;
+      return Object.keys(map).some(function (k) {
+        return Array.isArray(map[k]) && map[k].length > 0;
+      });
+    }
+
+    function nnHasSharedContentToSave() {
+      return nnHasAnyStrokes(sharedStrokesByPage) || nnTextMapNonEmpty(sharedTextByPage);
+    }
+
+    function nnHasLocalContentToSave() {
+      return nnHasAnyStrokes(localStrokesByPage) || nnTextMapNonEmpty(localTextByPage);
+    }
+
+    function nnHexToRgb(hex) {
+      var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || '').trim());
+      if (!m) return { r: 0, g: 0, b: 0 };
+      return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+    }
+
+    function nnRgba(hex, a) {
+      var c = nnHexToRgb(hex);
+      var al = Math.max(0, Math.min(1, a == null ? 1 : a));
+      return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + al + ')';
+    }
+
+    function nnReadTextStyleFromPanel() {
+      var b = document.getElementById('nn-ts-border');
+      var bo = document.getElementById('nn-ts-border-op');
+      var f = document.getElementById('nn-ts-fill');
+      var fo = document.getElementById('nn-ts-fill-op');
+      var fg = document.getElementById('nn-ts-fg');
+      var fs = document.getElementById('nn-ts-fs');
+      var ff = document.getElementById('nn-ts-font');
+      nnTextStyleDefaults.borderColor = b && b.value ? b.value : nnTextStyleDefaults.borderColor;
+      nnTextStyleDefaults.borderOpacity = bo ? parseFloat(bo.value) || 1 : 1;
+      nnTextStyleDefaults.fillColor = f && f.value ? f.value : nnTextStyleDefaults.fillColor;
+      nnTextStyleDefaults.fillOpacity = fo ? parseFloat(fo.value) || 0 : 0;
+      nnTextStyleDefaults.color = fg && fg.value ? fg.value : nnTextStyleDefaults.color;
+      nnTextStyleDefaults.fontSize = fs ? Math.max(8, Math.min(48, parseInt(fs.value, 10) || 15)) : 15;
+      nnTextStyleDefaults.fontFamily = ff && ff.value ? ff.value : nnTextStyleDefaults.fontFamily;
+    }
+
+    function nnSyncTextStylePanelFromDefaults() {
+      var b = document.getElementById('nn-ts-border');
+      var bo = document.getElementById('nn-ts-border-op');
+      var f = document.getElementById('nn-ts-fill');
+      var fo = document.getElementById('nn-ts-fill-op');
+      var fg = document.getElementById('nn-ts-fg');
+      var fs = document.getElementById('nn-ts-fs');
+      var ff = document.getElementById('nn-ts-font');
+      if (b) b.value = nnTextStyleDefaults.borderColor;
+      if (bo) bo.value = String(nnTextStyleDefaults.borderOpacity != null ? nnTextStyleDefaults.borderOpacity : 1);
+      if (f) f.value = nnTextStyleDefaults.fillColor;
+      if (fo) fo.value = String(nnTextStyleDefaults.fillOpacity != null ? nnTextStyleDefaults.fillOpacity : 0.4);
+      if (fg) fg.value = nnTextStyleDefaults.color;
+      if (fs) fs.value = String(nnTextStyleDefaults.fontSize);
+      if (ff) ff.value = nnTextStyleDefaults.fontFamily;
+    }
+
+    function nnNewTextBoxId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return 'tb-' + crypto.randomUUID();
+      return 'tb-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    }
+
+    function nnNormalizeRect(x1, y1, x2, y2) {
+      return { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) };
+    }
+
+    function nnCloneTextStyleFromDefaults() {
+      return {
+        borderColor: nnTextStyleDefaults.borderColor,
+        borderWidth: nnTextStyleDefaults.borderWidth,
+        borderOpacity: nnTextStyleDefaults.borderOpacity,
+        fillColor: nnTextStyleDefaults.fillColor,
+        fillOpacity: nnTextStyleDefaults.fillOpacity,
+        fontFamily: nnTextStyleDefaults.fontFamily,
+        fontSize: nnTextStyleDefaults.fontSize,
+        color: nnTextStyleDefaults.color,
+      };
+    }
+
+    function nnDrawTextBoxesToContext(ctx, boxes) {
+      if (!boxes || !boxes.length) return;
+      boxes.forEach(function (tb) {
+        if (!tb || tb.w < 4 || tb.h < 4) return;
+        var bw = tb.borderWidth != null ? tb.borderWidth : 2;
+        var bo = tb.borderOpacity != null ? tb.borderOpacity : 1;
+        var fo = tb.fillOpacity != null ? tb.fillOpacity : 0.35;
+        ctx.save();
+        ctx.fillStyle = nnRgba(tb.fillColor || '#ffffff', fo);
+        ctx.strokeStyle = nnRgba(tb.borderColor || '#1a73e8', bo);
+        ctx.lineWidth = bw;
+        var r = 6;
+        var x = tb.x,
+          y = tb.y,
+          w = tb.w,
+          h = tb.h;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = tb.color || '#202124';
+        ctx.globalAlpha = 1;
+        ctx.font = (tb.fontSize || 14) + 'px ' + (tb.fontFamily || 'sans-serif');
+        ctx.textBaseline = 'top';
+        var pad = 6;
+        var tx = x + pad;
+        var ty = y + pad;
+        var maxW = Math.max(8, w - pad * 2);
+        var text = String(tb.text != null ? tb.text : '');
+        nnDrawWrappedText(ctx, text, tx, ty, maxW, tb.fontSize || 14, tb.fontFamily || 'sans-serif');
+        if (nnSelectedTextRef && nnSelectedTextRef.box === tb) {
+          ctx.save();
+          ctx.setLineDash([5, 4]);
+          ctx.strokeStyle = 'rgba(26,115,232,0.95)';
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = 1;
+          ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+          ctx.restore();
+        }
+        ctx.restore();
+      });
+    }
+
+    function nnDrawWrappedText(ctx, text, x, y, maxWidth, fontSize, fontFamily) {
+      if (!text) return;
+      ctx.font = fontSize + 'px ' + fontFamily;
+      var lines = [];
+      var paragraphs = text.split('\n');
+      for (var pi = 0; pi < paragraphs.length; pi++) {
+        var words = paragraphs[pi].split('');
+        var line = '';
+        for (var i = 0; i < words.length; i++) {
+          var test = line + words[i];
+          if (ctx.measureText(test).width > maxWidth && line.length > 0) {
+            lines.push(line);
+            line = words[i];
+          } else {
+            line = test;
+          }
+        }
+        if (line) lines.push(line);
+        if (pi < paragraphs.length - 1) lines.push('');
+      }
+      var lh = (fontSize || 14) * 1.25;
+      for (var j = 0; j < lines.length; j++) {
+        ctx.fillText(lines[j], x, y + j * lh);
+      }
+    }
+
+    function nnHitTextBoxesAt(pt, topFirst) {
+      var sk = nnLpCurrentStrokeKey();
+      var order = [];
+      if (topFirst) {
+        if (nnLayerVis.localText) order.push({ layer: 'local', map: localTextByPage });
+        if (nnLayerVis.sharedText) order.push({ layer: 'shared', map: sharedTextByPage });
+      } else {
+        if (nnLayerVis.sharedText) order.push({ layer: 'shared', map: sharedTextByPage });
+        if (nnLayerVis.localText) order.push({ layer: 'local', map: localTextByPage });
+      }
+      for (var oi = 0; oi < order.length; oi++) {
+        var arr = order[oi].map[sk];
+        if (!arr || !arr.length) continue;
+        for (var i = arr.length - 1; i >= 0; i--) {
+          var tb = arr[i];
+          if (pt.x >= tb.x && pt.x <= tb.x + tb.w && pt.y >= tb.y && pt.y <= tb.y + tb.h) {
+            return { box: tb, layer: order[oi].layer, index: i, sk: sk };
+          }
+        }
+      }
+      return null;
+    }
+
+    function nnRemoveTextBox(hit) {
+      if (!hit) return;
+      var map = hit.layer === 'shared' ? sharedTextByPage : localTextByPage;
+      var arr = map[hit.sk];
+      if (!arr) return;
+      arr.splice(hit.index, 1);
+      if (nnSelectedTextRef && nnSelectedTextRef.id === hit.box.id) nnSelectedTextRef = null;
+    }
+
+    function nnLoadPenPalette() {
+      try {
+        var s = localStorage.getItem('nn_pen_palette');
+        if (!s) return;
+        var a = JSON.parse(s);
+        if (Array.isArray(a) && a.length === 6) {
+          nnPenPalette = a.map(function (x) {
+            return String(x);
+          });
+        }
+      } catch (e) {}
+    }
+
+    function nnSavePenPalette() {
+      try {
+        localStorage.setItem('nn_pen_palette', JSON.stringify(nnPenPalette));
+      } catch (e) {}
+    }
+
+    function nnRenderPenPaletteUI() {
+      var host = document.getElementById('nn-pen-palette');
+      if (!host) return;
+      host.innerHTML = '';
+      for (var i = 0; i < 6; i++) {
+        (function (idx) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'nn-pen-swatch' + (idx === nnPenColorIndex ? ' nn-pen-swatch-active' : '');
+          b.style.backgroundColor = nnPenPalette[idx] || '#333';
+          b.title = 'クリックでこの色を使用（長押し不要）';
+          b.addEventListener('click', function () {
+            nnPenColorIndex = idx;
+            nnRenderPenPaletteUI();
+          });
+          host.appendChild(b);
+        })(i);
+      }
+    }
+
+    window.nnOpenPenColorEditor = function () {
+      var inp = document.getElementById('pen-color-edit');
+      if (!inp) return;
+      inp.value = nnPenPalette[nnPenColorIndex] || '#000000';
+      inp.onchange = function () {
+        nnPenPalette[nnPenColorIndex] = inp.value;
+        nnSavePenPalette();
+        nnRenderPenPaletteUI();
+        inp.onchange = null;
+      };
+      inp.click();
+    };
+
+    function nnGetActivePenColor() {
+      return nnPenPalette[nnPenColorIndex] || '#000000';
+    }
+
+    function getTargetTextBoxesArray() {
+      var sk = nnLpCurrentStrokeKey();
+      if (currentUserRole === 'presenter' && nnPresenterTextToShared) {
+        if (!sharedTextByPage[sk]) sharedTextByPage[sk] = [];
+        return sharedTextByPage[sk];
+      }
+      if (!localTextByPage[sk]) localTextByPage[sk] = [];
+      return localTextByPage[sk];
+    }
+
+    function nnOnKeyDownTextSelect(ev) {
+      if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
+      if (currentTool !== 'select' || !nnSelectedTextRef) return;
+      var sk = nnLpCurrentStrokeKey();
+      var map = nnSelectedTextRef.layer === 'shared' ? sharedTextByPage : localTextByPage;
+      var arr = map[sk];
+      if (!arr) return;
+      var idx = arr.indexOf(nnSelectedTextRef.box);
+      if (idx < 0) return;
+      arr.splice(idx, 1);
+      nnSelectedTextRef = null;
+      nnBumpStrokeTime();
+      autoSaveCurrent(true);
+      redraw();
+      ev.preventDefault();
+    }
+
+    function nnWireTextStylePanelInputs() {
+      ['nn-ts-border', 'nn-ts-border-op', 'nn-ts-fill', 'nn-ts-fill-op', 'nn-ts-fg', 'nn-ts-fs', 'nn-ts-font'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('change', function () {
+            nnReadTextStyleFromPanel();
+          });
+          el.addEventListener('input', function () {
+            nnReadTextStyleFromPanel();
+          });
+        }
+      });
+    }
 
     function nnEnsureWorkspaceMeta() {
       if (!treeData.workspaceMeta) {
@@ -871,6 +1372,28 @@
     function nnSyncLegacyToolsVisibility() {
       var el = document.getElementById('pdf-legacy-tools');
       if (el) el.style.display = legacyFolderNavActive ? 'flex' : 'none';
+      nnSyncDupCurrentPdfPageButton();
+    }
+
+    function nnSyncDupCurrentPdfPageButton() {
+      var wrap = document.getElementById('nn-dup-pdf-page-btn-wrap');
+      var btn = document.getElementById('nn-btn-dup-current-pdf-page');
+      if (!wrap || !btn) return;
+      var pdfBtn = document.getElementById('btn-mode-pdf');
+      var pdfMode = pdfBtn && pdfBtn.classList.contains('active-mode');
+      var homeOpen = homeScreen && homeScreen.style.display === 'flex';
+      var show =
+        pdfMode &&
+        !homeOpen &&
+        !!currentFileId &&
+        fileType === 'pdf' &&
+        !legacyFolderNavActive;
+      wrap.style.display = show ? 'inline-flex' : 'none';
+      if (!show) return;
+      var org = nnGetFolderKindForCurrentFile() === 'org';
+      btn.disabled = org;
+      btn.style.opacity = org ? '0.45' : '1';
+      btn.title = org ? '組織フォルダのPDFでは利用できません' : '今開いているPDFの現在ページを複製';
     }
 
     function nnFindFolderIdForFile(fileId) {
@@ -973,7 +1496,9 @@
       }
       var a = migrateOne(localStrokesByPage);
       var b = migrateOne(sharedStrokesByPage);
-      return a || b;
+      var c = migrateOne(localTextByPage);
+      var d = migrateOne(sharedTextByPage);
+      return a || b || c || d;
     }
 
     function nnLpEnsurePlanForCurrentFile(physicalCount) {
@@ -997,7 +1522,10 @@
       if (needSave) nnSaveWorkspaceMetaToServer();
     }
 
-    function nnLpInsertBlankDuplicateAfterCurrent() {
+    /**
+     * @param {'after'|'before'} where after=次のページに相当、before=前のページに相当
+     */
+    function nnLpDuplicateCurrentLogicalPage(where) {
       return (async function () {
         try {
           if (!pdfDocJs || !currentFileId || fileType !== 'pdf') return;
@@ -1012,11 +1540,18 @@
           var phys = plan.sources[curId].sourcePdfPage;
           var newId = nnLpNewId();
           plan.sources[newId] = { sourcePdfPage: phys };
-          plan.order.splice(currentPageNum, 0, newId);
+          if (where === 'before') {
+            plan.order.splice(currentPageNum - 1, 0, newId);
+            currentPageNum++;
+          } else {
+            plan.order.splice(currentPageNum, 0, newId);
+            currentPageNum++;
+          }
           if (!localStrokesByPage[newId]) localStrokesByPage[newId] = [];
           if (!sharedStrokesByPage[newId]) sharedStrokesByPage[newId] = [];
+          if (!localTextByPage[newId]) localTextByPage[newId] = [];
+          if (!sharedTextByPage[newId]) sharedTextByPage[newId] = [];
           totalPages = plan.order.length;
-          currentPageNum++;
           nnSaveWorkspaceMetaToServer();
           await renderPage(currentPageNum);
           autoSaveCurrent(true);
@@ -1027,40 +1562,147 @@
       })();
     }
 
-    function nnWirePdfEdgeSwipeZones() {
-      var leftZ = document.getElementById('nn-swipe-left-zone');
-      var rightZ = document.getElementById('nn-swipe-right-zone');
-      if (!leftZ || !rightZ) return;
-      function bindZone(zone, dir) {
-        var sx = 0;
-        var sy = 0;
-        zone.addEventListener(
-          'touchstart',
-          function (e) {
-            if (!e.changedTouches || e.changedTouches.length !== 1) return;
-            sx = e.changedTouches[0].clientX;
-            sy = e.changedTouches[0].clientY;
-          },
-          { passive: true }
-        );
-        zone.addEventListener(
-          'touchend',
-          function (e) {
-            if (!e.changedTouches || e.changedTouches.length !== 1) return;
-            var dx = e.changedTouches[0].clientX - sx;
-            var dy = e.changedTouches[0].clientY - sy;
-            if (Math.abs(dy) > Math.abs(dx) * 1.15) return;
-            if (Math.abs(dx) < 110) return;
-            if (nnGetFolderKindForCurrentFile() === 'org') return;
-            if (!pdfDocJs || fileType !== 'pdf' || legacyFolderNavActive) return;
-            if (dir === 'right' && dx < -110) nnLpInsertBlankDuplicateAfterCurrent();
-            if (dir === 'left' && dx > 110) nnLpInsertBlankDuplicateAfterCurrent();
-          },
-          { passive: true }
-        );
+    function nnOpenDuplicateCurrentPdfPageModal() {
+      if (!pdfDocJs || !currentFileId || fileType !== 'pdf') {
+        alert('PDFを開いていません。');
+        return;
       }
-      bindZone(rightZ, 'right');
-      bindZone(leftZ, 'left');
+      if (legacyFolderNavActive) {
+        alert('シームレス表示内ではこの操作は利用できません。個別PDFモードで開いてください。');
+        return;
+      }
+      if (nnGetFolderKindForCurrentFile() === 'org') {
+        alert('組織フォルダの PDF はこの操作を利用できません。');
+        return;
+      }
+      var m = document.getElementById('nn-dup-pdf-page-modal');
+      if (m) m.style.display = 'flex';
+    }
+
+    function nnCloseDuplicateCurrentPdfPageModal() {
+      var m = document.getElementById('nn-dup-pdf-page-modal');
+      if (m) m.style.display = 'none';
+    }
+
+    function nnDuplicateCurrentPdfPagePick(mode) {
+      nnCloseDuplicateCurrentPdfPageModal();
+      if (mode === 'after') nnLpDuplicateCurrentLogicalPage('after');
+      else if (mode === 'before') nnLpDuplicateCurrentLogicalPage('before');
+      else if (mode === 'drive') nnDuplicateCurrentPdfPageSaveAsNewFile();
+    }
+
+    function nnUint8ToBase64Pdf(u8) {
+      var CHUNK = 0x8000;
+      var str = '';
+      for (var i = 0; i < u8.length; i += CHUNK) {
+        str += String.fromCharCode.apply(null, u8.subarray(i, Math.min(i + CHUNK, u8.length)));
+      }
+      return btoa(str);
+    }
+
+    async function nnBuildCurrentPageAnnotatedPdfUint8() {
+      if (!originalPdfBytes || !pdfDocJs || fileType !== 'pdf') return null;
+      const { PDFDocument } = PDFLib;
+      const rawBytes = nnBytesForPdfLibLoad(originalPdfBytes);
+      if (!rawBytes) return null;
+      const srcPdf = await PDFDocument.load(rawBytes);
+      const nSrcPages = srcPdf.getPageCount();
+      nnEnsureWorkspaceMeta();
+      var plan = currentFileId && treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
+      var order = plan && plan.order && plan.order.length ? plan.order : null;
+      const offCanvas = document.createElement('canvas');
+      const offCtx = offCanvas.getContext('2d');
+      const newPdf = await PDFDocument.create();
+
+      if (order && plan.sources) {
+        var li = currentPageNum - 1;
+        var lid = order[li];
+        if (!lid || !plan.sources[lid]) return null;
+        var physRaw = plan.sources[lid].sourcePdfPage ? plan.sources[lid].sourcePdfPage : 1;
+        var phys = Math.min(Math.max(1, parseInt(physRaw, 10) || 1), nSrcPages);
+        var copiedPages = await newPdf.copyPages(srcPdf, [phys - 1]);
+        newPdf.addPage(copiedPages[0]);
+        var pdfPage = newPdf.getPages()[newPdf.getPageCount() - 1];
+        var pageStrokes = (sharedStrokesByPage[lid] || []).concat(localStrokesByPage[lid] || []);
+        var pageTexts = (sharedTextByPage[lid] || []).concat(localTextByPage[lid] || []);
+        if (pageStrokes.length || pageTexts.length) {
+          var dim = await nnExportViewportSizeForPhysicalPage(phys);
+          offCanvas.width = dim.ew * dpr;
+          offCanvas.height = dim.eh * dpr;
+          offCtx.setTransform(1, 0, 0, 1, 0, 0);
+          offCtx.scale(dpr, dpr);
+          drawStrokesToContext(offCtx, pageStrokes, true);
+          nnDrawTextBoxesToContext(offCtx, pageTexts);
+          var pngImage = await newPdf.embedPng(offCanvas.toDataURL('image/png'));
+          var pw = pdfPage.getWidth();
+          var ph = pdfPage.getHeight();
+          pdfPage.drawImage(pngImage, { x: 0, y: 0, width: pw, height: ph });
+        }
+      } else {
+        var i = Math.min(Math.max(1, currentPageNum), nSrcPages);
+        var copied2 = await newPdf.copyPages(srcPdf, [i - 1]);
+        newPdf.addPage(copied2[0]);
+        var pdfPage2 = newPdf.getPages()[newPdf.getPageCount() - 1];
+        var pageStrokes2 = (sharedStrokesByPage[String(i)] || []).concat(localStrokesByPage[String(i)] || []);
+        var pageTexts2 = (sharedTextByPage[String(i)] || []).concat(localTextByPage[String(i)] || []);
+        if (pageStrokes2.length || pageTexts2.length) {
+          var dim2 = await nnExportViewportSizeForPhysicalPage(i);
+          offCanvas.width = dim2.ew * dpr;
+          offCanvas.height = dim2.eh * dpr;
+          offCtx.setTransform(1, 0, 0, 1, 0, 0);
+          offCtx.scale(dpr, dpr);
+          drawStrokesToContext(offCtx, pageStrokes2, true);
+          nnDrawTextBoxesToContext(offCtx, pageTexts2);
+          var pngImage2 = await newPdf.embedPng(offCanvas.toDataURL('image/png'));
+          var pw2 = pdfPage2.getWidth();
+          var ph2 = pdfPage2.getHeight();
+          pdfPage2.drawImage(pngImage2, { x: 0, y: 0, width: pw2, height: ph2 });
+        }
+      }
+      return await newPdf.save();
+    }
+
+    function nnDuplicateCurrentPdfPageSaveAsNewFile() {
+      (async function () {
+        if (!currentFileId || !fileName) {
+          alert('ファイル情報がありません。');
+          return;
+        }
+        if (!originalPdfBytes) {
+          alert('PDFバイナリがありません。ファイルを開き直してからお試しください。');
+          return;
+        }
+        showLoader('現在ページのPDFを作成・保存中...');
+        try {
+          var bytes = await nnBuildCurrentPageAnnotatedPdfUint8();
+          if (!bytes || !bytes.length) {
+            hideLoader();
+            alert('PDFの生成に失敗しました。');
+            return;
+          }
+          var b64 = nnUint8ToBase64Pdf(bytes);
+          var baseName = fileName.replace(/\.[^/.]+$/, '');
+          google.script.run
+            .withSuccessHandler(function (res) {
+              hideLoader();
+              if (res && res.success) {
+                alert('保存しました: ' + (res.fileName || '') + '\n（元PDFと同じフォルダにあります）');
+                loadFolderTree(true);
+              } else {
+                alert((res && res.error) ? res.error : 'Drive への保存に失敗しました。');
+              }
+            })
+            .withFailureHandler(function (err) {
+              hideLoader();
+              alert('サーバーとの通信エラー: ' + (err && err.message ? err.message : String(err)));
+            })
+            .nnSavePdfPageCopyBesideSource(currentFileId, b64, baseName);
+        } catch (e) {
+          console.error(e);
+          hideLoader();
+          alert('生成失敗: ' + (e && e.message ? e.message : String(e)));
+        }
+      })();
     }
 
     function openSeamlessViewerForFolder(folderId, startFileId, startFileName) {
@@ -1251,6 +1893,8 @@
         imageDataUrl: '',
         localStrokesByPage: {},
         sharedStrokesByPage: {},
+        localTextByPage: {},
+        sharedTextByPage: {},
         currentPageNum: 1,
         currentScale: 1,
         scrollLeft: 0,
@@ -1305,6 +1949,8 @@
           : '';
       s.localStrokesByPage = JSON.parse(JSON.stringify(localStrokesByPage || {}));
       s.sharedStrokesByPage = JSON.parse(JSON.stringify(sharedStrokesByPage || {}));
+      s.localTextByPage = JSON.parse(JSON.stringify(localTextByPage || {}));
+      s.sharedTextByPage = JSON.parse(JSON.stringify(sharedTextByPage || {}));
       s.currentPageNum = currentPageNum;
       s.currentScale = currentScale;
       s.scrollLeft = viewerContainer ? viewerContainer.scrollLeft : 0;
@@ -1325,6 +1971,8 @@
       fileType = 'pdf';
       sharedStrokesByPage = {};
       localStrokesByPage = {};
+      localTextByPage = {};
+      sharedTextByPage = {};
       baseWidth = 0;
       baseHeight = 0;
       currentScale = 1;
@@ -1361,6 +2009,8 @@
       legacyFolderNavActive = !!s.legacyFolderNavActive;
       localStrokesByPage = JSON.parse(JSON.stringify(s.localStrokesByPage || {}));
       sharedStrokesByPage = JSON.parse(JSON.stringify(s.sharedStrokesByPage || {}));
+      localTextByPage = JSON.parse(JSON.stringify(s.localTextByPage || {}));
+      sharedTextByPage = JSON.parse(JSON.stringify(s.sharedTextByPage || {}));
       currentPageNum = s.currentPageNum || 1;
       currentScale = s.currentScale > 0 ? s.currentScale : 1;
       originalPdfBytes = nnClonePdfBytes(s.originalPdfBytes);
@@ -1456,7 +2106,14 @@
     window.onload = function () {
       var rt = document.getElementById('nn-realtime-share');
       if (rt) rt.checked = nnLoadRealtimeSharePref();
-      nnWirePdfEdgeSwipeZones();
+      nnLoadPenPalette();
+      nnLoadPresenterTargets();
+      nnRenderPenPaletteUI();
+      nnLoadLayerVisFromStorage();
+      nnSyncLayerVisCheckboxes();
+      nnSyncTextStylePanelFromDefaults();
+      nnWireTextStylePanelInputs();
+      window.addEventListener('keydown', nnOnKeyDownTextSelect);
       applyRoleMeet();
       showLoader('システムを初期設定中...');
       google.script.run
@@ -1590,6 +2247,7 @@
       var st = document.getElementById('pdf-slot-tabs');
       if (st) st.classList.add('nn-show');
       applyRoleMeet();
+      nnSyncDupCurrentPdfPageButton();
     }
 
     function loadFolderTree(forceRefresh) {
@@ -1987,6 +2645,7 @@
         drawCanvas.style.pointerEvents = 'auto';
         hostFrame.style.display = 'none';
         statusDiv.textContent = '📝 メモ（リアルタイム共有オフ）';
+        nnSyncPresenterTargetUi();
         return;
       }
       if (rs) rs.style.display = '';
@@ -2001,6 +2660,7 @@
         statusDiv.textContent = '📝 個人メモモード';
         syncIntervalTimer = setInterval(pullMeetingState, 2500);
       }
+      nnSyncPresenterTargetUi();
     }
 
     function pushMeetingState() {
@@ -2048,14 +2708,18 @@
     }
 
     function reloadStrokesSilently() {
-      if (!fileName) return;
+      if (!fileName || !currentFileId) return;
       var baseName = fileName.replace(/\.[^/.]+$/, '');
       google.script.run
         .withSuccessHandler(function (res) {
-          if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
+          if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
+          else {
+            sharedStrokesByPage = {};
+            sharedTextByPage = {};
+          }
           redraw();
         })
-        .loadAnnotation(baseName);
+        .loadAnnotation(currentFileId, baseName);
     }
 
     function onFileDropdownChanged() {
@@ -2076,17 +2740,24 @@
       if (!currentFileId || !fileName) return;
       var baseName = fileName.replace(/\.[^/.]+$/, '');
       if (currentUserRole === 'presenter') {
-        if (!nnHasAnyStrokes(sharedStrokesByPage)) return;
-        var json = JSON.stringify(sharedStrokesByPage);
-        if (!silent) statusDiv.textContent = '保存中...';
-        google.script.run
-          .withSuccessHandler(function () {
-            if (!silent) statusDiv.textContent = '共有保存完了';
-          })
-          .saveAnnotation(baseName, json);
+        var hasS = nnHasSharedContentToSave();
+        var hasL = nnHasLocalContentToSave();
+        if (!hasS && !hasL) return;
+        if (hasS) {
+          if (!silent) statusDiv.textContent = '保存中...';
+          google.script.run
+            .withSuccessHandler(function () {
+              if (!silent) statusDiv.textContent = hasL ? '共有＋個人を保存' : '共有保存完了';
+            })
+            .saveAnnotation(currentFileId, nnSerializeSharedAnnotation());
+        }
+        if (hasL) {
+          localStorage.setItem('local_memo_' + baseName, nnSerializeLocalMemo());
+          if (!silent && !hasS) statusDiv.textContent = 'メモ保存完了';
+        }
       } else {
-        if (!nnHasAnyStrokes(localStrokesByPage)) return;
-        var jsonL = JSON.stringify(localStrokesByPage);
+        if (!nnHasLocalContentToSave()) return;
+        var jsonL = nnSerializeLocalMemo();
         localStorage.setItem('local_memo_' + baseName, jsonL);
         if (!silent) statusDiv.textContent = 'メモ保存完了';
       }
@@ -2155,7 +2826,7 @@
               }
 
               var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
-              localStrokesByPage = savedLocalMemo ? JSON.parse(savedLocalMemo) : {};
+              nnApplyLocalMemoPayload(savedLocalMemo);
 
               var maxPageGuess = fileType === 'pdf' ? pdfDocJs.numPages : totalPages;
               if (!silent) {
@@ -2165,8 +2836,11 @@
               }
 
               async function nnAfterAnnotation_(res) {
-                if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
-                else sharedStrokesByPage = {};
+                if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
+                else {
+                  sharedStrokesByPage = {};
+                  sharedTextByPage = {};
+                }
                 if (fileType === 'pdf') {
                   nnLpEnsurePlanForCurrentFile(pdfDocJs.numPages);
                   currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
@@ -2206,7 +2880,7 @@
                     alert('表示に失敗しました: ' + (e && e.message ? e.message : String(e)));
                   });
                 })
-                .loadAnnotation(baseName);
+                .loadAnnotation(currentFileId, baseName);
             } catch (err) {
               console.error(err);
               alert('読み込み失敗: ' + (err && err.message ? err.message : String(err)));
@@ -2277,11 +2951,14 @@
           pdfDocJs = await pdfjsLib.getDocument(bytes).promise;
           var physPages2 = pdfDocJs.numPages;
           var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
-          localStrokesByPage = savedLocalMemo ? JSON.parse(savedLocalMemo) : {};
+          nnApplyLocalMemoPayload(savedLocalMemo);
           google.script.run
             .withSuccessHandler(async function (res) {
-              if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
-              else sharedStrokesByPage = {};
+              if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
+              else {
+                sharedStrokesByPage = {};
+                sharedTextByPage = {};
+              }
               nnLpEnsurePlanForCurrentFile(physPages2);
               currentPageNum = 1;
               currentScale = 1.0;
@@ -2306,7 +2983,7 @@
               savePdfSlotFromGlobals();
               nnSyncLegacyToolsVisibility();
             })
-            .loadAnnotation(baseName);
+            .loadAnnotation(currentFileId, baseName);
         } catch (err) {
           console.error(err);
           alert('読み込み失敗: ' + err.message);
@@ -2432,8 +3109,14 @@
     async function renderPage(pageNum) {
       statusDiv.textContent = 'レンダリング中...';
       var lid = nnLpGetLogicalIdAt(pageNum);
+      nnSelectedTextRef = null;
+      nnTextCreateDrag = null;
+      nnTempTextRect = null;
+      nnTextMove = null;
       if (!sharedStrokesByPage[lid]) sharedStrokesByPage[lid] = [];
       if (!localStrokesByPage[lid]) localStrokesByPage[lid] = [];
+      if (!sharedTextByPage[lid]) sharedTextByPage[lid] = [];
+      if (!localTextByPage[lid]) localTextByPage[lid] = [];
 
       var bgCtx = bgCanvas.getContext('2d');
 
@@ -2462,6 +3145,7 @@
       }
       statusDiv.textContent = '書込み可 (x' + currentScale.toFixed(1) + ')';
       redraw();
+      nnSyncDupCurrentPdfPageButton();
     }
 
     function nnLpGetSourcePhysicalForId(logicalId) {
@@ -2533,10 +3217,21 @@
 
     function setTool(tool) {
       currentTool = tool;
-      document.getElementById('btn-pen').classList.toggle('active-tool', tool === 'pen');
-      document.getElementById('btn-eraser').classList.toggle('active-tool', tool === 'eraser');
-      document.getElementById('btn-laser').classList.toggle('active-tool', tool === 'laser');
-      if(tool !== 'laser') myLaserDot.style.display = 'none';
+      nnTextCreateDrag = null;
+      nnTempTextRect = null;
+      nnTextMove = null;
+      var bp = document.getElementById('btn-pen');
+      var be = document.getElementById('btn-eraser');
+      var bl = document.getElementById('btn-laser');
+      var bt = document.getElementById('btn-textbox');
+      var bs = document.getElementById('btn-select');
+      if (bp) bp.classList.toggle('active-tool', tool === 'pen');
+      if (be) be.classList.toggle('active-tool', tool === 'eraser');
+      if (bl) bl.classList.toggle('active-tool', tool === 'laser');
+      if (bt) bt.classList.toggle('active-tool', tool === 'textbox');
+      if (bs) bs.classList.toggle('active-tool', tool === 'select');
+      if (tool !== 'laser') myLaserDot.style.display = 'none';
+      if (tool !== 'select') nnSelectedTextRef = null;
     }
 
     function getScaledCoords(e) {
@@ -2551,7 +3246,7 @@
 
     function getTargetStrokesArray() {
       var sk = nnLpCurrentStrokeKey();
-      if (currentUserRole === 'presenter') {
+      if (currentUserRole === 'presenter' && nnPresenterPenToShared) {
         if (!sharedStrokesByPage[sk]) sharedStrokesByPage[sk] = [];
         return sharedStrokesByPage[sk];
       }
@@ -2574,16 +3269,57 @@
         return;
       }
       if (e.buttons === 0) return;
+      const pt = getScaledCoords(e);
       const isHardwareEraser = (e.buttons === 32 || e.button === 5);
       const activeTool = isHardwareEraser ? 'eraser' : currentTool;
-      const pt = getScaledCoords(e);
-      if (activeTool === 'laser') { myLaserDot.style.display = 'block'; myLaserDot.style.left = pt.x + 'px'; myLaserDot.style.top = pt.y + 'px'; return; }
-      
+      if ((currentTool === 'textbox' || currentTool === 'select') && e.pointerType === 'touch') {
+        return;
+      }
+      if (activeTool === 'laser') {
+        myLaserDot.style.display = 'block';
+        myLaserDot.style.left = pt.x + 'px';
+        myLaserDot.style.top = pt.y + 'px';
+        return;
+      }
+      if (activeTool === 'select') {
+        nnReadTextStyleFromPanel();
+        var hitSel = nnHitTextBoxesAt(pt, true);
+        if (hitSel) {
+          nnSelectedTextRef = { box: hitSel.box, layer: hitSel.layer, id: hitSel.box.id };
+          nnTextMove = {
+            hit: hitSel,
+            px: pt.x,
+            py: pt.y,
+            ox: hitSel.box.x,
+            oy: hitSel.box.y,
+            pointerId: e.pointerId,
+          };
+          isDrawing = true;
+          return;
+        }
+        nnSelectedTextRef = null;
+        redraw();
+        return;
+      }
+      if (activeTool === 'textbox') {
+        nnReadTextStyleFromPanel();
+        nnTextCreateDrag = { x1: pt.x, y1: pt.y, pointerId: e.pointerId };
+        nnTempTextRect = null;
+        isDrawing = true;
+        return;
+      }
       isDrawing = true;
       if (activeTool === 'pen') {
-        currentStroke = { color: document.getElementById('pen-color').value, opacity: parseFloat(document.getElementById('pen-opacity').value), width: parseFloat(widthInput.value), points: [pt] };
+        currentStroke = {
+          color: nnGetActivePenColor(),
+          opacity: parseFloat(document.getElementById('pen-opacity').value),
+          width: parseFloat(widthInput.value),
+          points: [pt],
+        };
         getTargetStrokesArray().push(currentStroke);
-      } else eraseStroke(pt);
+      } else {
+        eraseStroke(pt);
+      }
     });
 
     drawCanvas.addEventListener('pointermove', (e) => {
@@ -2604,20 +3340,66 @@
         }
         return;
       }
-      if (e.pointerType !== 'pen') return;
+      if (e.pointerType !== 'pen' && e.pointerType !== 'mouse') return;
       const pt = getScaledCoords(e);
       const isHardwareEraser = (e.buttons === 32 || e.button === 5);
       const activeTool = isHardwareEraser ? 'eraser' : currentTool;
-      if (activeTool === 'laser') { myLaserDot.style.display = 'block'; myLaserDot.style.left = pt.x + 'px'; myLaserDot.style.top = pt.y + 'px'; return; }
+      if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
+        var dx = pt.x - nnTextMove.px;
+        var dy = pt.y - nnTextMove.py;
+        nnTextMove.hit.box.x = nnTextMove.ox + dx;
+        nnTextMove.hit.box.y = nnTextMove.oy + dy;
+        redraw();
+        return;
+      }
+      if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
+        nnTempTextRect = nnNormalizeRect(nnTextCreateDrag.x1, nnTextCreateDrag.y1, pt.x, pt.y);
+        redraw();
+        return;
+      }
+      if (activeTool === 'laser') {
+        myLaserDot.style.display = 'block';
+        myLaserDot.style.left = pt.x + 'px';
+        myLaserDot.style.top = pt.y + 'px';
+        return;
+      }
       if (!isDrawing || e.buttons === 0) return;
-      if (activeTool === 'pen') { currentStroke.points.push(pt); redraw(); } else eraseStroke(pt);
+      if (activeTool === 'pen') {
+        currentStroke.points.push(pt);
+        redraw();
+      } else {
+        eraseStroke(pt);
+      }
     });
 
     function handlePointerEnd(e) {
       activePointers.delete(e.pointerId);
       if (currentTool === 'laser') myLaserDot.style.display = 'none';
       if (activePointers.size === 0) {
-        if (isDrawing) {
+        var skipPenAutosave = false;
+        if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
+          var tr = nnTempTextRect;
+          if (tr && tr.w >= 20 && tr.h >= 14) {
+            nnReadTextStyleFromPanel();
+            var tb = Object.assign({ id: nnNewTextBoxId(), x: tr.x, y: tr.y, w: tr.w, h: tr.h, text: '' }, nnCloneTextStyleFromDefaults());
+            var txt = window.prompt('テキスト框の内容（空欄可）', '');
+            if (txt != null) tb.text = String(txt);
+            getTargetTextBoxesArray().push(tb);
+            nnBumpStrokeTime();
+            autoSaveCurrent(true);
+          }
+          nnTextCreateDrag = null;
+          nnTempTextRect = null;
+          redraw();
+          skipPenAutosave = true;
+        }
+        if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
+          nnTextMove = null;
+          nnBumpStrokeTime();
+          autoSaveCurrent(true);
+          skipPenAutosave = true;
+        }
+        if (isDrawing && !skipPenAutosave) {
           lastStrokeTime = Date.now();
           autoSaveCurrent(true);
         }
@@ -2637,7 +3419,7 @@
         return !stroke.points.some(function (p) { return Math.hypot(p.x - point.x, p.y - point.y) < threshold; });
       };
       var skE = nnLpCurrentStrokeKey();
-      if (currentUserRole === 'presenter') {
+      if (currentUserRole === 'presenter' && nnPresenterPenToShared) {
         sharedStrokesByPage[skE] = (sharedStrokesByPage[skE] || []).filter(filterFn);
       } else {
         localStrokesByPage[skE] = (localStrokesByPage[skE] || []).filter(filterFn);
@@ -2664,9 +3446,31 @@
     function redraw() {
       drawCtx.clearRect(0, 0, drawCanvas.width / dpr, drawCanvas.height / dpr);
       var sk = nnLpCurrentStrokeKey();
-      if (sharedStrokesByPage[sk]) drawStrokesToContext(drawCtx, sharedStrokesByPage[sk], false);
-      if (localStrokesByPage[sk]) drawStrokesToContext(drawCtx, localStrokesByPage[sk], false);
+      if (nnLayerVis.sharedPen && sharedStrokesByPage[sk]) drawStrokesToContext(drawCtx, sharedStrokesByPage[sk], false);
+      if (nnLayerVis.sharedText && sharedTextByPage[sk]) nnDrawTextBoxesToContext(drawCtx, sharedTextByPage[sk]);
+      if (nnLayerVis.localPen && localStrokesByPage[sk]) drawStrokesToContext(drawCtx, localStrokesByPage[sk], false);
+      if (nnLayerVis.localText && localTextByPage[sk]) nnDrawTextBoxesToContext(drawCtx, localTextByPage[sk]);
+      if (nnTempTextRect && nnTempTextRect.w > 0 && nnTempTextRect.h > 0) {
+        drawCtx.save();
+        drawCtx.setLineDash([6, 4]);
+        drawCtx.strokeStyle = 'rgba(26,115,232,0.8)';
+        drawCtx.lineWidth = 1.5;
+        drawCtx.strokeRect(nnTempTextRect.x, nnTempTextRect.y, nnTempTextRect.w, nnTempTextRect.h);
+        drawCtx.restore();
+      }
     }
+
+    drawCanvas.addEventListener('dblclick', function (ev) {
+      var pt = getScaledCoords(ev);
+      var hit = nnHitTextBoxesAt(pt, true);
+      if (!hit) return;
+      var nv = window.prompt('テキストを編集', hit.box.text != null ? String(hit.box.text) : '');
+      if (nv == null) return;
+      hit.box.text = String(nv);
+      nnBumpStrokeTime();
+      autoSaveCurrent(true);
+      redraw();
+    });
 
     function saveToServer() {
       if (!fileName) return alert('ファイルが開かれていません。');
@@ -2777,13 +3581,15 @@
               var pages = newPdf.getPages();
               var pdfPage = pages[pages.length - 1];
               var pageStrokes = (sharedStrokesByPage[lid] || []).concat(localStrokesByPage[lid] || []);
-              if (!pageStrokes.length) continue;
+              var pageTexts = (sharedTextByPage[lid] || []).concat(localTextByPage[lid] || []);
+              if (!pageStrokes.length && !pageTexts.length) continue;
               var dim = await nnExportViewportSizeForPhysicalPage(phys);
               offCanvas.width = dim.ew * dpr;
               offCanvas.height = dim.eh * dpr;
               offCtx.setTransform(1, 0, 0, 1, 0, 0);
               offCtx.scale(dpr, dpr);
               drawStrokesToContext(offCtx, pageStrokes, true);
+              nnDrawTextBoxesToContext(offCtx, pageTexts);
               var pngImage = await newPdf.embedPng(offCanvas.toDataURL('image/png'));
               var pw = pdfPage.getWidth();
               var ph = pdfPage.getHeight();
@@ -2796,13 +3602,15 @@
             var nPhys = pdfDoc.getPageCount();
             for (let i = 1; i <= nPhys; i++) {
               var pageStrokes2 = (sharedStrokesByPage[String(i)] || []).concat(localStrokesByPage[String(i)] || []);
-              if (!pageStrokes2 || pageStrokes2.length === 0) continue;
+              var pageTexts2 = (sharedTextByPage[String(i)] || []).concat(localTextByPage[String(i)] || []);
+              if ((!pageStrokes2 || pageStrokes2.length === 0) && (!pageTexts2 || pageTexts2.length === 0)) continue;
               var dim2 = await nnExportViewportSizeForPhysicalPage(i);
               offCanvas.width = dim2.ew * dpr;
               offCanvas.height = dim2.eh * dpr;
               offCtx.setTransform(1, 0, 0, 1, 0, 0);
               offCtx.scale(dpr, dpr);
               drawStrokesToContext(offCtx, pageStrokes2, true);
+              nnDrawTextBoxesToContext(offCtx, pageTexts2);
               var pngImage2 = await pdfDoc.embedPng(offCanvas.toDataURL('image/png'));
               var pdfPage2 = pdfDoc.getPage(i - 1);
               var pw2 = pdfPage2.getWidth();
@@ -2826,7 +3634,9 @@
           offCtx.drawImage(currentImageObj, 0, 0, baseWidth, baseHeight);
           
           const imgCombined = (sharedStrokesByPage[1] || []).concat(localStrokesByPage[1] || []);
+          const imgTexts = (sharedTextByPage[1] || []).concat(localTextByPage[1] || []);
           if (imgCombined.length > 0) drawStrokesToContext(offCtx, imgCombined, false);
+          if (imgTexts.length > 0) nnDrawTextBoxesToContext(offCtx, imgTexts);
 
           const outMime = fileName.toLowerCase().endsWith('png') ? 'image/png' : 'image/jpeg';
           offCanvas.toBlob((blob) => {
