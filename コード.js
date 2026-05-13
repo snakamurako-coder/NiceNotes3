@@ -616,6 +616,16 @@ function nn_initSpreadsheet() {
   return { ok: true, spreadsheetId: id, url: url, sheetName: NN_SHEET_NAME };
 }
 
+/**
+ * タスク用マスターシート ID が未設定なら nn_initSpreadsheet を実行する（初回アクセスで自動作成）。
+ */
+function nn_ensureTaskSpreadsheet_() {
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty(NN_PROP_SHEET_ID)) {
+    nn_initSpreadsheet();
+  }
+}
+
 // --- Lock & time -------------------------------------------------------------
 
 function nn_lock_(fn) {
@@ -638,9 +648,10 @@ function nn_now_() {
 // --- Spreadsheet I/O ---------------------------------------------------------
 
 function nn_openSheet_() {
+  nn_ensureTaskSpreadsheet_();
   const id = PropertiesService.getScriptProperties().getProperty(NN_PROP_SHEET_ID);
   if (!id) {
-    throw new Error('NN_E_NO_SHEET: run nn_initSpreadsheet first');
+    throw new Error('NN_E_NO_SHEET: タスク用スプレッドシートの作成に失敗しました');
   }
   const ss = SpreadsheetApp.openById(id);
   const sheet = ss.getSheetByName(NN_SHEET_NAME);
