@@ -1,7 +1,7 @@
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('index')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
-    .setTitle('NiceNotes · 会議資料ワークスペース');
+    .setTitle('NiceNotes3 · 会議資料ワークスペース');
 }
 
 function getFileList(mode) {
@@ -101,7 +101,7 @@ function initializeApp() {
       const scriptId = ScriptApp.getScriptId();
       const parents = DriveApp.getFileById(scriptId).getParents();
       const parentFolder = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
-      const newFolder = parentFolder.createFolder('会議資料_Workspace');
+      const newFolder = parentFolder.createFolder('MyNiceNotes');
       mainFolderId = newFolder.getId();
       props.setProperty('MAIN_FOLDER_ID', mainFolderId);
     } catch (e) {
@@ -126,8 +126,11 @@ function nnSaveCaptureToDrive(base64, mimeType, fileName) {
       return { success: false, error: 'MAIN_FOLDER_ID がありません。' };
     }
     const main = DriveApp.getFolderById(mainFolderId);
-    const subIter = main.getFoldersByName('NiceNotes_Captures');
-    const sub = subIter.hasNext() ? subIter.next() : main.createFolder('NiceNotes_Captures');
+    let subIter = main.getFoldersByName('MyNiceNotes_Captures');
+    if (!subIter.hasNext()) {
+      subIter = main.getFoldersByName('NiceNotes_Captures');
+    }
+    const sub = subIter.hasNext() ? subIter.next() : main.createFolder('MyNiceNotes_Captures');
     const bytes = Utilities.base64Decode(base64);
     const blob = Utilities.newBlob(bytes, mimeType || 'application/octet-stream', fileName || 'capture');
     const file = sub.createFile(blob);
@@ -355,11 +358,11 @@ const NN_PROP_SHEET_ID = 'NICENOTES_SHEET_ID';
 const NN_PROP_TASKLIST_ID = 'NICENOTES_TASKLIST_ID';
 const NN_PROP_TASKLIST_MAP = 'NICENOTES_TASKLIST_MAP';
 const NN_PROP_CALENDAR_ID = 'NICENOTES_CALENDAR_ID';
-const NN_TASKLIST_TITLE = 'NiceNotes';
-const NN_TASKLIST_TITLE_PREFIX = 'NiceNotes · ';
-const NN_TASKLIST_FALLBACK_NAME = 'NiceNotes · 未分類';
+const NN_TASKLIST_TITLE = 'NiceNotes3';
+const NN_TASKLIST_TITLE_PREFIX = 'NiceNotes3 · ';
+const NN_TASKLIST_FALLBACK_NAME = 'NiceNotes3 · 未分類';
 const NN_TASKLIST_TITLE_MAX = 200;
-const NN_CALENDAR_NAME = 'NiceNotes';
+const NN_CALENDAR_NAME = 'NiceNotes3';
 const NN_LOCK_TIMEOUT_MS = 10000;
 
 /**
@@ -368,7 +371,7 @@ const NN_LOCK_TIMEOUT_MS = 10000;
  */
 function nn_editorSampleTask_() {
   return {
-    title: 'NiceNotes test',
+    title: 'NiceNotes3 test',
     status: 'active',
     dueDate: '2026-05-20',
     startDate: '',
@@ -425,7 +428,7 @@ function nn_initSpreadsheet() {
   if (id) {
     ss = SpreadsheetApp.openById(id);
   } else {
-    ss = SpreadsheetApp.create('NiceNotes Master');
+    ss = SpreadsheetApp.create('NiceNotes3 Master');
     id = ss.getId();
     props.setProperty(NN_PROP_SHEET_ID, id);
   }
@@ -486,7 +489,7 @@ function nn_initSpreadsheet() {
   sheet.autoResizeColumns(1, lastCol);
 
   const url = ss.getUrl();
-  Logger.log('NiceNotes spreadsheet ready: ' + url);
+  Logger.log('NiceNotes3 spreadsheet ready: ' + url);
   return { ok: true, spreadsheetId: id, url: url, sheetName: NN_SHEET_NAME };
 }
 
@@ -902,10 +905,90 @@ function nn_getOrCreateCalendar_() {
  * @param {Object} task
  * @return {string[]|null}
  */
+/**
+ * @param {string} s
+ * @return {Object|null}
+ */
+function nn_tryParseRepeatJson_(s) {
+  const t = nn_cellStr_(s);
+  if (!t || t.charAt(0) !== '{') {
+    return null;
+  }
+  try {
+    const o = JSON.parse(t);
+    if (o && o.v === 1 && o.f) {
+      return o;
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  return null;
+}
+
+/**
+ * @param {number} jsWd 0=Sun..6=Sat
+ * @return {string}
+ */
+function nn_weekdayJsToByday_(jsWd) {
+  const map = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+  const i = parseInt(jsWd, 10);
+  return map[i] || 'MO';
+}
+
+/**
+ * @param {Object} o
+ * @return {string[]|null}
+ */
+function nn_jsonRepeatToRruleLines_(o) {
+  const f = String(o.f || '').toLowerCase();
+  if (f === 'daily') {
+    return ['RRULE:FREQ=DAILY'];
+  }
+  if (f === 'weekly') {
+    const wds = Array.isArray(o.wd) ? o.wd : [];
+    const parts = [];
+    let i;
+    for (i = 0; i < wds.length; i++) {
+      const x = parseInt(wds[i], 10);
+      if (x >= 0 && x <= 6) {
+        parts.push(nn_weekdayJsToByday_(x));
+      }
+    }
+    if (parts.length) {
+      return ['RRULE:FREQ=WEEKLY;BYDAY=' + parts.join(',')];
+    }
+    return ['RRULE:FREQ=WEEKLY'];
+  }
+  if (f === 'monthly') {
+    const mm = String(o.mm || 'dom');
+    if (mm === 'nth' && o.nth != null && o.wd != null) {
+      const n = parseInt(o.nth, 10);
+      const wd = parseInt(o.wd, 10);
+      if (n >= 1 && n <= 5 && wd >= 0 && wd <= 6) {
+        return ['RRULE:FREQ=MONTHLY;BYDAY=' + n + nn_weekdayJsToByday_(wd)];
+      }
+    }
+    const dom = parseInt(o.dom, 10);
+    if (dom >= 1 && dom <= 31) {
+      return ['RRULE:FREQ=MONTHLY;BYMONTHDAY=' + dom];
+    }
+    return ['RRULE:FREQ=MONTHLY'];
+  }
+  if (f === 'yearly') {
+    return ['RRULE:FREQ=YEARLY'];
+  }
+  return null;
+}
+
 function nn_repeatRuleToRecurrence_(task) {
   const r = nn_cellStr_(task.repeatRule || '');
   if (!r || r === 'none') {
     return null;
+  }
+  const jo = nn_tryParseRepeatJson_(r);
+  if (jo) {
+    const lines = nn_jsonRepeatToRruleLines_(jo);
+    return lines;
   }
   let rr;
   switch (r) {

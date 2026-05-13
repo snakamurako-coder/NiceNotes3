@@ -153,6 +153,25 @@
     .nn-start-shortcuts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
     .nn-start-shortcuts button { padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
 
+    #pdf-slot-tabs { display: none; align-items: center; gap: 6px; flex-shrink: 0; }
+    #pdf-slot-tabs.nn-show { display: flex; }
+    .pdf-slot-btn { padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #f8f9fa; cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pdf-slot-btn.active-slot { background: #e8f0fe; border-color: #1a73e8; font-weight: 600; }
+
+    .nn-editor-toggle-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+    .nn-editor-toggle-hint { font-size: 12px; color: #5f6368; }
+    .nn-editor-ico-btn { font-size: 20px; line-height: 1; padding: 6px 10px; border-radius: 8px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
+    .nn-editor-ico-btn.nn-on { background: #e8f0fe; border-color: #1a73e8; }
+    .nn-editor-hgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 520px; }
+    @media (max-width: 560px) { .nn-editor-hgrid { grid-template-columns: 1fr; } }
+    .nn-repeat-block { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #dadce0; }
+    .nn-repeat-sub { margin-top: 8px; padding: 8px; background: #fff; border-radius: 8px; border: 1px solid #dadce0; }
+    .nn-small-label { font-size: 11px; color: #5f6368; display: block; margin-bottom: 6px; }
+    .nn-wd-row { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+    .nn-wd-chk { font-size: 13px; margin: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+    .nn-lead-row { margin-top: 10px; }
+    .nn-repeat-preview { font-size: 12px; color: #174ea6; margin: 8px 0 0; line-height: 1.45; }
+
     #nn-startup-overlay {
       display: none; position: fixed; inset: 0; z-index: 10000;
       background: linear-gradient(160deg, #e8f0fe 0%, #f8f9fa 45%, #fff 100%);
@@ -246,7 +265,7 @@
   <div id="nn-startup-overlay" aria-label="起動メニュー">
     <div class="nn-startup-inner">
       <div id="nn-startup-main">
-        <h2>NiceNotes</h2>
+        <h2>NiceNotes3</h2>
         <p class="nn-startup-lead">起動時の操作を選んでください</p>
         <div class="nn-startup-grid">
           <button type="button" class="nn-su-card" id="nn-su-quick-task">
@@ -337,7 +356,7 @@
     <div class="nn-quick-dest-box">
       <h3>タスクの宛先</h3>
       <div class="nn-dest-row">
-        <label><input type="radio" name="nn-dest-mode" value="inbox" checked> インボックス（プロジェクト未分類・見出し「インボックス」）</label>
+        <label><input type="radio" name="nn-dest-mode" value="inbox" checked> インボックス（プロジェクト「インボックス」・見出しなし）</label>
       </div>
       <div class="nn-dest-row">
         <label><input type="radio" name="nn-dest-mode" value="project"> プロジェクトを指定</label>
@@ -385,7 +404,7 @@
       </div>
       <div id="panel-pdf" class="modal-panel">
         <div class="notice-meet">
-          ℹ️ オリジナルのPDFは編集されません。<br>指定したPDFは自動的に管理フォルダへ複製され、そちらを安全に編集・共有する仕様となっています。
+          ℹ️ オリジナルのPDFは編集されません。<br>指定したPDFは自動的に MyNiceNotes 管理フォルダへ複製され、そちらを安全に編集・共有する仕様となっています。
         </div>
         <p style="font-size:14px; color:#555;">Google Drive上のPDFのURL（またはID）を入力してください。</p>
         <input type="text" id="input-pdf-id" class="input-field-meet" placeholder="PDFのURL または ID" autocomplete="off">
@@ -399,7 +418,7 @@
 
   <div id="home-screen">
     <div class="home-header">
-      <h2>📁 会議資料ワークスペース</h2>
+      <h2>📁 NiceNotes3 · 会議資料ワークスペース</h2>
       <button type="button" onclick="closeHome()" id="btn-close-home" style="display:none; background:#e8eaed; border:none; padding:8px 15px; cursor:pointer;">✕ ビューアに戻る</button>
     </div>
     <div class="home-content">
@@ -456,7 +475,13 @@
       </select>
       <select id="file-select" onchange="onFileDropdownChanged()"></select>
     </div>
-    
+    <div class="tool-group" id="pdf-slot-tabs" aria-label="PDFスロット">
+      <span style="font-size:11px;color:#5f6368;">PDF</span>
+      <button type="button" class="pdf-slot-btn active-slot" id="pdf-slot-btn-0" onclick="switchPdfSlotIndex(0)" title="スロット1">①</button>
+      <button type="button" class="pdf-slot-btn" id="pdf-slot-btn-1" onclick="switchPdfSlotIndex(1)" title="スロット2">②</button>
+      <button type="button" class="pdf-slot-btn" id="pdf-slot-btn-2" onclick="switchPdfSlotIndex(2)" title="スロット3">③</button>
+    </div>
+
     <div class="tool-group page-nav">
       <button onclick="changePage(-1)">＜</button>
       <span id="page-indicator">0/0</span>
@@ -501,7 +526,7 @@
     </div>
   </div>
 
-  <div id="nn-panel" aria-label="NiceNotes tasks">
+  <div id="nn-panel" aria-label="NiceNotes3 tasks">
     <div id="nn-banner" role="status">
       <span id="nn-banner-text">サーバー側のデータが更新されています。</span>
       <button type="button" onclick="nnPullServerOverwrite()">サーバーを取り込む</button>
@@ -515,31 +540,93 @@
     </div>
     <div id="nn-editor" style="display:none">
       <div><label for="nn-f-title">タイトル</label><input type="text" id="nn-f-title" autocomplete="off"></div>
-      <div><label for="nn-f-project">プロジェクト</label><input type="text" id="nn-f-project" autocomplete="off"></div>
-      <div><label for="nn-f-heading">見出し</label><input type="text" id="nn-f-heading" autocomplete="off"></div>
-      <div>
-        <label for="nn-f-start">開始（When / YYYY-MM-DD・空で「いつでも」）</label>
-        <input type="text" id="nn-f-start" placeholder="空欄 or 2026-05-12" autocomplete="off">
-        <div class="nn-start-shortcuts">
-          <button type="button" onclick="nnSetStartToday()">今日</button>
-          <button type="button" onclick="nnClearStart()">いつでもにする</button>
-        </div>
+      <div class="nn-editor-toggle-bar">
+        <span class="nn-editor-toggle-hint">追加項目</span>
+        <button type="button" class="nn-editor-ico-btn" id="nn-tog-check" title="チェックリスト">☑️</button>
+        <button type="button" class="nn-editor-ico-btn" id="nn-tog-tag" title="プロジェクト・見出し">🏷️</button>
+        <button type="button" class="nn-editor-ico-btn" id="nn-tog-flag" title="開始・期限・繰り返し">🚩</button>
       </div>
-      <div><label for="nn-f-due">期限（YYYY-MM-DD）</label><input type="text" id="nn-f-due" placeholder="2026-05-20" autocomplete="off"></div>
-      <div>
-        <label for="nn-f-repeat">繰り返し（ルーティーン）</label>
-        <select id="nn-f-repeat">
-          <option value="">なし</option>
-          <option value="daily">毎日</option>
-          <option value="weekly">毎週</option>
-          <option value="monthly">毎月</option>
-          <option value="yearly">毎年</option>
-        </select>
-      </div>
-      <div>
+      <div id="nn-sec-check" class="nn-editor-sec" style="display:none">
         <label>チェックリスト</label>
         <div id="nn-checklist-rows"></div>
         <button type="button" onclick="nnAddChecklistRow()">＋ 項目を追加</button>
+      </div>
+      <div id="nn-sec-tag" class="nn-editor-sec" style="display:none">
+        <div class="nn-editor-hgrid">
+          <div>
+            <label for="nn-f-project-select">プロジェクト</label>
+            <select id="nn-f-project-select"></select>
+            <input type="text" id="nn-f-project-new" placeholder="新しいプロジェクト名" style="display:none;margin-top:6px;" autocomplete="off">
+          </div>
+          <div>
+            <label for="nn-f-heading-select">見出し</label>
+            <select id="nn-f-heading-select"></select>
+            <input type="text" id="nn-f-heading-new" placeholder="新しい見出し" style="display:none;margin-top:6px;" autocomplete="off">
+          </div>
+        </div>
+      </div>
+      <div id="nn-sec-flag" class="nn-editor-sec" style="display:none">
+        <div>
+          <label for="nn-f-start">開始（When / YYYY-MM-DD・空で「いつでも」）</label>
+          <input type="text" id="nn-f-start" placeholder="空欄 or 2026-05-12" autocomplete="off">
+          <div class="nn-start-shortcuts">
+            <button type="button" onclick="nnSetStartToday()">今日</button>
+            <button type="button" onclick="nnClearStart()">いつでもにする</button>
+          </div>
+        </div>
+        <div><label for="nn-f-due">期限（YYYY-MM-DD）</label><input type="text" id="nn-f-due" placeholder="2026-05-20" autocomplete="off"></div>
+        <div class="nn-repeat-block">
+          <label for="nn-f-repeat-base">繰り返し</label>
+          <select id="nn-f-repeat-base">
+            <option value="">なし</option>
+            <option value="daily">毎日</option>
+            <option value="weekly">毎週（曜日・複数可）</option>
+            <option value="monthly">毎月</option>
+            <option value="yearly">毎年</option>
+          </select>
+          <div id="nn-repeat-weekly" class="nn-repeat-sub" style="display:none">
+            <span class="nn-small-label">対象曜日（複数可）</span>
+            <div class="nn-wd-row">
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="0">日</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="1">月</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="2">火</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="3">水</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="4">木</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="5">金</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="6">土</label>
+            </div>
+          </div>
+          <div id="nn-repeat-monthly" class="nn-repeat-sub" style="display:none">
+            <label><input type="radio" name="nn-mm" value="dom" checked> 日付ベース（毎月○日）</label>
+            <div id="nn-mm-dom-wrap" style="margin:6px 0 10px;">毎月 <input type="number" id="nn-mm-dom-input" min="1" max="31" value="1" style="width:52px;padding:6px;border:1px solid #dadce0;border-radius:6px;"> 日</div>
+            <label><input type="radio" name="nn-mm" value="nth"> 第○の曜日</label>
+            <div id="nn-mm-nth-wrap" style="display:none;margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap;">
+              第
+              <select id="nn-mm-nth-n" style="padding:6px;border-radius:6px;border:1px solid #dadce0;">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+              <select id="nn-mm-nth-wd" style="padding:6px;border-radius:6px;border:1px solid #dadce0;">
+                <option value="1">月</option>
+                <option value="2">火</option>
+                <option value="3">水</option>
+                <option value="4">木</option>
+                <option value="5">金</option>
+                <option value="6">土</option>
+                <option value="0">日</option>
+              </select>
+              曜日
+            </div>
+          </div>
+        </div>
+        <div class="nn-lead-row">
+          <label for="nn-f-lead">一覧表示</label>
+          <div>期限の <input type="number" id="nn-f-lead" min="0" max="365" value="0" style="width:56px;padding:6px;border:1px solid #dadce0;border-radius:6px;"> 日前からこのタスクを通常ビューに表示（0＝制限なし）</div>
+        </div>
+        <p id="nn-repeat-preview" class="nn-repeat-preview"></p>
       </div>
       <div><label for="nn-f-notes">メモ</label><textarea id="nn-f-notes"></textarea></div>
       <div id="nn-editor-actions">
@@ -617,6 +704,165 @@
     let currentScale = 1.0; let initialPinchDist = 0; let initialScale = 1.0;
     let pinchFocusX = 0; let pinchFocusY = 0;
 
+    const NN_PDF_SLOT_COUNT = 3;
+    let pdfActiveSlot = 0;
+    function nnEmptyPdfSlot() {
+      return {
+        fileId: null,
+        fileName: 'document.pdf',
+        fileType: 'pdf',
+        originalPdfBytes: null,
+        imageDataUrl: '',
+        localStrokesByPage: {},
+        sharedStrokesByPage: {},
+        currentPageNum: 1,
+        currentScale: 1,
+        scrollLeft: 0,
+        scrollTop: 0,
+        legacyFolderNavActive: false
+      };
+    }
+    var pdfSlots = [nnEmptyPdfSlot(), nnEmptyPdfSlot(), nnEmptyPdfSlot()];
+
+    function nnClonePdfBytes(buf) {
+      if (!buf) return null;
+      try {
+        return buf.slice(0);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function nnPdfSlotLabel(name) {
+      var n = (name || '').trim();
+      if (!n) return '空';
+      return n.length > 10 ? n.slice(0, 9) + '…' : n;
+    }
+
+    function nnUpdatePdfSlotTabButtons() {
+      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) {
+        var b = document.getElementById('pdf-slot-btn-' + i);
+        if (!b) continue;
+        var s = pdfSlots[i];
+        var slotLabel = i === 0 ? '① ' : i === 1 ? '② ' : '③ ';
+        b.textContent = slotLabel + (s && s.fileId ? nnPdfSlotLabel(s.fileName) : '空');
+        b.classList.toggle('active-slot', i === pdfActiveSlot);
+      }
+    }
+
+    function savePdfSlotFromGlobals() {
+      var s = pdfSlots[pdfActiveSlot];
+      if (!s) return;
+      s.fileId = currentFileId;
+      s.fileName = fileName;
+      s.fileType = fileType;
+      s.originalPdfBytes = nnClonePdfBytes(originalPdfBytes);
+      s.imageDataUrl =
+        fileType !== 'pdf' && currentImageObj && currentImageObj.src && currentImageObj.src.indexOf('data:') === 0
+          ? currentImageObj.src
+          : '';
+      s.localStrokesByPage = JSON.parse(JSON.stringify(localStrokesByPage || {}));
+      s.sharedStrokesByPage = JSON.parse(JSON.stringify(sharedStrokesByPage || {}));
+      s.currentPageNum = currentPageNum;
+      s.currentScale = currentScale;
+      s.scrollLeft = viewerContainer ? viewerContainer.scrollLeft : 0;
+      s.scrollTop = viewerContainer ? viewerContainer.scrollTop : 0;
+      s.legacyFolderNavActive = !!legacyFolderNavActive;
+      nnUpdatePdfSlotTabButtons();
+    }
+
+    async function nnClearViewerForEmptySlot() {
+      stopMeetSync();
+      pdfDocJs = null;
+      originalPdfBytes = null;
+      currentImageObj = null;
+      totalPages = 0;
+      currentPageNum = 1;
+      currentFileId = null;
+      fileName = 'document.pdf';
+      fileType = 'pdf';
+      sharedStrokesByPage = {};
+      localStrokesByPage = {};
+      baseWidth = 0;
+      baseHeight = 0;
+      currentScale = 1;
+      if (viewerContainer) {
+        viewerContainer.scrollLeft = 0;
+        viewerContainer.scrollTop = 0;
+      }
+      if (pageIndicator) pageIndicator.textContent = '—';
+      if (statusDiv) statusDiv.textContent = 'このタブには PDF がありません（ホームから開いてください）';
+      if (drawCtx && drawCanvas) {
+        drawCtx.setTransform(1, 0, 0, 1, 0, 0);
+        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      }
+      if (bgCanvas) {
+        var bgCtx2 = bgCanvas.getContext('2d');
+        bgCtx2.setTransform(1, 0, 0, 1, 0, 0);
+        bgCtx2.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+      }
+    }
+
+    async function restorePdfSlotToGlobals(idx) {
+      var s = pdfSlots[idx];
+      if (!s || !s.fileId) {
+        await nnClearViewerForEmptySlot();
+        nnUpdatePdfSlotTabButtons();
+        return;
+      }
+      stopMeetSync();
+      currentFileId = s.fileId;
+      fileName = s.fileName || 'document.pdf';
+      fileType = s.fileType || 'pdf';
+      legacyFolderNavActive = !!s.legacyFolderNavActive;
+      localStrokesByPage = JSON.parse(JSON.stringify(s.localStrokesByPage || {}));
+      sharedStrokesByPage = JSON.parse(JSON.stringify(s.sharedStrokesByPage || {}));
+      currentPageNum = s.currentPageNum || 1;
+      currentScale = s.currentScale > 0 ? s.currentScale : 1;
+      originalPdfBytes = nnClonePdfBytes(s.originalPdfBytes);
+      currentImageObj = null;
+      try {
+        if (fileType === 'pdf' && originalPdfBytes) {
+          var u8 = new Uint8Array(originalPdfBytes);
+          pdfDocJs = await pdfjsLib.getDocument(u8).promise;
+          totalPages = pdfDocJs.numPages;
+          currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
+          await renderPage(currentPageNum);
+        } else if (s.imageDataUrl) {
+          currentImageObj = new Image();
+          await new Promise(function (resolve, reject) {
+            currentImageObj.onload = resolve;
+            currentImageObj.onerror = reject;
+            currentImageObj.src = s.imageDataUrl;
+          });
+          totalPages = 1;
+          currentPageNum = 1;
+          await renderPage(1);
+        } else {
+          await nnClearViewerForEmptySlot();
+        }
+      } catch (err) {
+        console.error(err);
+        alert('タブの復元に失敗しました: ' + (err.message || String(err)));
+        await nnClearViewerForEmptySlot();
+      }
+      if (viewerContainer) {
+        viewerContainer.scrollLeft = s.scrollLeft || 0;
+        viewerContainer.scrollTop = s.scrollTop || 0;
+      }
+      updateFavoriteButtonStatus();
+      applyRoleMeet();
+      nnUpdatePdfSlotTabButtons();
+    }
+
+    window.switchPdfSlotIndex = async function switchPdfSlotIndex(nextIdx) {
+      if (nextIdx < 0 || nextIdx >= NN_PDF_SLOT_COUNT || nextIdx === pdfActiveSlot) return;
+      autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
+      pdfActiveSlot = nextIdx;
+      await restorePdfSlotToGlobals(pdfActiveSlot);
+    };
+
     const MIN_WIDTH = 0.5; const MAX_WIDTH = 30.0;
     function updateWidthFromSlider() {
       const t = parseFloat(widthSlider.value) / 100;
@@ -648,6 +894,7 @@
             nnPreloadLastPdfInBackground();
             startupWireMainMenu();
             showStartupGate();
+            nnUpdatePdfSlotTabButtons();
           } else {
             alert((res && res.error) ? res.error : '初期化に失敗しました');
             fetchFileList();
@@ -738,8 +985,9 @@
     }
 
     function showHomeMeet() {
-      stopMeetSync();
       if (currentFileId) autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
+      stopMeetSync();
       if (btnCloseHome) btnCloseHome.style.display = currentFileId ? 'block' : 'none';
       homeScreen.style.display = 'flex';
       viewerContainer.style.display = 'none';
@@ -758,6 +1006,8 @@
       if (!currentFileId) return;
       homeScreen.style.display = 'none';
       viewerContainer.style.display = 'block';
+      var st = document.getElementById('pdf-slot-tabs');
+      if (st) st.classList.add('nn-show');
       applyRoleMeet();
     }
 
@@ -938,6 +1188,8 @@
     }
 
     function openFileFromHome(id, name) {
+      if (currentFileId) autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
       legacyFolderNavActive = false;
       currentFileId = id;
       fileName = name || 'document.pdf';
@@ -947,6 +1199,8 @@
       updateFavoriteButtonStatus();
       homeScreen.style.display = 'none';
       viewerContainer.style.display = 'block';
+      var st = document.getElementById('pdf-slot-tabs');
+      if (st) st.classList.add('nn-show');
       var nnPanel = document.getElementById('nn-panel');
       if (nnPanel) nnPanel.style.display = 'none';
       var pdfBtn = document.getElementById('btn-mode-pdf');
@@ -1033,6 +1287,8 @@
       legacyFolderNavActive = true;
       homeScreen.style.display = 'none';
       viewerContainer.style.display = 'block';
+      var slotTabs0 = document.getElementById('pdf-slot-tabs');
+      if (slotTabs0) slotTabs0.classList.add('nn-show');
       google.script.run
         .withSuccessHandler(function (list) {
           if (list && list.error) {
@@ -1059,6 +1315,7 @@
 
     function onFileDropdownChanged() {
       autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
       loadSelectedFile(false, false, true);
     }
 
@@ -1157,6 +1414,7 @@
                   hideLoader();
                   updateFavoriteButtonStatus();
                   applyRoleMeet();
+                  savePdfSlotFromGlobals();
                 })
                 .loadAnnotation(baseName);
             } catch (err) {
@@ -1231,6 +1489,8 @@
               viewerContainer.scrollTop = 0;
               homeScreen.style.display = 'none';
               viewerContainer.style.display = 'block';
+              var st2 = document.getElementById('pdf-slot-tabs');
+              if (st2) st2.classList.add('nn-show');
               var nnPanel = document.getElementById('nn-panel');
               if (nnPanel) nnPanel.style.display = 'none';
               var pdfBtn = document.getElementById('btn-mode-pdf');
@@ -1243,6 +1503,7 @@
               hideLoader();
               updateFavoriteButtonStatus();
               applyRoleMeet();
+              savePdfSlotFromGlobals();
             })
             .loadAnnotation(baseName);
         } catch (err) {
@@ -1662,14 +1923,18 @@
       const taskBtn = document.getElementById('btn-mode-tasks');
       const viewer = document.getElementById('viewer-container');
       const nnPanel = document.getElementById('nn-panel');
+      const slotTabs = document.getElementById('pdf-slot-tabs');
       if (!pdfBtn || !taskBtn || !viewer || !nnPanel) return;
       if (mode === 'tasks') {
+        if (currentFileId) autoSaveCurrent(true);
+        savePdfSlotFromGlobals();
         stopMeetSync();
         pdfBtn.classList.remove('active-mode');
         taskBtn.classList.add('active-mode');
         viewer.style.display = 'none';
         nnPanel.style.display = 'flex';
         if (homeScreen) homeScreen.style.display = 'none';
+        if (slotTabs) slotTabs.classList.remove('nn-show');
         if (typeof window.nnPhase3Init === 'function') window.nnPhase3Init();
       } else {
         taskBtn.classList.remove('active-mode');
@@ -1677,6 +1942,7 @@
         nnPanel.style.display = 'none';
         if (homeScreen) homeScreen.style.display = 'none';
         viewer.style.display = 'block';
+        if (slotTabs) slotTabs.classList.add('nn-show');
         if (currentFileId) applyRoleMeet();
       }
     }
@@ -1733,49 +1999,242 @@
         return y + '-' + m + '-' + day;
       }
 
-      function nnAdvanceRepeatDue(ymd, rule) {
-        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
-        const base = m
-          ? new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10))
-          : new Date();
-        switch (rule) {
-          case 'daily':
-            base.setDate(base.getDate() + 1);
-            break;
-          case 'weekly':
-            base.setDate(base.getDate() + 7);
-            break;
-          case 'monthly':
-            base.setMonth(base.getMonth() + 1);
-            break;
-          case 'yearly':
-            base.setFullYear(base.getFullYear() + 1);
-            break;
-          default:
-            return ymd || nnTodayYmd();
+      const NN_INBOX_NAME = 'インボックス';
+
+      function nnYmdToDate(ymd) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '').trim());
+        if (!m) return null;
+        const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+        if (d.getFullYear() !== parseInt(m[1], 10) || d.getMonth() !== parseInt(m[2], 10) - 1 || d.getDate() !== parseInt(m[3], 10)) {
+          return null;
         }
-        const y = base.getFullYear();
-        const mo = String(base.getMonth() + 1).padStart(2, '0');
-        const day = String(base.getDate()).padStart(2, '0');
+        return d;
+      }
+
+      function nnDateToYmd(d) {
+        const y = d.getFullYear();
+        const mo = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
         return y + '-' + mo + '-' + day;
       }
 
-      function nnRepeatRuleLabel(rule) {
-        switch (rule) {
-          case 'daily':
-            return '毎日';
-          case 'weekly':
-            return '毎週';
-          case 'monthly':
-            return '毎月';
-          case 'yearly':
-            return '毎年';
-          default:
-            return '';
-        }
+      function nnAddDaysYmd(ymd, n) {
+        const d = nnYmdToDate(ymd);
+        if (!d) return ymd || nnTodayYmd();
+        d.setDate(d.getDate() + n);
+        return nnDateToYmd(d);
       }
 
-      var NN_BUCKET_RANK = { today: 0, scheduled: 1, anytime: 2, past: 3 };
+      function nnParseRepeatJson(ruleRaw) {
+        const s = ruleRaw == null ? '' : String(ruleRaw).trim();
+        if (!s || s.charAt(0) !== '{') return null;
+        try {
+          const o = JSON.parse(s);
+          if (o && o.v === 1 && o.f) return o;
+        } catch (e) {}
+        return null;
+      }
+
+      function nnGetLeadDays(ruleRaw) {
+        const o = nnParseRepeatJson(ruleRaw);
+        if (!o) return 0;
+        const n = parseInt(o.lead, 10);
+        return n > 0 ? n : 0;
+      }
+
+      function nnVisibleFromYmd(t) {
+        const due = t.dueDate;
+        if (!due) return null;
+        const lead = nnGetLeadDays(t.repeatRule);
+        if (lead <= 0) return null;
+        return nnAddDaysYmd(due, -lead);
+      }
+
+      function nnNthWeekdayOfMonth(year, month0, nth, weekday) {
+        const d0 = new Date(year, month0, 1);
+        let d = new Date(d0);
+        let count = 0;
+        while (d.getMonth() === month0) {
+          if (d.getDay() === weekday) {
+            count++;
+            if (count === nth) return new Date(d.getTime());
+          }
+          d.setDate(d.getDate() + 1);
+        }
+        return null;
+      }
+
+      function nnNextMonthlyNthAfter(anchorYmd, nth, weekday) {
+        const a = nnYmdToDate(anchorYmd);
+        if (!a) return anchorYmd;
+        let y = a.getFullYear();
+        let m = a.getMonth();
+        for (let hop = 0; hop < 48; hop++) {
+          const hit = nnNthWeekdayOfMonth(y, m, nth, weekday);
+          if (hit && hit > a) return nnDateToYmd(hit);
+          m++;
+          if (m > 11) {
+            m = 0;
+            y++;
+          }
+        }
+        return anchorYmd;
+      }
+
+      function nnNextMonthlyDomAfter(anchorYmd, dom) {
+        const a = nnYmdToDate(anchorYmd);
+        if (!a) return anchorYmd;
+        const nextMon = new Date(a.getFullYear(), a.getMonth() + 1, 1);
+        const last = new Date(nextMon.getFullYear(), nextMon.getMonth() + 1, 0).getDate();
+        const day = Math.min(dom, last);
+        return nnDateToYmd(new Date(nextMon.getFullYear(), nextMon.getMonth(), day));
+      }
+
+      function nnNextWeeklyMultiAfter(anchorYmd, wds) {
+        const a = nnYmdToDate(anchorYmd);
+        if (!a) return anchorYmd;
+        const set = {};
+        for (let i = 0; i < wds.length; i++) set[wds[i]] = true;
+        for (let k = 1; k <= 380; k++) {
+          const nd = new Date(a);
+          nd.setDate(nd.getDate() + k);
+          if (set[nd.getDay()]) return nnDateToYmd(nd);
+        }
+        return nnAddDaysYmd(anchorYmd, 7);
+      }
+
+      function nnNormalizeLegacyRepeatRule(v) {
+        const s = v == null ? '' : String(v).trim();
+        if (!s || s === 'none' || s.charAt(0) === '{') return '';
+        if (['daily', 'weekly', 'monthly', 'yearly'].indexOf(s) >= 0) return s;
+        return '';
+      }
+
+      function nnAdvanceRepeatDue(ymd, ruleRaw) {
+        const legacy = nnNormalizeLegacyRepeatRule(ruleRaw);
+        if (legacy) {
+          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
+          const base = m
+            ? new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10))
+            : new Date();
+          switch (legacy) {
+            case 'daily':
+              base.setDate(base.getDate() + 1);
+              break;
+            case 'weekly':
+              base.setDate(base.getDate() + 7);
+              break;
+            case 'monthly':
+              base.setMonth(base.getMonth() + 1);
+              break;
+            case 'yearly':
+              base.setFullYear(base.getFullYear() + 1);
+              break;
+            default:
+              return ymd || nnTodayYmd();
+          }
+          return nnDateToYmd(base);
+        }
+        const o = nnParseRepeatJson(ruleRaw);
+        if (!o) return ymd || nnTodayYmd();
+        const f = String(o.f || '').toLowerCase();
+        if (f === 'daily') return nnAddDaysYmd(ymd, 1);
+        if (f === 'weekly') {
+          const wds = Array.isArray(o.wd)
+            ? o.wd
+                .map(function (x) {
+                  return parseInt(x, 10);
+                })
+                .filter(function (x) {
+                  return x >= 0 && x <= 6;
+                })
+            : [];
+          if (wds.length) return nnNextWeeklyMultiAfter(ymd, wds);
+          return nnAddDaysYmd(ymd, 7);
+        }
+        if (f === 'monthly') {
+          const mm = String(o.mm || 'dom');
+          if (mm === 'nth') {
+            const nth = parseInt(o.nth, 10);
+            const wd = parseInt(o.wd, 10);
+            if (nth >= 1 && nth <= 5 && wd >= 0 && wd <= 6) return nnNextMonthlyNthAfter(ymd, nth, wd);
+          }
+          const dom = parseInt(o.dom, 10);
+          if (dom >= 1 && dom <= 31) return nnNextMonthlyDomAfter(ymd, dom);
+          const base = nnYmdToDate(ymd);
+          if (base) {
+            base.setMonth(base.getMonth() + 1);
+            return nnDateToYmd(base);
+          }
+        }
+        if (f === 'yearly') {
+          const base = nnYmdToDate(ymd);
+          if (base) {
+            base.setFullYear(base.getFullYear() + 1);
+            return nnDateToYmd(base);
+          }
+        }
+        return ymd || nnTodayYmd();
+      }
+
+      function nnRepeatRuleLabel(ruleRaw) {
+        const legacy = nnNormalizeLegacyRepeatRule(ruleRaw);
+        if (legacy) {
+          switch (legacy) {
+            case 'daily':
+              return '毎日';
+            case 'weekly':
+              return '毎週';
+            case 'monthly':
+              return '毎月';
+            case 'yearly':
+              return '毎年';
+            default:
+              return '';
+          }
+        }
+        const o = nnParseRepeatJson(ruleRaw);
+        if (!o) return '';
+        const f = String(o.f || '').toLowerCase();
+        const lead = nnGetLeadDays(ruleRaw);
+        const leadTxt = lead > 0 ? ' · 一覧は期限の' + lead + '日前から' : '';
+        const wdNames = ['日', '月', '火', '水', '木', '金', '土'];
+        if (f === 'daily') return '毎日' + leadTxt;
+        if (f === 'weekly') {
+          const wds = Array.isArray(o.wd) ? o.wd : [];
+          if (wds.length) {
+            const lbl = wds
+              .map(function (x) {
+                return parseInt(x, 10);
+              })
+              .filter(function (x) {
+                return x >= 0 && x <= 6;
+              })
+              .sort(function (a, b) {
+                return a - b;
+              })
+              .map(function (d) {
+                return wdNames[d];
+              })
+              .join('・');
+            return '毎週（' + lbl + '）' + leadTxt;
+          }
+          return '毎週' + leadTxt;
+        }
+        if (f === 'monthly') {
+          const mm = String(o.mm || 'dom');
+          if (mm === 'nth') {
+            const wd = parseInt(o.wd, 10);
+            const wn = wd >= 0 && wd <= 6 ? wdNames[wd] : '?';
+            return '毎月（第' + o.nth + ' ' + wn + '曜）' + leadTxt;
+          }
+          return '毎月（' + (o.dom || '?') + '日）' + leadTxt;
+        }
+        if (f === 'yearly') return '毎年' + leadTxt;
+        return '';
+      }
+
+      var NN_BUCKET_RANK = { today: 0, scheduled: 10, lead_wait: 14, anytime: 20, past: 30 };
 
       function nnStartBucket(t) {
         const s = t.startDate;
@@ -1786,12 +2245,21 @@
         return 'scheduled';
       }
 
+      function nnListBucket(t) {
+        const vf = nnVisibleFromYmd(t);
+        const today = nnTodayYmd();
+        if (vf && today < vf) return 'lead_wait';
+        return nnStartBucket(t);
+      }
+
       function nnBucketTitle(b) {
         switch (b) {
           case 'today':
             return '今日';
           case 'scheduled':
             return '予定';
+          case 'lead_wait':
+            return '表示待ち（期限の N 日前まではここに集約）';
           case 'past':
             return '開始日が過去';
           case 'anytime':
@@ -1801,9 +2269,44 @@
         }
       }
 
+      function nnSanitizeRepeatObj(o) {
+        const out = { v: 1, f: String(o.f || 'daily').toLowerCase(), lead: Math.max(0, parseInt(o.lead, 10) || 0) };
+        if (out.f === 'weekly') {
+          const wds = Array.isArray(o.wd) ? o.wd : [];
+          out.wd = wds
+            .map(function (x) {
+              return parseInt(x, 10);
+            })
+            .filter(function (x) {
+              return x >= 0 && x <= 6;
+            });
+        }
+        if (out.f === 'monthly') {
+          out.mm = String(o.mm || 'dom') === 'nth' ? 'nth' : 'dom';
+          if (out.mm === 'nth') {
+            out.nth = Math.min(5, Math.max(1, parseInt(o.nth, 10) || 1));
+            let wd = parseInt(o.wd, 10);
+            if (isNaN(wd) || wd < 0 || wd > 6) wd = 1;
+            out.wd = wd;
+          } else {
+            out.dom = Math.min(31, Math.max(1, parseInt(o.dom, 10) || 1));
+          }
+        }
+        return out;
+      }
+
       function nnNormalizeRepeatRule(v) {
         const s = v == null ? '' : String(v).trim();
         if (!s || s === 'none') return '';
+        if (s.charAt(0) === '{') {
+          try {
+            const o = JSON.parse(s);
+            if (o && o.v === 1 && o.f) {
+              return JSON.stringify(nnSanitizeRepeatObj(o));
+            }
+          } catch (e) {}
+          return '';
+        }
         if (['daily', 'weekly', 'monthly', 'yearly'].indexOf(s) >= 0) return s;
         return '';
       }
@@ -2049,10 +2552,10 @@
         if (!host) return;
         const list = await nnDb.tasks.toArray();
         list.sort(function (a, b) {
-          const ba = NN_BUCKET_RANK[nnStartBucket(a)];
-          const bb = NN_BUCKET_RANK[nnStartBucket(b)];
+          const ba = NN_BUCKET_RANK[nnListBucket(a)];
+          const bb = NN_BUCKET_RANK[nnListBucket(b)];
           if (ba !== bb) return ba - bb;
-          const pj = (a.project || '').localeCompare(b.project || '');
+          const pj = ((a.project || '').trim() || NN_INBOX_NAME).localeCompare((b.project || '').trim() || NN_INBOX_NAME);
           if (pj !== 0) return pj;
           const gh = (a.heading || '').localeCompare(b.heading || '');
           if (gh !== 0) return gh;
@@ -2060,7 +2563,7 @@
         });
         const structure = [];
         list.forEach(function (t) {
-          const b = nnStartBucket(t);
+          const b = nnListBucket(t);
           let bg = null;
           for (let i = 0; i < structure.length; i++) {
             if (structure[i].bucket === b) {
@@ -2072,7 +2575,8 @@
             bg = { bucket: b, subgroups: [] };
             structure.push(bg);
           }
-          const subKey = (t.project || '（プロジェクトなし）') + ' / ' + (t.heading || '（見出しなし）');
+          const subKey =
+            ((t.project || '').trim() || NN_INBOX_NAME) + ' / ' + ((t.heading || '').trim() || '（見出しなし）');
           let sg = null;
           for (let j = 0; j < bg.subgroups.length; j++) {
             if (bg.subgroups[j].key === subKey) {
@@ -2122,9 +2626,12 @@
               card.querySelector('.nn-task-title').textContent = t.title || '(無題)';
               const whenPart = t.startDate ? '開始 ' + t.startDate : 'いつでも';
               const duePart = t.dueDate ? '期限 ' + t.dueDate : '期限なし';
-              const rr = nnNormalizeRepeatRule(t.repeatRule);
-              const repPart = rr ? ' · 繰返:' + nnRepeatRuleLabel(rr) : '';
-              card.querySelector('.nn-task-meta').textContent = whenPart + ' · ' + duePart + repPart + ' · ' + (t.status || 'active');
+              const repPart =
+                t.repeatRule && String(t.repeatRule).trim() ? ' · 繰返:' + nnRepeatRuleLabel(t.repeatRule) : '';
+              const vf = nnVisibleFromYmd(t);
+              const visPart = vf ? ' · 通常一覧表示は ' + vf + ' から' : '';
+              card.querySelector('.nn-task-meta').textContent =
+                whenPart + ' · ' + duePart + repPart + visPart + ' · ' + (t.status || 'active');
               const body = card.querySelector('.nn-task-body');
               const itemsRaw = nnNormalizeCheckItems(t.checkItems).filter(function (ci) {
                 return (ci.text || '').trim();
@@ -2209,10 +2716,10 @@
           return;
         }
         if (completed) {
-          const rr = nnNormalizeRepeatRule(next.repeatRule);
-          if (rr) {
+          const rawR = next.repeatRule && String(next.repeatRule).trim();
+          if (rawR) {
             const anchor = next.dueDate || nnTodayYmd();
-            next.dueDate = nnAdvanceRepeatDue(anchor, rr);
+            next.dueDate = nnAdvanceRepeatDue(anchor, next.repeatRule);
             next.startDate = nnTodayYmd();
             next.status = 'active';
             next.completedAt = null;
@@ -2241,18 +2748,318 @@
 
       let nnEditingId = null;
 
-      window.nnShowNewTaskForm = function nnShowNewTaskForm() {
+      function nnEditorSetSection(secId, on) {
+        const sec = document.getElementById(secId);
+        const btnMap = { 'nn-sec-check': 'nn-tog-check', 'nn-sec-tag': 'nn-tog-tag', 'nn-sec-flag': 'nn-tog-flag' };
+        const b = document.getElementById(btnMap[secId]);
+        if (sec) sec.style.display = on ? 'block' : 'none';
+        if (b) b.classList.toggle('nn-on', !!on);
+      }
+
+      async function nnRefreshProjectHeadingSelects(currentProj, currentHead) {
+        await nnDb.open();
+        const tasks = await nnDb.tasks.toArray();
+        const projects = new Set();
+        const headings = new Set();
+        tasks.forEach(function (x) {
+          const p = (x.project || '').trim() || NN_INBOX_NAME;
+          projects.add(p);
+          const h = (x.heading || '').trim();
+          if (h) headings.add(h);
+        });
+        projects.add(NN_INBOX_NAME);
+        const psel = document.getElementById('nn-f-project-select');
+        const hsel = document.getElementById('nn-f-heading-select');
+        if (!psel || !hsel) return;
+        const pChosen = (currentProj || '').trim() || NN_INBOX_NAME;
+        const hChosen = (currentHead || '').trim();
+        psel.innerHTML =
+          '<option value="">' + NN_INBOX_NAME + '（既定）</option>' +
+          '<option value="__new__">＋ 新規プロジェクト…</option>';
+        Array.from(projects)
+          .sort()
+          .forEach(function (p) {
+            if (p === NN_INBOX_NAME) return;
+            const o = document.createElement('option');
+            o.value = p;
+            o.textContent = p;
+            psel.appendChild(o);
+          });
+        let foundP = false;
+        for (let i = 0; i < psel.options.length; i++) {
+          const ov = psel.options[i].value;
+          if (ov === pChosen || (pChosen === NN_INBOX_NAME && ov === '')) {
+            psel.selectedIndex = i;
+            foundP = true;
+            break;
+          }
+        }
+        if (!foundP && pChosen && pChosen !== NN_INBOX_NAME) {
+          const o2 = document.createElement('option');
+          o2.value = pChosen;
+          o2.textContent = pChosen;
+          psel.insertBefore(o2, psel.options[2] || null);
+          psel.value = pChosen;
+        }
+        const pn = document.getElementById('nn-f-project-new');
+        if (pn) {
+          pn.style.display = psel.value === '__new__' ? 'block' : 'none';
+          if (psel.value !== '__new__') pn.value = '';
+        }
+        hsel.innerHTML =
+          '<option value="">（見出しなし）</option>' +
+          '<option value="__new__">＋ 新規見出し…</option>';
+        Array.from(headings)
+          .sort()
+          .forEach(function (h) {
+            const ho = document.createElement('option');
+            ho.value = h;
+            ho.textContent = h;
+            hsel.appendChild(ho);
+          });
+        let hfound = false;
+        if (hChosen) {
+          for (let j = 0; j < hsel.options.length; j++) {
+            if (hsel.options[j].value === hChosen) {
+              hsel.selectedIndex = j;
+              hfound = true;
+              break;
+            }
+          }
+        }
+        if (!hfound && hChosen) {
+          const ho2 = document.createElement('option');
+          ho2.value = hChosen;
+          ho2.textContent = hChosen;
+          hsel.insertBefore(ho2, hsel.options[2] || null);
+          hsel.value = hChosen;
+        }
+        const hn = document.getElementById('nn-f-heading-new');
+        if (hn) {
+          hn.style.display = hsel.value === '__new__' ? 'block' : 'none';
+          if (hsel.value !== '__new__') hn.value = '';
+        }
+      }
+
+      function nnRepeatUiSyncSubpanels() {
+        const baseEl = document.getElementById('nn-f-repeat-base');
+        const v = baseEl ? baseEl.value : '';
+        const w = document.getElementById('nn-repeat-weekly');
+        const m = document.getElementById('nn-repeat-monthly');
+        if (w) w.style.display = v === 'weekly' ? 'block' : 'none';
+        if (m) m.style.display = v === 'monthly' ? 'block' : 'none';
+        const mm = (document.querySelector('input[name="nn-mm"]:checked') || {}).value || 'dom';
+        const domWrap = document.getElementById('nn-mm-dom-wrap');
+        const nthWrap = document.getElementById('nn-mm-nth-wrap');
+        if (domWrap) domWrap.style.display = v === 'monthly' && mm === 'dom' ? 'block' : 'none';
+        if (nthWrap) nthWrap.style.display = v === 'monthly' && mm === 'nth' ? 'flex' : 'none';
+      }
+
+      function nnWriteRepeatFromUi() {
+        const baseEl = document.getElementById('nn-f-repeat-base');
+        const leadEl = document.getElementById('nn-f-lead');
+        const base = baseEl ? baseEl.value : '';
+        const lead = leadEl ? parseInt(leadEl.value, 10) || 0 : 0;
+        if (!base) return '';
+        if (base === 'daily' || base === 'yearly') {
+          return JSON.stringify(nnSanitizeRepeatObj({ v: 1, f: base, lead: lead }));
+        }
+        if (base === 'weekly') {
+          const wds = [];
+          document.querySelectorAll('[data-nn-wd]').forEach(function (c) {
+            if (c.checked) wds.push(parseInt(c.getAttribute('data-nn-wd'), 10));
+          });
+          return JSON.stringify(nnSanitizeRepeatObj({ v: 1, f: 'weekly', wd: wds, lead: lead }));
+        }
+        if (base === 'monthly') {
+          const mm = (document.querySelector('input[name="nn-mm"]:checked') || {}).value || 'dom';
+          if (mm === 'nth') {
+            const nEl = document.getElementById('nn-mm-nth-n');
+            const wEl = document.getElementById('nn-mm-nth-wd');
+            return JSON.stringify(
+              nnSanitizeRepeatObj({
+                v: 1,
+                f: 'monthly',
+                mm: 'nth',
+                nth: nEl ? nEl.value : 1,
+                wd: wEl ? wEl.value : 1,
+                lead: lead
+              })
+            );
+          }
+          const dIn = document.getElementById('nn-mm-dom-input');
+          return JSON.stringify(
+            nnSanitizeRepeatObj({
+              v: 1,
+              f: 'monthly',
+              mm: 'dom',
+              dom: dIn ? dIn.value : 1,
+              lead: lead
+            })
+          );
+        }
+        return '';
+      }
+
+      function nnLoadRepeatToUi(ruleRaw) {
+        const baseEl = document.getElementById('nn-f-repeat-base');
+        const leadEl = document.getElementById('nn-f-lead');
+        document.querySelectorAll('[data-nn-wd]').forEach(function (c) {
+          c.checked = false;
+        });
+        if (leadEl) leadEl.value = '0';
+        if (!baseEl) return;
+        const leg = nnNormalizeLegacyRepeatRule(ruleRaw);
+        if (leg) {
+          baseEl.value = leg;
+          nnRepeatUiSyncSubpanels();
+          return;
+        }
+        const o = nnParseRepeatJson(ruleRaw);
+        if (!o) {
+          baseEl.value = '';
+          nnRepeatUiSyncSubpanels();
+          return;
+        }
+        baseEl.value = o.f || '';
+        if (leadEl) leadEl.value = String(o.lead != null && o.lead > 0 ? o.lead : 0);
+        if (o.f === 'weekly' && Array.isArray(o.wd)) {
+          o.wd.forEach(function (d) {
+            const cb = document.querySelector('[data-nn-wd="' + d + '"]');
+            if (cb) cb.checked = true;
+          });
+        }
+        if (o.f === 'monthly') {
+          const mm = o.mm === 'nth' ? 'nth' : 'dom';
+          document.querySelectorAll('input[name="nn-mm"]').forEach(function (r) {
+            r.checked = r.value === mm;
+          });
+          if (mm === 'nth') {
+            const nEl = document.getElementById('nn-mm-nth-n');
+            const wEl = document.getElementById('nn-mm-nth-wd');
+            if (nEl) nEl.value = String(o.nth || 1);
+            if (wEl) wEl.value = String(o.wd != null ? o.wd : 1);
+          } else {
+            const dIn = document.getElementById('nn-mm-dom-input');
+            if (dIn) dIn.value = String(o.dom || 1);
+          }
+        }
+        nnRepeatUiSyncSubpanels();
+      }
+
+      function nnUpdateRepeatPreview() {
+        const pr = document.getElementById('nn-repeat-preview');
+        if (!pr) return;
+        const due = document.getElementById('nn-f-due');
+        const d = due ? due.value.trim() : '';
+        const raw = nnWriteRepeatFromUi();
+        if (!raw) {
+          pr.textContent = '';
+          return;
+        }
+        if (!d) {
+          pr.textContent = '期限を入力すると、次回の期限と一覧表示開始の例をここに表示します。';
+          return;
+        }
+        const nextDue = nnAdvanceRepeatDue(d, raw);
+        const lead = nnGetLeadDays(raw);
+        const tail =
+          lead > 0
+            ? ' 通常の一覧バンドへは「' + nnAddDaysYmd(nextDue, -lead) + '」から（期限の' + lead + '日前）。'
+            : ' 一覧表示の追加制限はありません（0日）。';
+        pr.textContent = '完了して次のループに進んだ場合の一例: 次回の期限 ' + nextDue + '。' + tail;
+      }
+
+      function nnEditorCollapseAll() {
+        nnEditorSetSection('nn-sec-check', false);
+        nnEditorSetSection('nn-sec-tag', false);
+        nnEditorSetSection('nn-sec-flag', false);
+      }
+
+      function nnSyncEditorSectionsFromTask(row) {
+        nnEditorCollapseAll();
+        const hasCheck = nnNormalizeCheckItems(row && row.checkItems).some(function (ci) {
+          return (ci.text || '').trim();
+        });
+        const p = (row && row.project ? String(row.project) : '').trim();
+        const h = (row && row.heading ? String(row.heading) : '').trim();
+        const hasTag = !!(p || h);
+        const hasFlag = !!(
+          (row && row.startDate) ||
+          (row && row.dueDate) ||
+          (row && row.repeatRule && String(row.repeatRule).trim())
+        );
+        if (hasCheck) nnEditorSetSection('nn-sec-check', true);
+        if (hasTag) nnEditorSetSection('nn-sec-tag', true);
+        if (hasFlag) nnEditorSetSection('nn-sec-flag', true);
+      }
+
+      var nnEditorUiBound = false;
+      function nnBindEditorUiOnce() {
+        if (nnEditorUiBound) return;
+        nnEditorUiBound = true;
+        [['nn-tog-check', 'nn-sec-check'], ['nn-tog-tag', 'nn-sec-tag'], ['nn-tog-flag', 'nn-sec-flag']].forEach(function (pair) {
+          const btn = document.getElementById(pair[0]);
+          if (!btn) return;
+          btn.addEventListener('click', function () {
+            const sec = document.getElementById(pair[1]);
+            const on = !sec || sec.style.display === 'none';
+            nnEditorSetSection(pair[1], on);
+          });
+        });
+        const psel = document.getElementById('nn-f-project-select');
+        if (psel) {
+          psel.addEventListener('change', function () {
+            const pn = document.getElementById('nn-f-project-new');
+            if (pn) pn.style.display = psel.value === '__new__' ? 'block' : 'none';
+          });
+        }
+        const hsel = document.getElementById('nn-f-heading-select');
+        if (hsel) {
+          hsel.addEventListener('change', function () {
+            const hn = document.getElementById('nn-f-heading-new');
+            if (hn) hn.style.display = hsel.value === '__new__' ? 'block' : 'none';
+          });
+        }
+        const rb = document.getElementById('nn-f-repeat-base');
+        if (rb) {
+          rb.addEventListener('change', function () {
+            nnRepeatUiSyncSubpanels();
+            nnUpdateRepeatPreview();
+          });
+        }
+        document.querySelectorAll('[data-nn-wd]').forEach(function (c) {
+          c.addEventListener('change', nnUpdateRepeatPreview);
+        });
+        document.querySelectorAll('input[name="nn-mm"]').forEach(function (r) {
+          r.addEventListener('change', function () {
+            nnRepeatUiSyncSubpanels();
+            nnUpdateRepeatPreview();
+          });
+        });
+        ['nn-mm-dom-input', 'nn-mm-nth-n', 'nn-mm-nth-wd', 'nn-f-lead', 'nn-f-due'].forEach(function (id) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('input', nnUpdateRepeatPreview);
+        });
+      }
+
+      window.nnShowNewTaskForm = async function nnShowNewTaskForm() {
+        nnBindEditorUiOnce();
         nnEditingId = null;
         document.getElementById('nn-f-title').value = '';
-        document.getElementById('nn-f-project').value = '';
-        document.getElementById('nn-f-heading').value = '';
-        document.getElementById('nn-f-start').value = '';
-        document.getElementById('nn-f-due').value = '';
-        const rep = document.getElementById('nn-f-repeat');
-        if (rep) rep.value = '';
         document.getElementById('nn-f-notes').value = '';
         const cr = document.getElementById('nn-checklist-rows');
         if (cr) cr.innerHTML = '';
+        document.getElementById('nn-f-start').value = '';
+        document.getElementById('nn-f-due').value = '';
+        nnLoadRepeatToUi('');
+        nnEditorCollapseAll();
+        await nnRefreshProjectHeadingSelects(NN_INBOX_NAME, '');
+        const pn = document.getElementById('nn-f-project-new');
+        const hn = document.getElementById('nn-f-heading-new');
+        if (pn) pn.value = '';
+        if (hn) hn.value = '';
+        nnUpdateRepeatPreview();
         document.getElementById('nn-editor').style.display = 'flex';
       };
 
@@ -2262,19 +3069,21 @@
       };
 
       async function nnOpenEditor(id) {
+        nnBindEditorUiOnce();
         const row = await nnDb.tasks.get(id);
         if (!row) return;
         nnEditingId = id;
         const t = nnNormalizeTask(row);
         document.getElementById('nn-f-title').value = t.title;
-        document.getElementById('nn-f-project').value = t.project;
-        document.getElementById('nn-f-heading').value = t.heading;
+        document.getElementById('nn-f-notes').value = t.notes;
         document.getElementById('nn-f-start').value = t.startDate || '';
         document.getElementById('nn-f-due').value = t.dueDate || '';
-        const rep = document.getElementById('nn-f-repeat');
-        if (rep) rep.value = t.repeatRule || '';
-        document.getElementById('nn-f-notes').value = t.notes;
+        nnLoadRepeatToUi(t.repeatRule || '');
+        const projDisp = (t.project || '').trim() || NN_INBOX_NAME;
+        await nnRefreshProjectHeadingSelects(projDisp, t.heading || '');
         nnFillChecklistEditor(t.checkItems);
+        nnSyncEditorSectionsFromTask(t);
+        nnUpdateRepeatPreview();
         document.getElementById('nn-editor').style.display = 'flex';
       }
 
@@ -2284,19 +3093,36 @@
           alert('タイトルは必須です。');
           return;
         }
+        nnBindEditorUiOnce();
         let base = nnEditingId ? await nnDb.tasks.get(nnEditingId) : null;
         const t = nnNormalizeTask(base || {});
         if (!nnEditingId) t.id = nnUuid();
         else t.id = nnEditingId;
         t.title = title;
-        t.project = document.getElementById('nn-f-project').value.trim();
-        t.heading = document.getElementById('nn-f-heading').value.trim();
+        const psel = document.getElementById('nn-f-project-select');
+        let project = NN_INBOX_NAME;
+        if (psel) {
+          if (psel.value === '__new__') {
+            project = (document.getElementById('nn-f-project-new') || {}).value.trim() || NN_INBOX_NAME;
+          } else if (psel.value && psel.value !== '') {
+            project = psel.value.trim();
+          } else {
+            project = NN_INBOX_NAME;
+          }
+        }
+        const hsel = document.getElementById('nn-f-heading-select');
+        let heading = '';
+        if (hsel) {
+          if (hsel.value === '__new__') heading = (document.getElementById('nn-f-heading-new') || {}).value.trim();
+          else heading = (hsel.value || '').trim();
+        }
+        t.project = project;
+        t.heading = heading;
         const startRaw = document.getElementById('nn-f-start').value.trim();
         t.startDate = startRaw === '' ? null : startRaw;
         const dueRaw = document.getElementById('nn-f-due').value.trim();
         t.dueDate = dueRaw === '' ? null : dueRaw;
-        const repEl = document.getElementById('nn-f-repeat');
-        t.repeatRule = repEl ? nnNormalizeRepeatRule(repEl.value) : '';
+        t.repeatRule = nnNormalizeRepeatRule(nnWriteRepeatFromUi());
         t.notes = document.getElementById('nn-f-notes').value;
         t.checkItems = nnCollectCheckItemsFromEditor();
         if (t.status !== 'completed' && t.status !== 'canceled') t.status = 'active';
@@ -2376,6 +3202,7 @@
       }
 
       window.nnPhase3Init = async function nnPhase3Init() {
+        nnBindEditorUiOnce();
         await nnDb.open();
         nnUpdateOnlineBadge();
         await nnRenderTaskList();
@@ -2404,7 +3231,7 @@
           var tasks = await nnDb.tasks.toArray();
           var set = {};
           tasks.forEach(function (t) {
-            var p = (t.project || '').trim();
+            var p = (t.project || '').trim() || NN_INBOX_NAME;
             if (p) set[p] = true;
           });
           Object.keys(set).sort().forEach(function (p) {
@@ -2450,7 +3277,8 @@
           var project = '';
           var heading = '';
           if (mode === 'inbox') {
-            heading = 'インボックス';
+            project = NN_INBOX_NAME;
+            heading = '';
           } else {
             var selEl = document.getElementById('nn-dest-project-select');
             project = selEl ? String(selEl.value || '').trim() : '';
@@ -2459,6 +3287,7 @@
             if (cust) project = cust;
             var headEl = document.getElementById('nn-dest-heading');
             heading = headEl ? headEl.value.trim() : '';
+            if (!project) project = NN_INBOX_NAME;
           }
           var notes = window.nnQuickPendingNotes || '';
           var title = nnTitleFromQuickBody(notes);
