@@ -1,0 +1,2860 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <style>
+    :root { --ui-height: 60px; --primary: #1a73e8; }
+    body { margin: 0; background-color: #333; overflow: hidden; font-family: sans-serif; }
+    #toolbar { position: fixed; top: 0; left: 0; width: 100%; height: var(--ui-height); background: #ffffff; border-bottom: 1px solid #ddd; z-index: 100; display: flex; align-items: center; padding: 0 10px; gap: 10px; box-sizing: border-box; overflow-x: auto; white-space: nowrap; }
+    .tool-group { display: flex; align-items: center; gap: 8px; border-right: 1px solid #eee; padding-right: 10px; flex-shrink: 0; }
+    label { font-size: 11px; color: #666; display: block; margin-bottom: 2px;}
+    input[type="range"] { width: 90px; cursor: pointer; } 
+    input[type="number"] { width: 45px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; }
+    button, select { padding: 6px 10px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; background: #fff;}
+    #folder-select { background: #f8f9fa; font-weight: bold; border-color: #aaa; }
+    #role-select { background: #e8eaed; font-weight: bold; border-color: #9aa0a6; color: #202124; }
+    #role-select.role-presenter { background: #fce8e6; border-color: #ea4335; color: #c5221f; }
+    #role-select.role-participant { background: #e6f4ea; border-color: #34a853; color: #137333; }
+    #file-select { max-width: 150px; }
+    .active-tool { background: #e8f0fe; border: 1px solid #1a73e8; font-weight: bold; }
+    #btn-laser { border-color: #d93025; color: #d93025; }
+    #btn-laser.active-tool { background: #fce8e6; color: #d93025; font-weight: bold; }
+    
+    .page-nav { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 12px; color: #333; }
+    .page-nav button { padding: 4px 10px; background: #f1f3f4; border: none; font-size: 16px; border-radius: 4px; }
+    #page-indicator { min-width: 60px; text-align: center; }
+
+    #status { margin-left: auto; font-size: 12px; color: #888; text-align: right; flex-shrink: 0; padding-left: 10px; }
+    #viewer-container { margin-top: var(--ui-height); width: 100vw; height: calc(100vh - var(--ui-height)); overflow: auto; background: #555; overscroll-behavior: none; padding: 20px; box-sizing: border-box; display: none; }
+    #scroll-spacer { position: relative; }
+    #page-wrapper { position: absolute; top: 0; left: 0; background: #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); transform-origin: 0 0; }
+    canvas { position: absolute; top: 0; left: 0; }
+    #bg-canvas { z-index: 1; } 
+    #draw-canvas { z-index: 2; touch-action: none; cursor: crosshair; } 
+    .laser-dot { position: absolute; pointer-events: none; z-index: 9999; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle, #ff0000 20%, rgba(255,0,0,0.4) 60%, transparent 100%); box-shadow: 0 0 8px #ff0000; transform: translate(-50%, -50%); display: none; }
+    #host-frame { position: absolute; border: 3px solid #ff0000; background: rgba(255, 0, 0, 0.05); pointer-events: none; z-index: 9998; display: none; transition: all 0.5s ease; }
+    #host-frame::after { content: "現在の発表箇所"; position: absolute; top: -22px; left: -3px; background: #ff0000; color: #fff; font-size: 12px; padding: 3px 8px; font-weight: bold; border-radius: 4px 4px 0 0; }
+
+    #home-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #f0f2f5; z-index: 500; display: flex; flex-direction: column; }
+    .home-header { background: #fff; padding: 15px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+    .home-header h2 { margin: 0; font-size: 20px; color: #333; }
+    .home-content { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 20px; overflow: hidden; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box;}
+    .quick-access { display: flex; gap: 20px; flex-shrink: 0; }
+    .meeting-card { background: #fff; padding: 15px; border-radius: 8px; flex: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; }
+    .meeting-card h3 { margin-top: 0; font-size: 14px; color: #5f6368; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; }
+    .explorer { display: flex; background: #fff; border-radius: 8px; flex: 1; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; flex-direction: column;}
+    .explorer-toolbar { padding: 10px 15px; background: #fafafa; border-bottom: 1px solid #e0e0e0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .explorer-body { display: flex; flex: 1; overflow: hidden; }
+    .folder-tree { width: 30%; min-width: 160px; border-right: 1px solid #e0e0e0; overflow-y: auto; padding: 10px; background: #fdfdfd; }
+    .folder-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; cursor: pointer; border-radius: 4px; font-size: 14px; color: #333; }
+    .folder-item:hover { background: #e8eaed; }
+    .folder-item.selected { background: #e8f0fe; color: var(--primary); font-weight: bold; }
+    .folder-label { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .color-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #ccc; flex-shrink: 0; }
+    .btn-palette { background: transparent; border: none; cursor: pointer; font-size: 14px; opacity: 0; transition: opacity 0.2s; padding: 2px 4px; }
+    .folder-item:hover .btn-palette { opacity: 1; }
+    #color-palette-popover { display: none; position: fixed; background: #fff; border: 1px solid #ddd; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 2000; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .palette-color { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #aaa; cursor: pointer; transition: transform 0.1s; }
+    .palette-color:hover { transform: scale(1.15); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .file-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .file-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #f1f3f4; cursor: pointer; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .file-item:hover { background: #f8f9fa; }
+    .file-name { font-weight: bold; color: #1a73e8; font-size: 14px; display: flex; align-items: center; gap: 8px;}
+    .file-meta { font-size: 12px; color: #888; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+    .btn-meeting-action { padding: 8px 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-meeting-action:hover { opacity: 0.9; }
+    .file-btn-meet { background: #f1f3f4; color: #333; border: 1px solid #ccc; padding: 6px 12px; font-size: 12px; border-radius: 4px; margin-right: 5px; cursor: pointer; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 1500; display: none; align-items: center; justify-content: center; }
+    .modal-content { background: #fff; width: 90%; max-width: 500px; border-radius: 8px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    .modal-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; flex-wrap: wrap; }
+    .modal-tab { cursor: pointer; padding: 10px 15px; font-weight: bold; color: #888; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+    .modal-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .modal-panel { display: none; }
+    .modal-panel.active { display: block; }
+    .input-field-meet { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+    .radio-group-meet { margin: 15px 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+    .notice-meet { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; font-size: 12px; margin-bottom: 15px; border-left: 4px solid #ffeeba; }
+    #btn-sort-order-meet { padding: 4px 8px; }
+    #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); color: white; display: flex; align-items: center; justify-content: center; z-index: 9999; font-size: 20px; font-weight: bold; display: none; flex-direction: column; gap: 10px; }
+
+    /* NiceNotes Phase 3 */
+    .nn-mode-btn { flex-shrink: 0; }
+    .nn-mode-btn.active-mode { background: #e8f0fe; border: 1px solid #1a73e8; font-weight: bold; }
+    #nn-panel {
+      display: none; flex-direction: column; margin-top: var(--ui-height); height: calc(100vh - var(--ui-height));
+      background: #e8eaed; overflow: hidden; font-size: 14px; color: #202124;
+    }
+    #nn-banner {
+      display: none; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px;
+      background: #fef7e0; border-bottom: 1px solid #f9e79f; font-size: 13px;
+    }
+    #nn-subbar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px;
+      background: #fff; border-bottom: 1px solid #dadce0;
+    }
+    #nn-subbar button { padding: 8px 14px; font-size: 13px; border-radius: 6px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
+    #nn-subbar button.nn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    #nn-pending-badge:empty { display: none; }
+    #nn-pending-badge { font-size: 12px; color: #c5221f; }
+    #nn-online-badge { font-size: 12px; margin-left: auto; }
+    #nn-online-badge.online { color: #137333; }
+    #nn-online-badge.offline { color: #c5221f; }
+    #nn-editor {
+      padding: 12px 14px; background: #e8f0fe; border-bottom: 1px solid #dadce0;
+      display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow: auto;
+    }
+    #nn-editor label { font-size: 11px; color: #5f6368; display: block; margin-bottom: 2px; }
+    #nn-editor input[type="text"], #nn-editor textarea, #nn-editor input[type="date"] {
+      width: 100%; max-width: 480px; padding: 8px 10px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; box-sizing: border-box;
+    }
+    #nn-editor textarea { min-height: 64px; resize: vertical; }
+    #nn-editor-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    #nn-task-list { flex: 1; overflow: auto; padding: 12px 14px 24px; }
+    .nn-group-title { font-size: 12px; font-weight: 700; color: #5f6368; text-transform: uppercase; letter-spacing: 0.03em; margin: 16px 0 8px; }
+    .nn-task-card {
+      background: #fff; border: 1px solid #dadce0; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+      display: flex; align-items: flex-start; gap: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .nn-task-card.done { opacity: 0.72; }
+    .nn-task-card input[type="checkbox"] { margin-top: 4px; width: 18px; height: 18px; cursor: pointer; }
+    .nn-task-body { flex: 1; min-width: 0; }
+    .nn-task-title { font-weight: 600; margin-bottom: 4px; word-break: break-word; }
+    .nn-task-meta { font-size: 12px; color: #5f6368; }
+    .nn-task-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .nn-task-actions button { padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
+    .nn-task-actions .nn-del { color: #c5221f; border-color: #fce8e6; background: #fff; }
+    .nn-bucket-title {
+      font-size: 15px; font-weight: 700; color: #174ea6; margin: 22px 0 6px; padding-bottom: 6px; border-bottom: 2px solid #aecbfa;
+    }
+    .nn-bucket-title:first-of-type { margin-top: 0; }
+    .nn-bucket-title + .nn-group-title { margin-top: 10px; }
+    .nn-check-progress { font-size: 12px; color: #5f6368; margin-top: 4px; }
+    .nn-checklist-preview {
+      list-style: none; margin: 6px 0 0; padding: 0; font-size: 13px; color: #3c4043;
+    }
+    .nn-checklist-preview li { margin-bottom: 4px; }
+    .nn-checklist-preview label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 13px; margin: 0; color: inherit; }
+    .nn-checklist-preview input { margin-top: 2px; flex-shrink: 0; }
+    .nn-ci-text.done { text-decoration: line-through; color: #5f6368; }
+    #nn-checklist-rows { margin-top: 4px; }
+    .nn-check-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; max-width: 520px; padding-bottom: 10px; border-bottom: 1px solid #dadce0; }
+    .nn-check-row-main { display: flex; align-items: center; gap: 8px; }
+    .nn-check-row-main input[type="text"] {
+      flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; box-sizing: border-box;
+    }
+    .nn-check-row-extra { display: flex; flex-direction: column; gap: 6px; margin-left: 26px; }
+    .nn-check-row-extra label { font-size: 11px; color: #5f6368; }
+    .nn-check-row-extra textarea.nn-ci-notes {
+      width: 100%; max-width: 100%; min-height: 48px; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 6px; font-size: 13px; box-sizing: border-box; resize: vertical;
+    }
+    .nn-check-row-extra input.nn-ci-due { width: 160px; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 6px; font-size: 13px; box-sizing: border-box; }
+    .nn-check-row button { flex-shrink: 0; padding: 6px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
+    .nn-start-shortcuts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .nn-start-shortcuts button { padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
+
+    #nn-startup-overlay {
+      display: none; position: fixed; inset: 0; z-index: 10000;
+      background: linear-gradient(160deg, #e8f0fe 0%, #f8f9fa 45%, #fff 100%);
+      flex-direction: column; align-items: center; justify-content: flex-start;
+      padding: 24px 16px 32px; box-sizing: border-box; overflow: auto;
+    }
+    .nn-startup-inner { width: 100%; max-width: 520px; margin: 0 auto; }
+    .nn-startup-inner > h2 { margin: 0 0 8px; font-size: 22px; color: #174ea6; }
+    .nn-startup-lead { margin: 0 0 20px; font-size: 14px; color: #5f6368; }
+    .nn-startup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 480px) { .nn-startup-grid { grid-template-columns: 1fr; } }
+    .nn-su-card {
+      border: 1px solid #dadce0; border-radius: 14px; padding: 20px 14px;
+      background: #fff; text-align: center; cursor: pointer; min-height: 120px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+      font-size: 15px; font-weight: 600; color: #202124;
+    }
+    .nn-su-card:hover { border-color: #1a73e8; box-shadow: 0 2px 8px rgba(26,115,232,0.2); }
+    .nn-su-card .nn-su-ico { font-size: 36px; line-height: 1; }
+    .nn-su-card small { font-weight: 400; font-size: 12px; color: #5f6368; display: block; margin-top: 4px; }
+    .nn-startup-back {
+      margin-bottom: 16px; padding: 8px 14px; border: 1px solid #dadce0; border-radius: 8px;
+      background: #fff; cursor: pointer; font-size: 14px;
+    }
+    .nn-quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    @media (max-width: 480px) { .nn-quick-grid { grid-template-columns: 1fr; } }
+    .nn-quick-tile {
+      border: 1px solid #dadce0; border-radius: 14px; padding: 22px 12px;
+      background: #fff; text-align: center; cursor: pointer;
+      min-height: 100px; font-size: 14px; font-weight: 600;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    }
+    .nn-quick-tile:hover { border-color: #1a73e8; background: #f8fbff; }
+    .nn-quick-tile .nn-su-ico { font-size: 32px; }
+    .nn-quick-panel {
+      display: none; border: 1px solid #dadce0; border-radius: 12px; padding: 14px;
+      background: #fff; margin-top: 8px;
+    }
+    .nn-quick-panel.active { display: block; }
+    .nn-quick-panel textarea {
+      width: 100%; min-height: 100px; box-sizing: border-box; padding: 10px;
+      border: 1px solid #dadce0; border-radius: 8px; font-size: 14px;
+    }
+    #nn-quick-sketch-wrap { position: relative; background: #fafafa; border-radius: 8px; padding: 8px; }
+    .nn-quick-sketch-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 2;
+      margin: 0;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #202124;
+      letter-spacing: 0.03em;
+      pointer-events: none;
+      user-select: none;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+    #nn-quick-sketch { display: block; position: relative; z-index: 1; max-width: 100%; height: auto; touch-action: none;
+      background: #fff; border: 1px solid #ccc; border-radius: 6px; cursor: crosshair; }
+    .nn-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .nn-quick-actions button { padding: 8px 14px; border-radius: 8px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
+    .nn-quick-actions button.nn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    #nn-quick-dest-modal {
+      display: none; position: fixed; inset: 0; z-index: 10001; background: rgba(0,0,0,0.45);
+      align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
+    }
+    #nn-quick-dest-modal.nn-show { display: flex; }
+    .nn-quick-dest-box {
+      background: #fff; border-radius: 14px; padding: 20px; max-width: 420px; width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .nn-quick-dest-box h3 { margin: 0 0 14px; font-size: 17px; }
+    .nn-dest-row { margin-bottom: 12px; }
+    .nn-dest-row label { display: block; font-size: 12px; color: #5f6368; margin-bottom: 4px; }
+    .nn-dest-row input[type="text"], .nn-dest-row select { width: 100%; padding: 8px; box-sizing: border-box; border-radius: 6px; border: 1px solid #dadce0; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://unpkg.com/dexie@4.0.10/dist/dexie.min.js"></script>
+</head>
+<body>
+
+  <div id="loader"><span id="loader-text">読み込み中...</span></div>
+
+  <div id="nn-startup-overlay" aria-label="起動メニュー">
+    <div class="nn-startup-inner">
+      <div id="nn-startup-main">
+        <h2>NiceNotes</h2>
+        <p class="nn-startup-lead">起動時の操作を選んでください</p>
+        <div class="nn-startup-grid">
+          <button type="button" class="nn-su-card" id="nn-su-quick-task">
+            <span class="nn-su-ico">⚡</span>
+            今すぐタスク入力
+            <small>音声・手書き・キーボード</small>
+          </button>
+          <button type="button" class="nn-su-card" id="nn-su-pdf-work">
+            <span class="nn-su-ico">📝</span>
+            PDFノート書き込み
+            <small>前回のPDFをバックグラウンドで準備</small>
+          </button>
+          <button type="button" class="nn-su-card" id="nn-su-task-home">
+            <span class="nn-su-ico">☑️</span>
+            タスクホーム
+            <small>一覧・同期</small>
+          </button>
+          <button type="button" class="nn-su-card" id="nn-su-pdf-home">
+            <span class="nn-su-ico">📁</span>
+            PDFノートホーム
+            <small>資料ワークスペース</small>
+          </button>
+        </div>
+      </div>
+      <div id="nn-startup-quick" style="display:none">
+        <button type="button" class="nn-startup-back" id="nn-su-back">← 戻る</button>
+        <h2>今すぐタスク入力</h2>
+        <p class="nn-startup-lead">入力方法を選んでください</p>
+        <div class="nn-quick-grid">
+          <button type="button" class="nn-quick-tile" id="nn-quick-voice" data-panel="nn-quick-panel-speech">
+            <span class="nn-su-ico">🎤</span>音声入力
+            <small>Web Speech API</small>
+          </button>
+          <button type="button" class="nn-quick-tile" id="nn-quick-rec" data-panel="nn-quick-panel-record">
+            <span class="nn-su-ico">🎙️</span>音声メモ
+            <small>録音→Drive保存</small>
+          </button>
+          <button type="button" class="nn-quick-tile" id="nn-quick-ink" data-panel="nn-quick-panel-sketch">
+            <span class="nn-su-ico">✍️</span>手書き認識
+            <small>Google手書きAPI</small>
+          </button>
+          <button type="button" class="nn-quick-tile" id="nn-quick-key" data-panel="nn-quick-panel-keyboard">
+            <span class="nn-su-ico">⌨️</span>キーボード
+          </button>
+        </div>
+        <div id="nn-quick-panel-speech" class="nn-quick-panel">
+          <p style="margin:0 0 8px; font-size:12px; color:#5f6368;">Chrome 等でマイク許可が必要です（ja-JP）。</p>
+          <textarea id="nn-quick-speech-ta" placeholder="話した内容がここに入ります"></textarea>
+          <div class="nn-quick-actions">
+            <button type="button" id="nn-quick-speech-start">聞き取り開始</button>
+            <button type="button" id="nn-quick-speech-stop">停止</button>
+            <button type="button" class="nn-primary" id="nn-quick-speech-dest">入力完了 → 宛先へ</button>
+          </div>
+        </div>
+        <div id="nn-quick-panel-record" class="nn-quick-panel">
+          <p style="margin:0 0 8px; font-size:12px; color:#5f6368;"><span id="nn-quick-rec-status">録音準備OK</span></p>
+          <div class="nn-quick-actions">
+            <button type="button" id="nn-quick-rec-start">録音開始</button>
+            <button type="button" id="nn-quick-rec-stop">停止してDriveに保存</button>
+          </div>
+          <textarea id="nn-quick-rec-note" placeholder="メモ（任意・タスク本文に追加）"></textarea>
+          <div class="nn-quick-actions">
+            <button type="button" class="nn-primary" id="nn-quick-rec-dest" disabled>宛先へ（先にDrive保存）</button>
+          </div>
+        </div>
+        <div id="nn-quick-panel-sketch" class="nn-quick-panel">
+          <div id="nn-quick-sketch-wrap" aria-label="手書き記入欄">
+            <span class="nn-quick-sketch-label">記入欄</span>
+            <canvas id="nn-quick-sketch" width="600" height="220" aria-label="ここに手書きしてください"></canvas>
+          </div>
+          <div class="nn-quick-actions">
+            <button type="button" id="nn-quick-sk-clear">クリア</button>
+            <button type="button" id="nn-quick-sk-recog">文字認識</button>
+            <button type="button" class="nn-primary" id="nn-quick-sk-dest">入力完了 → 宛先へ</button>
+          </div>
+        </div>
+        <div id="nn-quick-panel-keyboard" class="nn-quick-panel">
+          <textarea id="nn-quick-key-ta" placeholder="タスク内容を入力"></textarea>
+          <div class="nn-quick-actions">
+            <button type="button" class="nn-primary" id="nn-quick-key-dest">入力完了 → 宛先へ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="nn-quick-dest-modal" aria-modal="true" role="dialog">
+    <div class="nn-quick-dest-box">
+      <h3>タスクの宛先</h3>
+      <div class="nn-dest-row">
+        <label><input type="radio" name="nn-dest-mode" value="inbox" checked> インボックス（プロジェクト未分類・見出し「インボックス」）</label>
+      </div>
+      <div class="nn-dest-row">
+        <label><input type="radio" name="nn-dest-mode" value="project"> プロジェクトを指定</label>
+      </div>
+      <div id="nn-dest-project-fields" style="display:none">
+        <div class="nn-dest-row">
+          <label for="nn-dest-project-select">既存プロジェクト</label>
+          <select id="nn-dest-project-select"><option value="">（選ぶか下に手入力）</option></select>
+        </div>
+        <div class="nn-dest-row">
+          <label for="nn-dest-project-custom">プロジェクト名（手入力）</label>
+          <input type="text" id="nn-dest-project-custom" placeholder="例: 開発">
+        </div>
+        <div class="nn-dest-row">
+          <label for="nn-dest-heading">見出し（任意）</label>
+          <input type="text" id="nn-dest-heading" placeholder="空欄可">
+        </div>
+      </div>
+      <div class="nn-quick-actions" style="margin-top:16px">
+        <button type="button" id="nn-dest-cancel">キャンセル</button>
+        <button type="button" class="nn-primary" id="nn-dest-save">タスクを作成</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="color-palette-popover"></div>
+
+  <div id="add-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-tabs">
+        <div class="modal-tab active" data-tab="folder" onclick="switchModalTab('folder')">📁 フォルダ追加</div>
+        <div class="modal-tab" data-tab="pdf" onclick="switchModalTab('pdf')">📄 PDFインポート</div>
+      </div>
+      <div id="panel-folder" class="modal-panel active">
+        <p style="font-size:14px; color:#555;">共有フォルダや個人のGoogle DriveフォルダのURL（またはID）を入力してワークスペースに登録します。</p>
+        <input type="text" id="input-folder-id" class="input-field-meet" placeholder="フォルダのURL または ID" autocomplete="off">
+        <div class="radio-group-meet">
+          <label><input type="radio" name="folder-type" value="personal" checked> 個人フォルダ（自分だけが見る）</label>
+          <label><input type="radio" name="folder-type" value="org"> 組織/共有フォルダ（他者から共有されたもの）</label>
+        </div>
+        <div style="text-align:right; margin-top:20px;">
+          <button type="button" class="file-btn-meet" onclick="closeAddModal()">キャンセル</button>
+          <button type="button" class="btn-meeting-action" onclick="submitAddFolder()">登録する</button>
+        </div>
+      </div>
+      <div id="panel-pdf" class="modal-panel">
+        <div class="notice-meet">
+          ℹ️ オリジナルのPDFは編集されません。<br>指定したPDFは自動的に管理フォルダへ複製され、そちらを安全に編集・共有する仕様となっています。
+        </div>
+        <p style="font-size:14px; color:#555;">Google Drive上のPDFのURL（またはID）を入力してください。</p>
+        <input type="text" id="input-pdf-id" class="input-field-meet" placeholder="PDFのURL または ID" autocomplete="off">
+        <div style="text-align:right; margin-top:20px;">
+          <button type="button" class="file-btn-meet" onclick="closeAddModal()">キャンセル</button>
+          <button type="button" class="btn-meeting-action" onclick="submitAddPdf()">複製して取り込む</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="home-screen">
+    <div class="home-header">
+      <h2>📁 会議資料ワークスペース</h2>
+      <button type="button" onclick="closeHome()" id="btn-close-home" style="display:none; background:#e8eaed; border:none; padding:8px 15px; cursor:pointer;">✕ ビューアに戻る</button>
+    </div>
+    <div class="home-content">
+      <div class="quick-access">
+        <div class="meeting-card">
+          <h3>🕒 前回開いたファイル</h3>
+          <div id="last-opened-container" style="font-size: 14px; color: #666;">（記録がありません）</div>
+        </div>
+        <div class="meeting-card">
+          <h3>⭐ お気に入り</h3>
+          <div id="favorites-container" style="font-size: 14px; color: #666; max-height: 100px; overflow-y: auto;">（お気に入りはありません）</div>
+        </div>
+      </div>
+      <div class="explorer">
+        <div class="explorer-toolbar">
+          <button type="button" class="btn-meeting-action" style="background:#0f9d58;" onclick="openAddModal()">➕ データ追加</button>
+          <span style="color:#aaa; font-size:12px;">|</span>
+          <button type="button" class="file-btn-meet" onclick="loadFolderTree(true)">🔄 ツリーを最新に更新</button>
+          <label style="margin:0 0 0 10px; display:inline;">並び替え:</label>
+          <select id="sort-type-meet" onchange="renderFilesMeet()">
+            <option value="updated">更新日時 (新しい順)</option>
+            <option value="created">作成日時 (新しい順)</option>
+            <option value="name">ファイル名 (A-Z)</option>
+          </select>
+          <button type="button" onclick="toggleSortOrderMeet()" id="btn-sort-order-meet">🔽</button>
+          <span id="tree-status" style="margin-left: auto; font-size: 12px; color: #888;"></span>
+        </div>
+        <div class="explorer-body">
+          <div class="folder-tree" id="folder-tree-container"></div>
+          <div class="file-list" id="file-list-container">
+            <div style="padding: 20px; color: #888;">← 左のフォルダを選択してください</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="toolbar">
+    <div class="tool-group">
+      <button type="button" class="nn-mode-btn active-mode" id="btn-mode-pdf" onclick="setAppMode('pdf')">PDF</button>
+      <button type="button" class="nn-mode-btn" id="btn-mode-tasks" onclick="setAppMode('tasks')">タスク</button>
+    </div>
+    <div class="tool-group">
+      <button type="button" style="background:#e8eaed; border:none; font-weight:bold;" onclick="showHomeMeet()">🏠 ホーム</button>
+      <button type="button" id="btn-favorite" onclick="toggleFavoriteMeet()" style="background:transparent; border:none; font-size:18px;" title="お気に入り登録">☆</button>
+      <select id="role-select" onchange="applyRoleMeet()">
+        <option value="participant">📝 個人メモ（自分だけに見える）</option>
+        <option value="presenter">📢 発表者（全員に共有される）</option>
+      </select>
+    </div>
+    <div class="tool-group" id="pdf-legacy-tools">
+      <select id="folder-select" onchange="fetchFileList()">
+        <option value="seamless">シームレス管理</option>
+        <option value="single">個別ビューア</option>
+      </select>
+      <select id="file-select" onchange="onFileDropdownChanged()"></select>
+    </div>
+    
+    <div class="tool-group page-nav">
+      <button onclick="changePage(-1)">＜</button>
+      <span id="page-indicator">0/0</span>
+      <button onclick="changePage(1)">＞</button>
+    </div>
+
+    <div class="tool-group">
+      <div><label>色</label><input type="color" id="pen-color" value="#000000"></div>
+      <div>
+        <label>太さ</label>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <input type="range" id="pen-width-slider" min="0" max="100" value="38" oninput="updateWidthFromSlider()">
+          <input type="number" id="pen-width-input" min="0.5" max="30" step="0.1" value="5.0" oninput="updateWidthFromInput()">
+        </div>
+      </div>
+      <div><label>透明度</label><input type="range" id="pen-opacity" min="0.1" max="1.0" step="0.1" value="1.0"></div>
+    </div>
+
+    <div class="tool-group">
+      <button id="btn-pen" class="active-tool" onclick="setTool('pen')">ペン</button>
+      <button id="btn-eraser" onclick="setTool('eraser')">消しゴム</button>
+      <button id="btn-laser" onclick="setTool('laser')">レーザー</button>
+    </div>
+
+    <div class="tool-group">
+      <button style="background:#f4b400; color:white; border:none;" onclick="recognizeCurrentPageText()">文字起こし</button>
+      <button style="background:#1a73e8; color:white; border:none;" onclick="saveToServer()">手動保存</button>
+      <button style="background:#0f9d58; color:white; border:none;" onclick="exportFile()">出力</button>
+    </div>
+    
+    <div id="status">初期化中...</div>
+  </div>
+
+  <div id="viewer-container">
+    <div id="scroll-spacer">
+      <div id="page-wrapper">
+        <canvas id="bg-canvas"></canvas>
+        <canvas id="draw-canvas"></canvas>
+        <div id="my-laser" class="laser-dot"></div>
+        <div id="host-frame"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="nn-panel" aria-label="NiceNotes tasks">
+    <div id="nn-banner" role="status">
+      <span id="nn-banner-text">サーバー側のデータが更新されています。</span>
+      <button type="button" onclick="nnPullServerOverwrite()">サーバーを取り込む</button>
+      <button type="button" onclick="document.getElementById('nn-banner').style.display='none'">閉じる</button>
+    </div>
+    <div id="nn-subbar">
+      <button type="button" class="nn-primary" onclick="nnShowNewTaskForm()">＋ 新規タスク</button>
+      <button type="button" onclick="nnFlushQueue()">同期</button>
+      <span id="nn-pending-badge"></span>
+      <span id="nn-online-badge" class="online">接続: 確認中</span>
+    </div>
+    <div id="nn-editor" style="display:none">
+      <div><label for="nn-f-title">タイトル</label><input type="text" id="nn-f-title" autocomplete="off"></div>
+      <div><label for="nn-f-project">プロジェクト</label><input type="text" id="nn-f-project" autocomplete="off"></div>
+      <div><label for="nn-f-heading">見出し</label><input type="text" id="nn-f-heading" autocomplete="off"></div>
+      <div>
+        <label for="nn-f-start">開始（When / YYYY-MM-DD・空で「いつでも」）</label>
+        <input type="text" id="nn-f-start" placeholder="空欄 or 2026-05-12" autocomplete="off">
+        <div class="nn-start-shortcuts">
+          <button type="button" onclick="nnSetStartToday()">今日</button>
+          <button type="button" onclick="nnClearStart()">いつでもにする</button>
+        </div>
+      </div>
+      <div><label for="nn-f-due">期限（YYYY-MM-DD）</label><input type="text" id="nn-f-due" placeholder="2026-05-20" autocomplete="off"></div>
+      <div>
+        <label for="nn-f-repeat">繰り返し（ルーティーン）</label>
+        <select id="nn-f-repeat">
+          <option value="">なし</option>
+          <option value="daily">毎日</option>
+          <option value="weekly">毎週</option>
+          <option value="monthly">毎月</option>
+          <option value="yearly">毎年</option>
+        </select>
+      </div>
+      <div>
+        <label>チェックリスト</label>
+        <div id="nn-checklist-rows"></div>
+        <button type="button" onclick="nnAddChecklistRow()">＋ 項目を追加</button>
+      </div>
+      <div><label for="nn-f-notes">メモ</label><textarea id="nn-f-notes"></textarea></div>
+      <div id="nn-editor-actions">
+        <button type="button" class="nn-primary" onclick="nnSaveEditor()">保存</button>
+        <button type="button" onclick="nnHideEditor()">キャンセル</button>
+      </div>
+    </div>
+    <div id="nn-task-list"></div>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+    const viewerContainer = document.getElementById('viewer-container');
+    const scrollSpacer = document.getElementById('scroll-spacer');
+    const pageWrapper = document.getElementById('page-wrapper');
+    const bgCanvas = document.getElementById('bg-canvas');
+    const drawCanvas = document.getElementById('draw-canvas');
+    const drawCtx = drawCanvas.getContext('2d');
+    const statusDiv = document.getElementById('status');
+    const pageIndicator = document.getElementById('page-indicator');
+    const myLaserDot = document.getElementById('my-laser');
+    
+    const folderSelect = document.getElementById('folder-select');
+    const fileSelect = document.getElementById('file-select');
+    const loader = document.getElementById('loader');
+    const loaderText = document.getElementById('loader-text');
+    
+    const widthSlider = document.getElementById('pen-width-slider');
+    const widthInput = document.getElementById('pen-width-input');
+    
+    const dpr = window.devicePixelRatio || 1;
+
+    const roleSelect = document.getElementById('role-select');
+    const hostFrame = document.getElementById('host-frame');
+    const homeScreen = document.getElementById('home-screen');
+    const btnFavorite = document.getElementById('btn-favorite');
+    const btnCloseHome = document.getElementById('btn-close-home');
+    const colorPopover = document.getElementById('color-palette-popover');
+
+    let sharedStrokesByPage = {};
+    let localStrokesByPage = {};
+    let currentUserRole = 'participant';
+    let syncIntervalTimer = null;
+    let lastStrokeTime = Date.now();
+    let lastLocalStrokeTime = 0;
+    let treeData = { folders: [], files: [], folderColors: {} };
+    let currentFolderId = null;
+    let sortOrderMeet = -1;
+    let legacyFolderNavActive = false;
+    let currentStroke = null;
+
+    const PASTEL_PALETTE = [
+      '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E8BAFF',
+      '#FFC4E1', '#C4FAF8', '#F5E6CC', '#333333', '#FFFFFF', '#BDBDBD'
+    ];
+
+    let currentFileId = null;
+    let fileName = "document.pdf";
+    let fileType = 'pdf';
+    let originalPdfBytes = null;
+    window.nnPdfPreload = null;
+    let pdfDocJs = null;
+    let currentImageObj = null;
+
+    let currentPageNum = 1;
+    let totalPages = 0;
+
+    let currentTool = 'pen';
+    let isDrawing = false;
+    let baseWidth = 0; let baseHeight = 0;
+
+    const activePointers = new Map();
+    let isPanning = false; let lastPanX = 0; let lastPanY = 0;
+    let currentScale = 1.0; let initialPinchDist = 0; let initialScale = 1.0;
+    let pinchFocusX = 0; let pinchFocusY = 0;
+
+    const MIN_WIDTH = 0.5; const MAX_WIDTH = 30.0;
+    function updateWidthFromSlider() {
+      const t = parseFloat(widthSlider.value) / 100;
+      widthInput.value = (MIN_WIDTH + (MAX_WIDTH - MIN_WIDTH) * (t * t)).toFixed(1);
+    }
+    function updateWidthFromInput() {
+      let val = parseFloat(widthInput.value);
+      if (isNaN(val)) return;
+      if (val < MIN_WIDTH) val = MIN_WIDTH; if (val > MAX_WIDTH) val = MAX_WIDTH;
+      widthSlider.value = Math.round(Math.sqrt((val - MIN_WIDTH) / (MAX_WIDTH - MIN_WIDTH)) * 100);
+    }
+
+    function stopMeetSync() {
+      if (syncIntervalTimer) {
+        clearInterval(syncIntervalTimer);
+        syncIntervalTimer = null;
+      }
+    }
+
+    window.onload = function () {
+      applyRoleMeet();
+      showLoader('システムを初期設定中...');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          hideLoader();
+          if (res && res.success) {
+            renderQuickAccess();
+            loadFolderTree(false);
+            nnPreloadLastPdfInBackground();
+            startupWireMainMenu();
+            showStartupGate();
+          } else {
+            alert((res && res.error) ? res.error : '初期化に失敗しました');
+            fetchFileList();
+          }
+        })
+        .withFailureHandler(function () {
+          hideLoader();
+          fetchFileList();
+        })
+        .initializeApp();
+    };
+    function showLoader(text) { loaderText.textContent = text; loader.style.display = 'flex'; }
+    function hideLoader() { loader.style.display = 'none'; }
+
+    function openAddModal() { document.getElementById('add-modal').style.display = 'flex'; }
+    function closeAddModal() { document.getElementById('add-modal').style.display = 'none'; }
+    function switchModalTab(tabName) {
+      document.querySelectorAll('.modal-tab').forEach(function (t) { t.classList.remove('active'); });
+      document.querySelectorAll('.modal-panel').forEach(function (p) { p.classList.remove('active'); });
+      var tabEl = document.querySelector('.modal-tab[data-tab="' + tabName + '"]');
+      if (tabEl) tabEl.classList.add('active');
+      var panel = document.getElementById('panel-' + tabName);
+      if (panel) panel.classList.add('active');
+    }
+    function submitAddFolder() {
+      var input = document.getElementById('input-folder-id').value;
+      var isOrg = document.querySelector('input[name="folder-type"]:checked').value === 'org';
+      if (!input) return alert('URLまたはIDを入力してください。');
+      showLoader('フォルダを確認中...');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          hideLoader();
+          if (res && res.success) {
+            alert('✅ フォルダをワークスペースに追加しました！');
+            closeAddModal();
+            document.getElementById('input-folder-id').value = '';
+            loadFolderTree(true);
+          } else {
+            alert((res && res.error) ? res.error : '登録に失敗しました');
+          }
+        })
+        .registerFolder(input, isOrg);
+    }
+    function submitAddPdf() {
+      var input = document.getElementById('input-pdf-id').value;
+      if (!input) return alert('URLまたはIDを入力してください。');
+      showLoader('PDFを複製して取り込み中...');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          hideLoader();
+          if (res && res.success) {
+            alert('✅ PDFを取り込みました。\n（複製ファイル名: ' + (res.newFileName || '') + '）');
+            closeAddModal();
+            document.getElementById('input-pdf-id').value = '';
+            loadFolderTree(true);
+          } else {
+            alert((res && res.error) ? res.error : '取り込みに失敗しました');
+          }
+        })
+        .importPdf(input);
+    }
+
+    function openColorPalette(e, folderId) {
+      e.stopPropagation();
+      colorPopover.innerHTML = '';
+      PASTEL_PALETTE.forEach(function (color) {
+        var btn = document.createElement('div');
+        btn.className = 'palette-color';
+        btn.style.backgroundColor = color;
+        btn.onclick = function (event) {
+          event.stopPropagation();
+          changeFolderColor(folderId, color);
+          colorPopover.style.display = 'none';
+        };
+        colorPopover.appendChild(btn);
+      });
+      colorPopover.style.display = 'grid';
+      colorPopover.style.left = e.clientX + 10 + 'px';
+      colorPopover.style.top = e.clientY + 'px';
+    }
+    window.addEventListener('click', function () { colorPopover.style.display = 'none'; });
+
+    function changeFolderColor(folderId, color) {
+      if (!treeData.folderColors) treeData.folderColors = {};
+      treeData.folderColors[folderId] = color;
+      renderFolders();
+      google.script.run.setFolderColor(folderId, color);
+    }
+
+    function showHomeMeet() {
+      stopMeetSync();
+      if (currentFileId) autoSaveCurrent(true);
+      if (btnCloseHome) btnCloseHome.style.display = currentFileId ? 'block' : 'none';
+      homeScreen.style.display = 'flex';
+      viewerContainer.style.display = 'none';
+      var nnPanel = document.getElementById('nn-panel');
+      if (nnPanel) nnPanel.style.display = 'none';
+      var pdfBtn = document.getElementById('btn-mode-pdf');
+      var taskBtn = document.getElementById('btn-mode-tasks');
+      if (pdfBtn && taskBtn && taskBtn.classList.contains('active-mode')) {
+        taskBtn.classList.remove('active-mode');
+        pdfBtn.classList.add('active-mode');
+      }
+      renderQuickAccess();
+    }
+
+    function closeHome() {
+      if (!currentFileId) return;
+      homeScreen.style.display = 'none';
+      viewerContainer.style.display = 'block';
+      applyRoleMeet();
+    }
+
+    function loadFolderTree(forceRefresh) {
+      var ts = document.getElementById('tree-status');
+      if (ts) ts.textContent = 'データ取得中...';
+      if (forceRefresh) showLoader('ドライブをスキャン中... (数秒かかります)');
+      google.script.run
+        .withSuccessHandler(function (data) {
+          if (forceRefresh) hideLoader();
+          treeData = data || { folders: [], files: [], folderColors: {} };
+          var lu = treeData.lastUpdated ? new Date(treeData.lastUpdated).toLocaleString() : '';
+          if (ts) ts.textContent = lu ? '最終更新: ' + lu : '';
+          renderFolders();
+        })
+        .getFolderTree(forceRefresh);
+    }
+
+    function renderFolders() {
+      var container = document.getElementById('folder-tree-container');
+      if (!container) return;
+      container.innerHTML = '';
+      var colors = treeData.folderColors || {};
+      (treeData.folders || []).forEach(function (f) {
+        var div = document.createElement('div');
+        div.className = 'folder-item' + (f.id === currentFolderId ? ' selected' : '');
+        var folderColor = colors[f.id] || '#ccc';
+        var label = document.createElement('div');
+        label.className = 'folder-label';
+        var dot = document.createElement('span');
+        dot.className = 'color-dot';
+        dot.style.backgroundColor = folderColor;
+        label.appendChild(dot);
+        label.appendChild(document.createTextNode(' 📁 ' + (f.name || '')));
+        label.addEventListener('click', function () { selectFolderMeet(f.id); });
+        var palBtn = document.createElement('button');
+        palBtn.type = 'button';
+        palBtn.className = 'btn-palette';
+        palBtn.title = '色を変更';
+        palBtn.textContent = '🎨';
+        palBtn.addEventListener('click', function (ev) { openColorPalette(ev, f.id); });
+        div.appendChild(label);
+        div.appendChild(palBtn);
+        container.appendChild(div);
+      });
+      if (!currentFolderId && treeData.folders && treeData.folders.length > 0) {
+        currentFolderId = treeData.folders[0].id;
+        renderFolders();
+        renderFilesMeet();
+      }
+    }
+
+    function selectFolderMeet(id) {
+      currentFolderId = id;
+      renderFolders();
+      renderFilesMeet();
+    }
+
+    function toggleSortOrderMeet() {
+      sortOrderMeet *= -1;
+      var btn = document.getElementById('btn-sort-order-meet');
+      if (btn) btn.textContent = sortOrderMeet === -1 ? '🔽' : '🔼';
+      renderFilesMeet();
+    }
+
+    function renderFilesMeet() {
+      var container = document.getElementById('file-list-container');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!currentFolderId) return;
+      var sortEl = document.getElementById('sort-type-meet');
+      var sortType = sortEl ? sortEl.value : 'updated';
+      var files = (treeData.files || []).filter(function (f) { return f.folderId === currentFolderId; });
+      files.sort(function (a, b) {
+        var valA = sortType === 'name' ? String(a.name || '').toLowerCase() : a[sortType];
+        var valB = sortType === 'name' ? String(b.name || '').toLowerCase() : b[sortType];
+        if (valA < valB) return -1 * sortOrderMeet;
+        if (valA > valB) return 1 * sortOrderMeet;
+        return 0;
+      });
+      if (files.length === 0) {
+        container.innerHTML = '<div style="padding:10px;color:#888;">ファイルがありません</div>';
+        return;
+      }
+      files.forEach(function (f) {
+        var div = document.createElement('div');
+        div.className = 'file-item';
+        var nameEl = document.createElement('div');
+        nameEl.className = 'file-name';
+        nameEl.textContent = '📄 ' + (f.name || '');
+        var meta = document.createElement('div');
+        meta.className = 'file-meta';
+        var dateSpan = document.createElement('span');
+        dateSpan.textContent = '更新: ' + new Date(f.updated).toLocaleDateString();
+        var openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = 'file-btn-meet';
+        openBtn.textContent = '開く';
+        openBtn.onclick = function () { openFileFromHome(f.id, f.name); };
+        meta.appendChild(dateSpan);
+        meta.appendChild(openBtn);
+        div.appendChild(nameEl);
+        div.appendChild(meta);
+        container.appendChild(div);
+      });
+    }
+
+    function renderQuickAccess() {
+      var lastStr = localStorage.getItem('last_opened_file');
+      var lastContainer = document.getElementById('last-opened-container');
+      if (lastContainer) {
+        if (lastStr) {
+          try {
+            var last = JSON.parse(lastStr);
+            lastContainer.innerHTML = '';
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'file-btn-meet';
+            b.style.cssText = 'background:#e8f0fe;color:#1a73e8;border-color:#1a73e8;';
+            b.textContent = '📄 ' + (last.name || '');
+            b.onclick = function () { openFileFromHome(last.id, last.name); };
+            lastContainer.appendChild(b);
+          } catch (err) {
+            lastContainer.textContent = '（記録がありません）';
+          }
+        } else {
+          lastContainer.textContent = '（記録がありません）';
+        }
+      }
+      var favStr = localStorage.getItem('favorite_files');
+      var favContainer = document.getElementById('favorites-container');
+      if (!favContainer) return;
+      if (favStr) {
+        try {
+          var favs = JSON.parse(favStr);
+          if (favs.length > 0) {
+            favContainer.innerHTML = '';
+            favs.forEach(function (f) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'file-btn-meet';
+              btn.textContent = '⭐ ' + (f.name || '');
+              btn.onclick = function () { openFileFromHome(f.id, f.name); };
+              favContainer.appendChild(btn);
+            });
+          } else {
+            favContainer.textContent = '（お気に入りはありません）';
+          }
+        } catch (err2) {
+          favContainer.textContent = '（お気に入りはありません）';
+        }
+      } else {
+        favContainer.textContent = '（お気に入りはありません）';
+      }
+    }
+
+    function toggleFavoriteMeet() {
+      if (!currentFileId) return;
+      var favs = JSON.parse(localStorage.getItem('favorite_files') || '[]');
+      var idx = favs.findIndex(function (f) { return f.id === currentFileId; });
+      if (idx >= 0) {
+        favs.splice(idx, 1);
+        btnFavorite.style.color = '#ccc';
+        btnFavorite.innerHTML = '☆';
+      } else {
+        favs.push({ id: currentFileId, name: fileName });
+        btnFavorite.style.color = '#f4b400';
+        btnFavorite.innerHTML = '⭐';
+      }
+      localStorage.setItem('favorite_files', JSON.stringify(favs));
+    }
+
+    function updateFavoriteButtonStatus() {
+      var favs = JSON.parse(localStorage.getItem('favorite_files') || '[]');
+      var isFav = favs.some(function (f) { return f.id === currentFileId; });
+      btnFavorite.style.color = isFav ? '#f4b400' : '#ccc';
+      btnFavorite.innerHTML = isFav ? '⭐' : '☆';
+    }
+
+    function openFileFromHome(id, name) {
+      legacyFolderNavActive = false;
+      currentFileId = id;
+      fileName = name || 'document.pdf';
+      try {
+        localStorage.setItem('last_opened_file', JSON.stringify({ id: id, name: fileName }));
+      } catch (e) {}
+      updateFavoriteButtonStatus();
+      homeScreen.style.display = 'none';
+      viewerContainer.style.display = 'block';
+      var nnPanel = document.getElementById('nn-panel');
+      if (nnPanel) nnPanel.style.display = 'none';
+      var pdfBtn = document.getElementById('btn-mode-pdf');
+      var taskBtn = document.getElementById('btn-mode-tasks');
+      if (pdfBtn && taskBtn && taskBtn.classList.contains('active-mode')) {
+        taskBtn.classList.remove('active-mode');
+        pdfBtn.classList.add('active-mode');
+      }
+      loadSelectedFile(false, false);
+    }
+
+    function applyRoleMeet() {
+      stopMeetSync();
+      currentUserRole = roleSelect.value;
+      roleSelect.className = 'role-' + currentUserRole;
+      drawCanvas.style.pointerEvents = 'auto';
+      hostFrame.style.display = 'none';
+      if (currentUserRole === 'presenter') {
+        statusDiv.textContent = '📢 共有モード';
+        syncIntervalTimer = setInterval(pushMeetingState, 2000);
+      } else {
+        statusDiv.textContent = '📝 個人メモモード';
+        syncIntervalTimer = setInterval(pullMeetingState, 2500);
+      }
+    }
+
+    function pushMeetingState() {
+      if (!currentFileId) return;
+      var state = {
+        fileId: currentFileId,
+        fileName: fileName,
+        pageNum: currentPageNum,
+        docX: viewerContainer.scrollLeft / currentScale,
+        docY: viewerContainer.scrollTop / currentScale,
+        docW: viewerContainer.clientWidth / currentScale,
+        docH: viewerContainer.clientHeight / currentScale,
+        strokeTime: lastStrokeTime
+      };
+      google.script.run.updateMeetingState(JSON.stringify(state));
+    }
+
+    function pullMeetingState() {
+      google.script.run
+        .withSuccessHandler(async function (res) {
+          if (!res) return;
+          var state = JSON.parse(res);
+          if (state.fileId && state.fileId !== currentFileId) {
+            openFileFromHome(state.fileId, state.fileName || 'document.pdf');
+            return;
+          }
+          if (state.pageNum && state.pageNum !== currentPageNum && currentFileId) {
+            currentPageNum = state.pageNum;
+            await renderPage(currentPageNum);
+          }
+          if (baseWidth > 0 && baseHeight > 0 && homeScreen.style.display === 'none') {
+            hostFrame.style.display = 'block';
+            hostFrame.style.left = state.docX + 'px';
+            hostFrame.style.top = state.docY + 'px';
+            hostFrame.style.width = state.docW + 'px';
+            hostFrame.style.height = state.docH + 'px';
+          }
+          if (state.strokeTime > lastLocalStrokeTime) {
+            lastLocalStrokeTime = state.strokeTime;
+            reloadStrokesSilently();
+          }
+        })
+        .getMeetingState();
+    }
+
+    function reloadStrokesSilently() {
+      if (!fileName) return;
+      var baseName = fileName.replace(/\.[^/.]+$/, '');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
+          redraw();
+        })
+        .loadAnnotation(baseName);
+    }
+
+    function fetchFileList() {
+      var mode = folderSelect.value;
+      showLoader('ファイル一覧を取得中...');
+      legacyFolderNavActive = true;
+      homeScreen.style.display = 'none';
+      viewerContainer.style.display = 'block';
+      google.script.run
+        .withSuccessHandler(function (list) {
+          if (list && list.error) {
+            alert('エラー: ' + list.error);
+            hideLoader();
+            return;
+          }
+          if (!list || list.length === 0) {
+            fileSelect.innerHTML = '<option>ファイルなし</option>';
+            hideLoader();
+            return;
+          }
+          fileSelect.innerHTML = '';
+          list.forEach(function (file) {
+            var option = document.createElement('option');
+            option.value = file.id;
+            option.text = file.name;
+            fileSelect.appendChild(option);
+          });
+          loadSelectedFile(false, false, true);
+        })
+        .getFileList(mode);
+    }
+
+    function onFileDropdownChanged() {
+      autoSaveCurrent(true);
+      loadSelectedFile(false, false, true);
+    }
+
+    function nnHasAnyStrokes(obj) {
+      if (!obj || typeof obj !== 'object') return false;
+      return Object.keys(obj).some(function (k) {
+        var a = obj[k];
+        return Array.isArray(a) && a.length > 0;
+      });
+    }
+
+    function autoSaveCurrent(silent) {
+      if (!currentFileId || !fileName) return;
+      var baseName = fileName.replace(/\.[^/.]+$/, '');
+      if (currentUserRole === 'presenter') {
+        if (!nnHasAnyStrokes(sharedStrokesByPage)) return;
+        var json = JSON.stringify(sharedStrokesByPage);
+        if (!silent) statusDiv.textContent = '保存中...';
+        google.script.run
+          .withSuccessHandler(function () {
+            if (!silent) statusDiv.textContent = '共有保存完了';
+          })
+          .saveAnnotation(baseName, json);
+      } else {
+        if (!nnHasAnyStrokes(localStrokesByPage)) return;
+        var jsonL = JSON.stringify(localStrokesByPage);
+        localStorage.setItem('local_memo_' + baseName, jsonL);
+        if (!silent) statusDiv.textContent = 'メモ保存完了';
+      }
+    }
+
+    function loadSelectedFile(goToLastPage, silent, fromDropdown) {
+      if (fromDropdown === undefined) fromDropdown = false;
+      if (silent === undefined) silent = false;
+      if (goToLastPage === undefined) goToLastPage = false;
+
+      if (fromDropdown) {
+        legacyFolderNavActive = true;
+        currentFileId = fileSelect.value;
+        if (!currentFileId) return;
+        fileName = fileSelect.options[fileSelect.selectedIndex].text;
+      } else if (!currentFileId) {
+        return;
+      }
+
+      var baseName = fileName.replace(/\.[^/.]+$/, '');
+      var ext = fileName.split('.').pop().toLowerCase();
+      fileType = ext === 'jpg' || ext === 'jpeg' || ext === 'png' ? 'image' : 'pdf';
+
+      if (!silent) showLoader('ファイルを開いています...');
+      google.script.run
+        .withSuccessHandler(function (base64Data) {
+          if (base64Data && base64Data.error) {
+            alert('エラー: ' + base64Data.error);
+            hideLoader();
+            return;
+          }
+          (async function () {
+            try {
+              if (fileType === 'pdf') {
+                var binaryString = window.atob(base64Data);
+                var bytes = new Uint8Array(binaryString.length);
+                for (var i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+                originalPdfBytes = bytes.buffer;
+                pdfDocJs = await pdfjsLib.getDocument(bytes).promise;
+                totalPages = pdfDocJs.numPages;
+              } else {
+                var mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+                currentImageObj = new Image();
+                await new Promise(function (resolve) {
+                  currentImageObj.onload = resolve;
+                  currentImageObj.src = 'data:' + mimeType + ';base64,' + base64Data;
+                });
+                totalPages = 1;
+              }
+
+              var maxPage = Math.max(1, totalPages);
+              if (!silent) {
+                currentPageNum = goToLastPage ? maxPage : 1;
+              } else {
+                currentPageNum = Math.min(Math.max(1, currentPageNum), maxPage);
+              }
+              var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
+              localStrokesByPage = savedLocalMemo ? JSON.parse(savedLocalMemo) : {};
+
+              google.script.run
+                .withSuccessHandler(async function (res) {
+                  if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
+                  else sharedStrokesByPage = {};
+                  if (!silent) {
+                    currentScale = 1.0;
+                    viewerContainer.scrollLeft = 0;
+                    viewerContainer.scrollTop = 0;
+                  }
+                  await renderPage(currentPageNum);
+                  hideLoader();
+                  updateFavoriteButtonStatus();
+                  applyRoleMeet();
+                })
+                .loadAnnotation(baseName);
+            } catch (err) {
+              console.error(err);
+              alert('読み込み失敗: ' + err.message);
+              hideLoader();
+            }
+          })();
+        })
+        .getFileData(currentFileId);
+    }
+
+    function nnPreloadLastPdfInBackground() {
+      window.nnPdfPreload = null;
+      var s = localStorage.getItem('last_opened_file');
+      if (!s) return;
+      try {
+        var last = JSON.parse(s);
+        if (!last || !last.id) return;
+        google.script.run
+          .withSuccessHandler(function (base64Data) {
+            if (!base64Data || (typeof base64Data === 'object' && base64Data.error)) return;
+            if (typeof base64Data === 'string') {
+              window.nnPdfPreload = {
+                id: last.id,
+                name: last.name || 'document.pdf',
+                base64: base64Data
+              };
+            }
+          })
+          .withFailureHandler(function () {
+            window.nnPdfPreload = null;
+          })
+          .getFileData(last.id);
+      } catch (e) {
+        window.nnPdfPreload = null;
+      }
+    }
+
+    function loadPdfFromBase64(base64Data, id, name, silent) {
+      silent = !!silent;
+      if (!base64Data || typeof base64Data !== 'string') {
+        alert('PDFデータがありません。');
+        return;
+      }
+      currentFileId = id;
+      fileName = name || 'document.pdf';
+      legacyFolderNavActive = false;
+      fileType = 'pdf';
+      var baseName = fileName.replace(/\.[^/.]+$/, '');
+      try {
+        localStorage.setItem('last_opened_file', JSON.stringify({ id: currentFileId, name: fileName }));
+      } catch (e) {}
+      if (!silent) showLoader('PDFを開いています...');
+      (async function () {
+        try {
+          var binaryString = window.atob(base64Data);
+          var bytes = new Uint8Array(binaryString.length);
+          for (var i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+          originalPdfBytes = bytes.buffer;
+          pdfDocJs = await pdfjsLib.getDocument(bytes).promise;
+          totalPages = pdfDocJs.numPages;
+          currentPageNum = 1;
+          var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
+          localStrokesByPage = savedLocalMemo ? JSON.parse(savedLocalMemo) : {};
+          google.script.run
+            .withSuccessHandler(async function (res) {
+              if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
+              else sharedStrokesByPage = {};
+              currentScale = 1.0;
+              viewerContainer.scrollLeft = 0;
+              viewerContainer.scrollTop = 0;
+              homeScreen.style.display = 'none';
+              viewerContainer.style.display = 'block';
+              var nnPanel = document.getElementById('nn-panel');
+              if (nnPanel) nnPanel.style.display = 'none';
+              var pdfBtn = document.getElementById('btn-mode-pdf');
+              var taskBtn = document.getElementById('btn-mode-tasks');
+              if (pdfBtn && taskBtn && taskBtn.classList.contains('active-mode')) {
+                taskBtn.classList.remove('active-mode');
+                pdfBtn.classList.add('active-mode');
+              }
+              await renderPage(currentPageNum);
+              hideLoader();
+              updateFavoriteButtonStatus();
+              applyRoleMeet();
+            })
+            .loadAnnotation(baseName);
+        } catch (err) {
+          console.error(err);
+          alert('読み込み失敗: ' + err.message);
+          hideLoader();
+        }
+      })();
+    }
+
+    function showStartupGate() {
+      var el = document.getElementById('nn-startup-overlay');
+      if (!el) return;
+      el.style.display = 'flex';
+      var main = document.getElementById('nn-startup-main');
+      var quick = document.getElementById('nn-startup-quick');
+      if (main) main.style.display = 'block';
+      if (quick) quick.style.display = 'none';
+      document.querySelectorAll('.nn-quick-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+    }
+
+    function hideStartupGate() {
+      var el = document.getElementById('nn-startup-overlay');
+      if (el) el.style.display = 'none';
+    }
+
+    function startupChoosePdfWork() {
+      hideStartupGate();
+      setAppMode('pdf');
+      if (window.nnPdfPreload && window.nnPdfPreload.base64) {
+        loadPdfFromBase64(window.nnPdfPreload.base64, window.nnPdfPreload.id, window.nnPdfPreload.name, false);
+      } else {
+        var s = localStorage.getItem('last_opened_file');
+        if (s) {
+          try {
+            var last = JSON.parse(s);
+            if (last && last.id) {
+              openFileFromHome(last.id, last.name || 'document.pdf');
+              return;
+            }
+          } catch (e2) {}
+        }
+        showHomeMeet();
+      }
+    }
+
+    function startupChooseTaskHome() {
+      hideStartupGate();
+      homeScreen.style.display = 'none';
+      viewerContainer.style.display = 'none';
+      setAppMode('tasks');
+    }
+
+    function startupChoosePdfHome() {
+      hideStartupGate();
+      showHomeMeet();
+    }
+
+    function startupWireMainMenu() {
+      var q = document.getElementById('nn-su-quick-task');
+      if (q) {
+        q.addEventListener('click', function () {
+          document.getElementById('nn-startup-main').style.display = 'none';
+          document.getElementById('nn-startup-quick').style.display = 'block';
+          document.querySelectorAll('.nn-quick-panel').forEach(function (p) {
+            p.classList.remove('active');
+          });
+        });
+      }
+      var pw = document.getElementById('nn-su-pdf-work');
+      if (pw) pw.addEventListener('click', startupChoosePdfWork);
+      var th = document.getElementById('nn-su-task-home');
+      if (th) th.addEventListener('click', startupChooseTaskHome);
+      var ph = document.getElementById('nn-su-pdf-home');
+      if (ph) ph.addEventListener('click', startupChoosePdfHome);
+      var back = document.getElementById('nn-su-back');
+      if (back) {
+        back.addEventListener('click', function () {
+          document.getElementById('nn-startup-quick').style.display = 'none';
+          document.getElementById('nn-startup-main').style.display = 'block';
+        });
+      }
+    }
+
+    async function renderPage(pageNum) {
+      statusDiv.textContent = 'レンダリング中...';
+      if (!sharedStrokesByPage[pageNum]) sharedStrokesByPage[pageNum] = [];
+      if (!localStrokesByPage[pageNum]) localStrokesByPage[pageNum] = [];
+
+      var bgCtx = bgCanvas.getContext('2d');
+
+      if (fileType === 'pdf') {
+        var page = await pdfDocJs.getPage(pageNum);
+        var viewport = page.getViewport({ scale: 1.5 });
+        baseWidth = viewport.width;
+        baseHeight = viewport.height;
+        setSizeAndScale(bgCtx);
+        await page.render({ canvasContext: bgCtx, viewport: viewport }).promise;
+      } else {
+        baseWidth = currentImageObj.width;
+        baseHeight = currentImageObj.height;
+        setSizeAndScale(bgCtx);
+        bgCtx.drawImage(currentImageObj, 0, 0, baseWidth, baseHeight);
+      }
+
+      if (legacyFolderNavActive && fileSelect.options.length > 0) {
+        var fileIdx = fileSelect.selectedIndex + 1;
+        var fileTotal = fileSelect.options.length;
+        pageIndicator.innerHTML =
+          '<span style="font-size:10px;">📄 ' + fileIdx + '/' + fileTotal + '</span><br>Pg ' + pageNum + '/' + totalPages;
+      } else {
+        pageIndicator.innerHTML = 'Pg ' + pageNum + '/' + totalPages;
+      }
+      statusDiv.textContent = '書込み可 (x' + currentScale.toFixed(1) + ')';
+      redraw();
+    }
+
+    function setSizeAndScale(bgCtx) {
+      scrollSpacer.style.width = (baseWidth * currentScale) + 'px';
+      scrollSpacer.style.height = (baseHeight * currentScale) + 'px';
+      pageWrapper.style.width = baseWidth + 'px';
+      pageWrapper.style.height = baseHeight + 'px';
+
+      [bgCanvas, drawCanvas].forEach(function (canvas) {
+        canvas.width = baseWidth * dpr;
+        canvas.height = baseHeight * dpr;
+        canvas.style.width = baseWidth + 'px';
+        canvas.style.height = baseHeight + 'px';
+      });
+      bgCtx.scale(dpr, dpr);
+      drawCtx.scale(dpr, dpr);
+    }
+
+    async function changePage(delta) {
+      var allowLegacyNav = legacyFolderNavActive;
+      var newPage = currentPageNum + delta;
+
+      if (newPage >= 1 && newPage <= totalPages) {
+        if (!allowLegacyNav && currentUserRole !== 'presenter') {
+          statusDiv.textContent = 'ページ送りは発表者モードでのみ利用できます';
+          return;
+        }
+        currentPageNum = newPage;
+        await renderPage(currentPageNum);
+        return;
+      }
+
+      if (allowLegacyNav && newPage > totalPages) {
+        var nextIdx = fileSelect.selectedIndex + 1;
+        if (nextIdx < fileSelect.options.length) {
+          autoSaveCurrent(true);
+          fileSelect.selectedIndex = nextIdx;
+          loadSelectedFile(false, false, true);
+        } else {
+          statusDiv.textContent = 'フォルダの最後です';
+        }
+        return;
+      }
+
+      if (allowLegacyNav && newPage < 1) {
+        var prevIdx = fileSelect.selectedIndex - 1;
+        if (prevIdx >= 0) {
+          autoSaveCurrent(true);
+          fileSelect.selectedIndex = prevIdx;
+          loadSelectedFile(true, false, true);
+        } else {
+          statusDiv.textContent = 'フォルダの最初です';
+        }
+        return;
+      }
+
+      if (!allowLegacyNav) {
+        statusDiv.textContent = delta > 0 ? '最終ページです' : '先頭ページです';
+      }
+    }
+
+    function setTool(tool) {
+      currentTool = tool;
+      document.getElementById('btn-pen').classList.toggle('active-tool', tool === 'pen');
+      document.getElementById('btn-eraser').classList.toggle('active-tool', tool === 'eraser');
+      document.getElementById('btn-laser').classList.toggle('active-tool', tool === 'laser');
+      if(tool !== 'laser') myLaserDot.style.display = 'none';
+    }
+
+    function getScaledCoords(e) {
+      const rect = drawCanvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) / currentScale,
+        y: (e.clientY - rect.top) / currentScale,
+        p: e.pressure,
+        t: Date.now()
+      };
+    }
+
+    function getTargetStrokesArray() {
+      if (currentUserRole === 'presenter') {
+        if (!sharedStrokesByPage[currentPageNum]) sharedStrokesByPage[currentPageNum] = [];
+        return sharedStrokesByPage[currentPageNum];
+      }
+      if (!localStrokesByPage[currentPageNum]) localStrokesByPage[currentPageNum] = [];
+      return localStrokesByPage[currentPageNum];
+    }
+
+    drawCanvas.addEventListener('pointerdown', (e) => {
+      activePointers.set(e.pointerId, e);
+      if (e.pointerType === 'touch') {
+        if (activePointers.size === 1) { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; } 
+        else if (activePointers.size === 2) {
+          isPanning = false; const pts = Array.from(activePointers.values());
+          initialPinchDist = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);
+          initialScale = currentScale; const rect = viewerContainer.getBoundingClientRect();
+          const midX = (pts[0].clientX + pts[1].clientX) / 2; const midY = (pts[0].clientY + pts[1].clientY) / 2;
+          pinchFocusX = (viewerContainer.scrollLeft + midX - rect.left) / currentScale;
+          pinchFocusY = (viewerContainer.scrollTop + midY - rect.top) / currentScale;
+        }
+        return;
+      }
+      if (e.buttons === 0) return;
+      const isHardwareEraser = (e.buttons === 32 || e.button === 5);
+      const activeTool = isHardwareEraser ? 'eraser' : currentTool;
+      const pt = getScaledCoords(e);
+      if (activeTool === 'laser') { myLaserDot.style.display = 'block'; myLaserDot.style.left = pt.x + 'px'; myLaserDot.style.top = pt.y + 'px'; return; }
+      
+      isDrawing = true;
+      if (activeTool === 'pen') {
+        currentStroke = { color: document.getElementById('pen-color').value, opacity: parseFloat(document.getElementById('pen-opacity').value), width: parseFloat(widthInput.value), points: [pt] };
+        getTargetStrokesArray().push(currentStroke);
+      } else eraseStroke(pt);
+    });
+
+    drawCanvas.addEventListener('pointermove', (e) => {
+      if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, e);
+      if (e.pointerType === 'touch') {
+        if (activePointers.size === 1 && isPanning) {
+          viewerContainer.scrollLeft -= (e.clientX - lastPanX); viewerContainer.scrollTop -= (e.clientY - lastPanY);
+          lastPanX = e.clientX; lastPanY = e.clientY;
+        } else if (activePointers.size === 2) {
+          const pts = Array.from(activePointers.values());
+          const currentDist = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);
+          currentScale = Math.min(Math.max(0.5, initialScale * (currentDist / initialPinchDist)), 4.0);
+          scrollSpacer.style.width = (baseWidth * currentScale) + "px"; scrollSpacer.style.height = (baseHeight * currentScale) + "px";
+          pageWrapper.style.transform = `scale(${currentScale})`;
+          const rect = viewerContainer.getBoundingClientRect();
+          viewerContainer.scrollLeft = (pinchFocusX * currentScale) - ((pts[0].clientX + pts[1].clientX) / 2 - rect.left);
+          viewerContainer.scrollTop = (pinchFocusY * currentScale) - ((pts[0].clientY + pts[1].clientY) / 2 - rect.top);
+        }
+        return;
+      }
+      if (e.pointerType !== 'pen') return;
+      const pt = getScaledCoords(e);
+      const isHardwareEraser = (e.buttons === 32 || e.button === 5);
+      const activeTool = isHardwareEraser ? 'eraser' : currentTool;
+      if (activeTool === 'laser') { myLaserDot.style.display = 'block'; myLaserDot.style.left = pt.x + 'px'; myLaserDot.style.top = pt.y + 'px'; return; }
+      if (!isDrawing || e.buttons === 0) return;
+      if (activeTool === 'pen') { currentStroke.points.push(pt); redraw(); } else eraseStroke(pt);
+    });
+
+    function handlePointerEnd(e) {
+      activePointers.delete(e.pointerId);
+      if (currentTool === 'laser') myLaserDot.style.display = 'none';
+      if (activePointers.size === 0) {
+        if (isDrawing) {
+          lastStrokeTime = Date.now();
+          autoSaveCurrent(true);
+        }
+        isPanning = false;
+        isDrawing = false;
+      } else if (activePointers.size === 1 && e.pointerType === 'touch') {
+        const remaining = Array.from(activePointers.values())[0];
+        lastPanX = remaining.clientX; lastPanY = remaining.clientY; isPanning = true;
+      }
+    }
+    ['pointerup', 'pointercancel', 'pointerleave', 'pointerout'].forEach(evt => drawCanvas.addEventListener(evt, handlePointerEnd));
+    window.addEventListener('pointerup', handlePointerEnd);
+
+    function eraseStroke(point) {
+      const threshold = 15;
+      const filterFn = function (stroke) {
+        return !stroke.points.some(function (p) { return Math.hypot(p.x - point.x, p.y - point.y) < threshold; });
+      };
+      if (currentUserRole === 'presenter') {
+        sharedStrokesByPage[currentPageNum] = (sharedStrokesByPage[currentPageNum] || []).filter(filterFn);
+      } else {
+        localStrokesByPage[currentPageNum] = (localStrokesByPage[currentPageNum] || []).filter(filterFn);
+      }
+      redraw();
+    }
+
+    function drawStrokesToContext(ctx, strokesArray, clearRect) {
+      if (clearRect) ctx.clearRect(0, 0, baseWidth, baseHeight);
+      if (!strokesArray || !strokesArray.length) return;
+      strokesArray.forEach(stroke => {
+        if (stroke.points.length < 2) return;
+        ctx.beginPath(); ctx.strokeStyle = stroke.color; ctx.globalAlpha = stroke.opacity; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          const p = stroke.points[i];
+          ctx.lineWidth = stroke.width * (0.5 + p.p * 0.5);
+          ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x, p.y);
+        }
+      });
+      ctx.globalAlpha = 1.0;
+    }
+
+    function redraw() {
+      drawCtx.clearRect(0, 0, drawCanvas.width / dpr, drawCanvas.height / dpr);
+      if (sharedStrokesByPage[currentPageNum]) drawStrokesToContext(drawCtx, sharedStrokesByPage[currentPageNum], false);
+      if (localStrokesByPage[currentPageNum]) drawStrokesToContext(drawCtx, localStrokesByPage[currentPageNum], false);
+    }
+
+    function saveToServer() {
+      if (!fileName) return alert('ファイルが開かれていません。');
+      autoSaveCurrent(false);
+    }
+
+    function recognizeCurrentPageText() {
+      const shared = sharedStrokesByPage[currentPageNum] || [];
+      const local = localStrokesByPage[currentPageNum] || [];
+      const combinedStrokes = shared.concat(local);
+      if (combinedStrokes.length === 0) {
+        alert('このページに手書きがありません。');
+        return;
+      }
+      showLoader('文字起こしを実行中...');
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      combinedStrokes.forEach(function (s) {
+        s.points.forEach(function (p) {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        });
+      });
+      const scale = Math.min(600 / Math.max(maxX - minX, 1), 300 / Math.max(maxY - minY, 1));
+      const apiInk = [];
+      combinedStrokes.forEach(function (s) {
+        if (!s.points || s.points.length === 0) return;
+        const xArr = [], yArr = [], tArr = [];
+        s.points.forEach(function (p, i) {
+          xArr.push(Math.round((p.x - minX) * scale));
+          yArr.push(Math.round((p.y - minY) * scale));
+          tArr.push(p.t != null ? p.t : i * 50);
+        });
+        apiInk.push([xArr, yArr, tArr]);
+      });
+
+      google.script.run
+        .withSuccessHandler(function (text) {
+          hideLoader();
+          if (text) {
+            prompt('文字起こしの結果です。コピーしてご利用ください:', text);
+          } else {
+            alert('文字を認識できませんでした。');
+          }
+        })
+        .withFailureHandler(function (err) {
+          hideLoader();
+          alert('サーバーとの通信エラーが発生しました: ' + err.message);
+        })
+        .recognizeSentence(apiInk);
+    }
+
+    async function exportFile() {
+      if (fileType === 'pdf') {
+        if (!originalPdfBytes) return alert("PDFがありません。");
+        showLoader("PDFを合成・生成中...");
+        try {
+          const { PDFDocument } = PDFLib;
+          const pdfDoc = await PDFDocument.load(originalPdfBytes);
+          const offCanvas = document.createElement('canvas'); const offCtx = offCanvas.getContext('2d');
+          offCanvas.width = baseWidth * dpr; offCanvas.height = baseHeight * dpr; offCtx.scale(dpr, dpr);
+
+          for (let i = 1; i <= totalPages; i++) {
+            const pageStrokes = (sharedStrokesByPage[i] || []).concat(localStrokesByPage[i] || []);
+            if (!pageStrokes || pageStrokes.length === 0) continue;
+            drawStrokesToContext(offCtx, pageStrokes, true);
+            const pngImage = await pdfDoc.embedPng(offCanvas.toDataURL('image/png'));
+            const pdfPage = pdfDoc.getPage(i - 1);
+            pdfPage.drawImage(pngImage, { x: 0, y: 0, width: pdfPage.getWidth(), height: pdfPage.getHeight() });
+          }
+
+          const pdfBytes = await pdfDoc.save();
+          triggerDownload(new Blob([pdfBytes], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, "") + "_annotated.pdf");
+          hideLoader();
+        } catch (error) { console.error(error); alert("生成失敗: " + error.message); hideLoader(); }
+        
+      } else {
+        showLoader("画像を合成・生成中...");
+        try {
+          const offCanvas = document.createElement('canvas'); const offCtx = offCanvas.getContext('2d');
+          offCanvas.width = baseWidth * dpr; offCanvas.height = baseHeight * dpr; offCtx.scale(dpr, dpr);
+          offCtx.drawImage(currentImageObj, 0, 0, baseWidth, baseHeight);
+          
+          const imgCombined = (sharedStrokesByPage[1] || []).concat(localStrokesByPage[1] || []);
+          if (imgCombined.length > 0) drawStrokesToContext(offCtx, imgCombined, false);
+
+          const outMime = fileName.toLowerCase().endsWith('png') ? 'image/png' : 'image/jpeg';
+          offCanvas.toBlob((blob) => {
+            triggerDownload(blob, fileName.replace(/\.[^/.]+$/, "") + "_annotated." + outMime.split('/')[1]);
+            hideLoader();
+          }, outMime, 0.95);
+        } catch (error) { console.error(error); alert("生成失敗: " + error.message); hideLoader(); }
+      }
+    }
+
+    function triggerDownload(blob, downloadName) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url;
+      a.download = downloadName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+
+    function setAppMode(mode) {
+      const pdfBtn = document.getElementById('btn-mode-pdf');
+      const taskBtn = document.getElementById('btn-mode-tasks');
+      const viewer = document.getElementById('viewer-container');
+      const nnPanel = document.getElementById('nn-panel');
+      if (!pdfBtn || !taskBtn || !viewer || !nnPanel) return;
+      if (mode === 'tasks') {
+        stopMeetSync();
+        pdfBtn.classList.remove('active-mode');
+        taskBtn.classList.add('active-mode');
+        viewer.style.display = 'none';
+        nnPanel.style.display = 'flex';
+        if (homeScreen) homeScreen.style.display = 'none';
+        if (typeof window.nnPhase3Init === 'function') window.nnPhase3Init();
+      } else {
+        taskBtn.classList.remove('active-mode');
+        pdfBtn.classList.add('active-mode');
+        nnPanel.style.display = 'none';
+        if (homeScreen) homeScreen.style.display = 'none';
+        viewer.style.display = 'block';
+        if (currentFileId) applyRoleMeet();
+      }
+    }
+  </script>
+
+  <script>
+    (function () {
+      const nnDb = new Dexie('NiceNotesPhase3');
+      nnDb.version(1).stores({
+        tasks: 'id, updatedAt, project, heading, status',
+        pendingOps: '++seq',
+        meta: 'key'
+      });
+
+      function nnIsGas() {
+        return typeof google !== 'undefined' && google.script && google.script.run;
+      }
+
+      function nnUuid() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+          const r = (Math.random() * 16) | 0;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      }
+
+      function nnNormalizeCheckItems(arr) {
+        if (!Array.isArray(arr)) return [];
+        return arr.map(function (ci) {
+          const o = {
+            id: ci && ci.id != null && String(ci.id).trim() ? String(ci.id) : '',
+            text: ci && ci.text != null ? String(ci.text) : '',
+            isDone: !!(ci && ci.isDone)
+          };
+          if (ci && ci.googleTaskId != null && String(ci.googleTaskId).trim()) {
+            o.googleTaskId = String(ci.googleTaskId).trim();
+          }
+          if (ci && ci.notes != null && String(ci.notes).trim()) {
+            o.notes = String(ci.notes);
+          }
+          if (ci && ci.dueDate != null && String(ci.dueDate).trim()) {
+            o.dueDate = String(ci.dueDate).trim();
+          }
+          return o;
+        });
+      }
+
+      function nnTodayYmd() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + day;
+      }
+
+      function nnAdvanceRepeatDue(ymd, rule) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
+        const base = m
+          ? new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10))
+          : new Date();
+        switch (rule) {
+          case 'daily':
+            base.setDate(base.getDate() + 1);
+            break;
+          case 'weekly':
+            base.setDate(base.getDate() + 7);
+            break;
+          case 'monthly':
+            base.setMonth(base.getMonth() + 1);
+            break;
+          case 'yearly':
+            base.setFullYear(base.getFullYear() + 1);
+            break;
+          default:
+            return ymd || nnTodayYmd();
+        }
+        const y = base.getFullYear();
+        const mo = String(base.getMonth() + 1).padStart(2, '0');
+        const day = String(base.getDate()).padStart(2, '0');
+        return y + '-' + mo + '-' + day;
+      }
+
+      function nnRepeatRuleLabel(rule) {
+        switch (rule) {
+          case 'daily':
+            return '毎日';
+          case 'weekly':
+            return '毎週';
+          case 'monthly':
+            return '毎月';
+          case 'yearly':
+            return '毎年';
+          default:
+            return '';
+        }
+      }
+
+      var NN_BUCKET_RANK = { today: 0, scheduled: 1, anytime: 2, past: 3 };
+
+      function nnStartBucket(t) {
+        const s = t.startDate;
+        if (s == null || s === '') return 'anytime';
+        const today = nnTodayYmd();
+        if (s === today) return 'today';
+        if (s < today) return 'past';
+        return 'scheduled';
+      }
+
+      function nnBucketTitle(b) {
+        switch (b) {
+          case 'today':
+            return '今日';
+          case 'scheduled':
+            return '予定';
+          case 'past':
+            return '開始日が過去';
+          case 'anytime':
+            return 'いつでも';
+          default:
+            return b;
+        }
+      }
+
+      function nnNormalizeRepeatRule(v) {
+        const s = v == null ? '' : String(v).trim();
+        if (!s || s === 'none') return '';
+        if (['daily', 'weekly', 'monthly', 'yearly'].indexOf(s) >= 0) return s;
+        return '';
+      }
+
+      function nnNormalizeTask(t) {
+        const x = t || {};
+        return {
+          id: String(x.id || '').trim() || nnUuid(),
+          area: x.area != null ? String(x.area) : '',
+          project: x.project != null ? String(x.project) : '',
+          heading: x.heading != null ? String(x.heading) : '',
+          title: x.title != null ? String(x.title) : '',
+          notes: x.notes != null ? String(x.notes) : '',
+          status: x.status === 'completed' || x.status === 'canceled' ? x.status : 'active',
+          startDate: x.startDate == null || x.startDate === '' ? null : String(x.startDate),
+          dueDate: x.dueDate == null || x.dueDate === '' ? null : String(x.dueDate),
+          checkItems: nnNormalizeCheckItems(x.checkItems),
+          updatedAt: x.updatedAt != null ? String(x.updatedAt) : '',
+          sortOrder: typeof x.sortOrder === 'number' && !isNaN(x.sortOrder) ? x.sortOrder : 1024,
+          completedAt: x.completedAt == null || x.completedAt === '' ? null : String(x.completedAt),
+          googleTaskId: x.googleTaskId != null ? String(x.googleTaskId) : '',
+          calendarEventId: x.calendarEventId != null ? String(x.calendarEventId) : '',
+          repeatRule: nnNormalizeRepeatRule(x.repeatRule)
+        };
+      }
+
+      function nnFingerprintTasks(list) {
+        const arr = list.map(function (t) {
+          return { i: t.id, u: t.updatedAt || '' };
+        });
+        arr.sort(function (a, b) {
+          return a.i.localeCompare(b.i);
+        });
+        return JSON.stringify(arr);
+      }
+
+      function nnEnsureCheckItemIds(task) {
+        (task.checkItems || []).forEach(function (ci) {
+          if (!ci.id || !String(ci.id).trim()) ci.id = nnUuid();
+        });
+      }
+
+      function nnCollectCheckItemsFromEditor() {
+        const host = document.getElementById('nn-checklist-rows');
+        if (!host) return [];
+        const out = [];
+        host.querySelectorAll('.nn-check-row').forEach(function (row) {
+          const main = row.querySelector('.nn-check-row-main') || row;
+          const cb = main.querySelector('input[type="checkbox"]');
+          const tx = main.querySelector('input[type="text"]');
+          const text = tx ? tx.value.trim() : '';
+          if (!text) return;
+          let id = row.getAttribute('data-cid');
+          if (!id || !id.trim()) {
+            id = nnUuid();
+            row.setAttribute('data-cid', id);
+          }
+          const ta = row.querySelector('textarea.nn-ci-notes');
+          const dd = row.querySelector('input.nn-ci-due');
+          const notes = ta ? ta.value.trim() : '';
+          const dueRaw = dd ? dd.value.trim() : '';
+          const o = { id: id, text: text, isDone: !!(cb && cb.checked) };
+          if (notes) o.notes = notes;
+          if (dueRaw) o.dueDate = dueRaw;
+          out.push(o);
+        });
+        return out;
+      }
+
+      function nnAppendChecklistRow(text, isDone, cid, notes, dueDate) {
+        const host = document.getElementById('nn-checklist-rows');
+        if (!host) return;
+        const row = document.createElement('div');
+        row.className = 'nn-check-row';
+        const id = cid && String(cid).trim() ? String(cid) : nnUuid();
+        row.setAttribute('data-cid', id);
+        row.innerHTML =
+          '<div class="nn-check-row-main">' +
+          '<input type="checkbox">' +
+          '<input type="text" placeholder="項目テキスト" autocomplete="off">' +
+          '<button type="button">削除</button></div>' +
+          '<div class="nn-check-row-extra">' +
+          '<label>説明（任意）<textarea class="nn-ci-notes" rows="2" placeholder="サブタスクのメモ"></textarea></label>' +
+          '<label>期限（任意・YYYY-MM-DD）<input type="text" class="nn-ci-due" placeholder="2026-05-12" autocomplete="off"></label></div>';
+        const main = row.querySelector('.nn-check-row-main');
+        const cb = main.querySelector('input[type="checkbox"]');
+        const tx = main.querySelector('input[type="text"]');
+        cb.checked = !!isDone;
+        tx.value = text || '';
+        const ta = row.querySelector('textarea.nn-ci-notes');
+        const di = row.querySelector('input.nn-ci-due');
+        if (ta) ta.value = notes || '';
+        if (di) di.value = dueDate || '';
+        row.querySelector('button').addEventListener('click', function () {
+          row.remove();
+        });
+        host.appendChild(row);
+      }
+
+      function nnFillChecklistEditor(items) {
+        const host = document.getElementById('nn-checklist-rows');
+        if (!host) return;
+        host.innerHTML = '';
+        const arr = nnNormalizeCheckItems(items || []);
+        arr.forEach(function (ci) {
+          if (!(ci.text || '').trim()) return;
+          nnAppendChecklistRow(ci.text, ci.isDone, ci.id, ci.notes || '', ci.dueDate || '');
+        });
+      }
+
+      window.nnAddChecklistRow = function nnAddChecklistRow() {
+        nnAppendChecklistRow('', false, '', '', '');
+      };
+
+      window.nnSetStartToday = function nnSetStartToday() {
+        const el = document.getElementById('nn-f-start');
+        if (el) el.value = nnTodayYmd();
+      };
+
+      window.nnClearStart = function nnClearStart() {
+        const el = document.getElementById('nn-f-start');
+        if (el) el.value = '';
+      };
+
+      function nnUpdateOnlineBadge() {
+        const el = document.getElementById('nn-online-badge');
+        if (!el) return;
+        if (navigator.onLine) {
+          el.textContent = nnIsGas() ? '接続: オンライン' : '接続: GAS 外（ローカル表示のみ）';
+          el.className = 'online';
+        } else {
+          el.textContent = '接続: オフライン（キュー後送り）';
+          el.className = 'offline';
+        }
+      }
+
+      async function nnUpdateSyncBadge() {
+        const el = document.getElementById('nn-pending-badge');
+        if (!el) return;
+        const n = await nnDb.pendingOps.count();
+        el.textContent = n ? '未送信 ' + n + ' 件' : '';
+      }
+
+      async function nnQueueOp(op) {
+        try {
+          await nnDb.open();
+          await nnDb.pendingOps.add({ op: op });
+          await nnUpdateSyncBadge();
+          await nnFlushQueue();
+        } catch (e) {
+          console.error('nnQueueOp', e);
+          alert(
+            '変更は画面には反映済みですが、オフライン用キュー（IndexedDB）へ保存できませんでした。同期されない可能性があります。ストレージの空き・サイト設定を確認し、「同期」を再度試してください。\n\n' +
+              (e && e.message ? e.message : String(e))
+          );
+        }
+      }
+
+      async function nnApplyBatchResults(rows, results) {
+        const resultsArr = results || [];
+        const problemLines = [];
+        for (let i = 0; i < rows.length; i++) {
+          const r = resultsArr[i];
+          if (r && r.status === 'ok') {
+            await nnDb.pendingOps.delete(rows[i].seq);
+            if (r.task) await nnDb.tasks.put(nnNormalizeTask(r.task));
+          } else {
+            const idHint = r && r.id ? ' (id: ' + r.id + ')' : '';
+            if (r && r.status === 'conflict') {
+              problemLines.push((r.error || 'NN_E conflict') + idHint);
+            } else {
+              problemLines.push(
+                (r ? '予期しない応答: ' + (r.error || r.status || JSON.stringify(r)) : '結果行なし') + idHint
+              );
+            }
+          }
+        }
+        if (problemLines.length) {
+          let body = problemLines.slice(0, 5).join('\n');
+          if (problemLines.length > 5) {
+            body += '\n…他 ' + (problemLines.length - 5) + ' 件';
+          }
+          alert(
+            '次の変更はサーバーで適用できませんでした。失敗した操作はキューに残しています。内容を直すか「サーバーを取り込む」で整合を確認したうえで「同期」を再度試してください。\n\n' +
+              body
+          );
+        }
+        return problemLines.length > 0;
+      }
+
+      window.nnFlushQueue = async function nnFlushQueue() {
+        nnUpdateOnlineBadge();
+        if (!nnIsGas() || !navigator.onLine) return;
+        try {
+          await nnDb.open();
+        } catch (e) {
+          return;
+        }
+        let drain = 0;
+        while (drain < 25) {
+          drain++;
+          const rows = await nnDb.pendingOps.orderBy('seq').toArray();
+          if (!rows.length) break;
+          const ops = rows.map(function (r) {
+            return r.op;
+          });
+          const hadProblems = await new Promise(function (resolve) {
+            google.script.run
+              .withSuccessHandler(function (res) {
+                nnApplyBatchResults(rows, (res && res.results) || [])
+                  .then(resolve)
+                  .catch(function () {
+                    resolve(true);
+                  });
+              })
+              .withFailureHandler(function (err) {
+                console.error(err);
+                alert(
+                  '同期エラー: ' +
+                    (err && err.message ? err.message : String(err)) +
+                    '\n\nキューはクリアしていません。「同期」で再試行するか、整合が取れない場合は「サーバーを取り込む」を検討してください。'
+                );
+                resolve(true);
+              })
+              .nn_batchSync(ops);
+          });
+          if (hadProblems) break;
+          const left = await nnDb.pendingOps.count();
+          if (left === 0) break;
+        }
+        await nnRecomputeFpFromDb();
+        await nnRenderTaskList();
+        await nnUpdateSyncBadge();
+      };
+
+      async function nnRecomputeFpFromDb() {
+        const all = await nnDb.tasks.toArray();
+        window.nnFpAtLastRender = nnFingerprintTasks(all);
+      }
+
+      async function nnRenderTaskList() {
+        const host = document.getElementById('nn-task-list');
+        if (!host) return;
+        const list = await nnDb.tasks.toArray();
+        list.sort(function (a, b) {
+          const ba = NN_BUCKET_RANK[nnStartBucket(a)];
+          const bb = NN_BUCKET_RANK[nnStartBucket(b)];
+          if (ba !== bb) return ba - bb;
+          const pj = (a.project || '').localeCompare(b.project || '');
+          if (pj !== 0) return pj;
+          const gh = (a.heading || '').localeCompare(b.heading || '');
+          if (gh !== 0) return gh;
+          return (a.sortOrder || 0) - (b.sortOrder || 0);
+        });
+        const structure = [];
+        list.forEach(function (t) {
+          const b = nnStartBucket(t);
+          let bg = null;
+          for (let i = 0; i < structure.length; i++) {
+            if (structure[i].bucket === b) {
+              bg = structure[i];
+              break;
+            }
+          }
+          if (!bg) {
+            bg = { bucket: b, subgroups: [] };
+            structure.push(bg);
+          }
+          const subKey = (t.project || '（プロジェクトなし）') + ' / ' + (t.heading || '（見出しなし）');
+          let sg = null;
+          for (let j = 0; j < bg.subgroups.length; j++) {
+            if (bg.subgroups[j].key === subKey) {
+              sg = bg.subgroups[j];
+              break;
+            }
+          }
+          if (!sg) {
+            sg = { key: subKey, items: [] };
+            bg.subgroups.push(sg);
+          }
+          sg.items.push(t);
+        });
+        host.innerHTML = '';
+        if (structure.length === 0) {
+          host.innerHTML = '<p style="color:#5f6368;">タスクがありません。「新規タスク」で追加するか、オンラインでサーバーから取り込んでください。</p>';
+          return;
+        }
+        structure.forEach(function (bucketGroup) {
+          const bh = document.createElement('div');
+          bh.className = 'nn-bucket-title';
+          bh.textContent = nnBucketTitle(bucketGroup.bucket);
+          host.appendChild(bh);
+          bucketGroup.subgroups.forEach(function (sg) {
+            const th = document.createElement('div');
+            th.className = 'nn-group-title';
+            th.textContent = sg.key;
+            host.appendChild(th);
+            sg.items.forEach(function (t) {
+              const card = document.createElement('div');
+              card.className = 'nn-task-card' + (t.status !== 'active' ? ' done' : '');
+              const done = t.status === 'completed' || t.status === 'canceled';
+              const canceled = t.status === 'canceled';
+              card.innerHTML =
+                '<input type="checkbox" data-nn-check ' +
+                (done ? 'checked ' : '') +
+                (canceled ? 'disabled ' : '') +
+                'aria-label="' +
+                (canceled ? 'キャンセル済み（一覧では変更できません）' : '完了') +
+                '">' +
+                '<div class="nn-task-body">' +
+                '<div class="nn-task-title"></div>' +
+                '<div class="nn-task-meta"></div></div>' +
+                '<div class="nn-task-actions">' +
+                '<button type="button" data-nn-edit>編集</button>' +
+                '<button type="button" class="nn-del" data-nn-del>削除</button></div>';
+              card.querySelector('.nn-task-title').textContent = t.title || '(無題)';
+              const whenPart = t.startDate ? '開始 ' + t.startDate : 'いつでも';
+              const duePart = t.dueDate ? '期限 ' + t.dueDate : '期限なし';
+              const rr = nnNormalizeRepeatRule(t.repeatRule);
+              const repPart = rr ? ' · 繰返:' + nnRepeatRuleLabel(rr) : '';
+              card.querySelector('.nn-task-meta').textContent = whenPart + ' · ' + duePart + repPart + ' · ' + (t.status || 'active');
+              const body = card.querySelector('.nn-task-body');
+              const itemsRaw = nnNormalizeCheckItems(t.checkItems).filter(function (ci) {
+                return (ci.text || '').trim();
+              });
+              if (itemsRaw.length) {
+                const doneN = itemsRaw.filter(function (ci) {
+                  return ci.isDone;
+                }).length;
+                const prog = document.createElement('div');
+                prog.className = 'nn-check-progress';
+                prog.textContent = 'チェック ' + doneN + '/' + itemsRaw.length;
+                body.appendChild(prog);
+                const ul = document.createElement('ul');
+                ul.className = 'nn-checklist-preview';
+                itemsRaw.forEach(function (ci, idx) {
+                  const li = document.createElement('li');
+                  const label = document.createElement('label');
+                  const inp = document.createElement('input');
+                  inp.type = 'checkbox';
+                  inp.checked = !!ci.isDone;
+                  const span = document.createElement('span');
+                  span.className = 'nn-ci-text' + (ci.isDone ? ' done' : '');
+                  let line = ci.text || '';
+                  if ((ci.dueDate || '').trim()) line += '（期限 ' + ci.dueDate + '）';
+                  span.textContent = line;
+                  inp.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                  });
+                  inp.addEventListener('change', function () {
+                    nnToggleCheckItem(t.id, inp.checked, idx);
+                  });
+                  label.appendChild(inp);
+                  label.appendChild(span);
+                  li.appendChild(label);
+                  ul.appendChild(li);
+                });
+                body.appendChild(ul);
+              }
+              const chk = card.querySelector('[data-nn-check]');
+              chk.addEventListener('change', function () {
+                nnToggleDone(t.id, chk.checked);
+              });
+              card.querySelector('[data-nn-edit]').addEventListener('click', function () {
+                nnOpenEditor(t.id);
+              });
+              card.querySelector('[data-nn-del]').addEventListener('click', function () {
+                nnDeleteTask(t.id);
+              });
+              host.appendChild(card);
+            });
+          });
+        });
+      }
+
+      async function nnToggleCheckItem(taskId, isDone, filteredIndex) {
+        const row = await nnDb.tasks.get(taskId);
+        if (!row) return;
+        const next = nnNormalizeTask(row);
+        const all = nnNormalizeCheckItems(next.checkItems);
+        const filteredOrig = [];
+        for (let i = 0; i < all.length; i++) {
+          if ((all[i].text || '').trim()) filteredOrig.push(i);
+        }
+        const oi = filteredOrig[filteredIndex];
+        if (oi === undefined) return;
+        all[oi].isDone = isDone;
+        if (!all[oi].id || !String(all[oi].id).trim()) all[oi].id = nnUuid();
+        next.checkItems = all;
+        nnEnsureCheckItemIds(next);
+        await nnDb.tasks.put(next);
+        await nnQueueOp({ type: 'upsert', task: next });
+        await nnRecomputeFpFromDb();
+        await nnRenderTaskList();
+      }
+
+      async function nnToggleDone(id, completed) {
+        const row = await nnDb.tasks.get(id);
+        if (!row) return;
+        const next = nnNormalizeTask(row);
+        if (next.status === 'canceled') {
+          await nnRenderTaskList();
+          return;
+        }
+        if (completed) {
+          const rr = nnNormalizeRepeatRule(next.repeatRule);
+          if (rr) {
+            const anchor = next.dueDate || nnTodayYmd();
+            next.dueDate = nnAdvanceRepeatDue(anchor, rr);
+            next.startDate = nnTodayYmd();
+            next.status = 'active';
+            next.completedAt = null;
+          } else {
+            next.status = 'completed';
+            next.completedAt = new Date().toISOString();
+          }
+        } else {
+          next.status = 'active';
+          next.completedAt = null;
+        }
+        nnEnsureCheckItemIds(next);
+        await nnDb.tasks.put(next);
+        await nnQueueOp({ type: 'upsert', task: next });
+        await nnRecomputeFpFromDb();
+        await nnRenderTaskList();
+      }
+
+      async function nnDeleteTask(id) {
+        if (!confirm('このタスクを削除しますか？')) return;
+        await nnDb.tasks.delete(id);
+        await nnQueueOp({ type: 'delete', id: id });
+        await nnRecomputeFpFromDb();
+        await nnRenderTaskList();
+      }
+
+      let nnEditingId = null;
+
+      window.nnShowNewTaskForm = function nnShowNewTaskForm() {
+        nnEditingId = null;
+        document.getElementById('nn-f-title').value = '';
+        document.getElementById('nn-f-project').value = '';
+        document.getElementById('nn-f-heading').value = '';
+        document.getElementById('nn-f-start').value = '';
+        document.getElementById('nn-f-due').value = '';
+        const rep = document.getElementById('nn-f-repeat');
+        if (rep) rep.value = '';
+        document.getElementById('nn-f-notes').value = '';
+        const cr = document.getElementById('nn-checklist-rows');
+        if (cr) cr.innerHTML = '';
+        document.getElementById('nn-editor').style.display = 'flex';
+      };
+
+      window.nnHideEditor = function nnHideEditor() {
+        document.getElementById('nn-editor').style.display = 'none';
+        nnEditingId = null;
+      };
+
+      async function nnOpenEditor(id) {
+        const row = await nnDb.tasks.get(id);
+        if (!row) return;
+        nnEditingId = id;
+        const t = nnNormalizeTask(row);
+        document.getElementById('nn-f-title').value = t.title;
+        document.getElementById('nn-f-project').value = t.project;
+        document.getElementById('nn-f-heading').value = t.heading;
+        document.getElementById('nn-f-start').value = t.startDate || '';
+        document.getElementById('nn-f-due').value = t.dueDate || '';
+        const rep = document.getElementById('nn-f-repeat');
+        if (rep) rep.value = t.repeatRule || '';
+        document.getElementById('nn-f-notes').value = t.notes;
+        nnFillChecklistEditor(t.checkItems);
+        document.getElementById('nn-editor').style.display = 'flex';
+      }
+
+      window.nnSaveEditor = async function nnSaveEditor() {
+        const title = document.getElementById('nn-f-title').value.trim();
+        if (!title) {
+          alert('タイトルは必須です。');
+          return;
+        }
+        let base = nnEditingId ? await nnDb.tasks.get(nnEditingId) : null;
+        const t = nnNormalizeTask(base || {});
+        if (!nnEditingId) t.id = nnUuid();
+        else t.id = nnEditingId;
+        t.title = title;
+        t.project = document.getElementById('nn-f-project').value.trim();
+        t.heading = document.getElementById('nn-f-heading').value.trim();
+        const startRaw = document.getElementById('nn-f-start').value.trim();
+        t.startDate = startRaw === '' ? null : startRaw;
+        const dueRaw = document.getElementById('nn-f-due').value.trim();
+        t.dueDate = dueRaw === '' ? null : dueRaw;
+        const repEl = document.getElementById('nn-f-repeat');
+        t.repeatRule = repEl ? nnNormalizeRepeatRule(repEl.value) : '';
+        t.notes = document.getElementById('nn-f-notes').value;
+        t.checkItems = nnCollectCheckItemsFromEditor();
+        if (t.status !== 'completed' && t.status !== 'canceled') t.status = 'active';
+        nnEnsureCheckItemIds(t);
+        await nnDb.tasks.put(t);
+        await nnQueueOp({ type: 'upsert', task: t });
+        nnHideEditor();
+        await nnRecomputeFpFromDb();
+        await nnRenderTaskList();
+      };
+
+      window.nnPullServerOverwrite = async function nnPullServerOverwrite() {
+        if (!nnIsGas()) {
+          alert('Web アプリ（GAS）として開いてください。');
+          return;
+        }
+        try {
+          await nnDb.open();
+        } catch (e) {
+          return;
+        }
+        const pending = await nnDb.pendingOps.count();
+        if (pending > 0) {
+          if (!confirm('未送信の変更が ' + pending + ' 件あります。サーバーで上書きするとキューはクリアされます。続行しますか？')) return;
+          await nnDb.pendingOps.clear();
+          await nnUpdateSyncBadge();
+        }
+        try {
+          const serverTasks = await new Promise(function (resolve, reject) {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).nn_getAllTasks();
+          });
+          await nnDb.tasks.clear();
+          for (let i = 0; i < serverTasks.length; i++) {
+            await nnDb.tasks.put(nnNormalizeTask(serverTasks[i]));
+          }
+          await nnRecomputeFpFromDb();
+          await nnDb.meta.put({ key: 'lastServerFp', value: window.nnFpAtLastRender });
+          document.getElementById('nn-banner').style.display = 'none';
+          await nnRenderTaskList();
+        } catch (e) {
+          alert('取得失敗: ' + (e && e.message ? e.message : String(e)));
+        }
+      };
+
+      async function nnBackgroundPull() {
+        if (!nnIsGas() || !navigator.onLine) return;
+        try {
+          await nnDb.open();
+        } catch (e) {
+          return;
+        }
+        const fpLocal = window.nnFpAtLastRender || '';
+        let serverTasks;
+        try {
+          serverTasks = await new Promise(function (resolve, reject) {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).nn_getAllTasks();
+          });
+        } catch (e) {
+          console.warn('nn_getAllTasks', e);
+          return;
+        }
+        const serverFp = nnFingerprintTasks(serverTasks);
+        const pending = await nnDb.pendingOps.count();
+        if (serverFp === fpLocal) return;
+        const ban = document.getElementById('nn-banner');
+        if (pending === 0) {
+          await nnDb.tasks.clear();
+          for (let i = 0; i < serverTasks.length; i++) {
+            await nnDb.tasks.put(nnNormalizeTask(serverTasks[i]));
+          }
+          await nnRecomputeFpFromDb();
+          await nnDb.meta.put({ key: 'lastServerFp', value: serverFp });
+          await nnRenderTaskList();
+        } else if (ban) {
+          ban.style.display = 'flex';
+        }
+      }
+
+      window.nnPhase3Init = async function nnPhase3Init() {
+        await nnDb.open();
+        nnUpdateOnlineBadge();
+        await nnRenderTaskList();
+        await nnRecomputeFpFromDb();
+        await nnUpdateSyncBadge();
+        nnBackgroundPull();
+      };
+
+      window.nnQuickPendingNotes = '';
+
+      function nnTitleFromQuickBody(text) {
+        var t = (text || '').trim();
+        if (!t) return 'クイックキャッチ ' + new Date().toLocaleString('ja-JP');
+        var line = t.split('\n')[0];
+        return line.length > 80 ? line.slice(0, 77) + '…' : line;
+      }
+
+      async function nnFillDestProjects() {
+        var sel = document.getElementById('nn-dest-project-select');
+        if (!sel) return;
+        var placeholder = sel.options[0];
+        sel.innerHTML = '';
+        sel.appendChild(placeholder);
+        try {
+          await nnDb.open();
+          var tasks = await nnDb.tasks.toArray();
+          var set = {};
+          tasks.forEach(function (t) {
+            var p = (t.project || '').trim();
+            if (p) set[p] = true;
+          });
+          Object.keys(set).sort().forEach(function (p) {
+            var o = document.createElement('option');
+            o.value = p;
+            o.textContent = p;
+            sel.appendChild(o);
+          });
+        } catch (e) {}
+      }
+
+      function nnOpenQuickDestModal(bodyText) {
+        window.nnQuickPendingNotes = bodyText == null ? '' : String(bodyText);
+        nnFillDestProjects();
+        var m = document.getElementById('nn-quick-dest-modal');
+        if (m) m.classList.add('nn-show');
+      }
+
+      function nnCloseQuickDestModal() {
+        var m = document.getElementById('nn-quick-dest-modal');
+        if (m) m.classList.remove('nn-show');
+      }
+
+      document.querySelectorAll('input[name="nn-dest-mode"]').forEach(function (r) {
+        r.addEventListener('change', function () {
+          var proj = document.getElementById('nn-dest-project-fields');
+          var v = (document.querySelector('input[name="nn-dest-mode"]:checked') || {}).value;
+          if (proj) proj.style.display = v === 'project' ? 'block' : 'none';
+        });
+      });
+
+      var nnDestCancel = document.getElementById('nn-dest-cancel');
+      if (nnDestCancel) {
+        nnDestCancel.addEventListener('click', function () {
+          nnCloseQuickDestModal();
+        });
+      }
+
+      var nnDestSave = document.getElementById('nn-dest-save');
+      if (nnDestSave) {
+        nnDestSave.addEventListener('click', async function () {
+          var mode = (document.querySelector('input[name="nn-dest-mode"]:checked') || {}).value || 'inbox';
+          var project = '';
+          var heading = '';
+          if (mode === 'inbox') {
+            heading = 'インボックス';
+          } else {
+            var selEl = document.getElementById('nn-dest-project-select');
+            project = selEl ? String(selEl.value || '').trim() : '';
+            var custEl = document.getElementById('nn-dest-project-custom');
+            var cust = custEl ? custEl.value.trim() : '';
+            if (cust) project = cust;
+            var headEl = document.getElementById('nn-dest-heading');
+            heading = headEl ? headEl.value.trim() : '';
+          }
+          var notes = window.nnQuickPendingNotes || '';
+          var title = nnTitleFromQuickBody(notes);
+          await nnDb.open();
+          var t = nnNormalizeTask({});
+          t.id = nnUuid();
+          t.title = title;
+          t.notes = notes;
+          t.project = project;
+          t.heading = heading;
+          t.status = 'active';
+          nnEnsureCheckItemIds(t);
+          await nnDb.tasks.put(t);
+          await nnQueueOp({ type: 'upsert', task: t });
+          nnCloseQuickDestModal();
+          if (typeof hideStartupGate === 'function') hideStartupGate();
+          var hs = document.getElementById('home-screen');
+          if (hs) hs.style.display = 'none';
+          var vc = document.getElementById('viewer-container');
+          if (vc) vc.style.display = 'none';
+          if (typeof setAppMode === 'function') setAppMode('tasks');
+          await nnRecomputeFpFromDb();
+          await nnRenderTaskList();
+          await nnUpdateSyncBadge();
+          if (typeof window.nnFlushQueue === 'function') window.nnFlushQueue();
+        });
+      }
+
+      document.querySelectorAll('.nn-quick-tile').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-panel');
+          document.querySelectorAll('.nn-quick-panel').forEach(function (p) {
+            p.classList.toggle('active', p.id === id);
+          });
+          if (id === 'nn-quick-panel-sketch' && typeof nnQuickSketchResize === 'function') {
+            setTimeout(nnQuickSketchResize, 80);
+          }
+        });
+      });
+
+      var nnSpeechRec = null;
+      var nnQsStart = document.getElementById('nn-quick-speech-start');
+      if (nnQsStart) {
+        nnQsStart.addEventListener('click', function () {
+          var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+          if (!SR) {
+            alert('このブラウザでは Web Speech API（SpeechRecognition）が使えません。Chrome をお試しください。');
+            return;
+          }
+          nnSpeechRec = new SR();
+          nnSpeechRec.lang = 'ja-JP';
+          nnSpeechRec.continuous = true;
+          nnSpeechRec.interimResults = true;
+          var ta0 = document.getElementById('nn-quick-speech-ta');
+          if (ta0) ta0.dataset.baseFinal = ta0.value || '';
+          nnSpeechRec.onresult = function (ev) {
+            var ta = document.getElementById('nn-quick-speech-ta');
+            if (!ta) return;
+            var finalTxt = '';
+            var interim = '';
+            for (var i = 0; i < ev.results.length; i++) {
+              if (ev.results[i].isFinal) finalTxt += ev.results[i][0].transcript;
+              else interim += ev.results[i][0].transcript;
+            }
+            if (ta.dataset.baseFinal == null) ta.dataset.baseFinal = ta.value || '';
+            ta.value = (ta.dataset.baseFinal || '') + finalTxt + interim;
+          };
+          try {
+            nnSpeechRec.start();
+          } catch (e) {
+            alert('音声入力を開始できませんでした: ' + (e.message || String(e)));
+          }
+        });
+      }
+      var nnQsStop = document.getElementById('nn-quick-speech-stop');
+      if (nnQsStop) {
+        nnQsStop.addEventListener('click', function () {
+          if (nnSpeechRec) {
+            try {
+              nnSpeechRec.stop();
+            } catch (e) {}
+          }
+          nnSpeechRec = null;
+          var ta = document.getElementById('nn-quick-speech-ta');
+          if (ta) ta.dataset.baseFinal = ta.value;
+        });
+      }
+      var nnQsDest = document.getElementById('nn-quick-speech-dest');
+      if (nnQsDest) {
+        nnQsDest.addEventListener('click', function () {
+          var ta = document.getElementById('nn-quick-speech-ta');
+          nnOpenQuickDestModal(ta ? ta.value : '');
+        });
+      }
+
+      var nnMediaRec = null;
+      var nnMediaChunks = [];
+      var nnLastAudioUrl = '';
+      var nnQrStart = document.getElementById('nn-quick-rec-start');
+      if (nnQrStart) {
+        nnQrStart.addEventListener('click', async function () {
+          nnMediaChunks = [];
+          nnLastAudioUrl = '';
+          document.getElementById('nn-quick-rec-dest').disabled = true;
+          try {
+            var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            nnMediaRec = new MediaRecorder(stream);
+            nnMediaRec.ondataavailable = function (e) {
+              if (e.data.size > 0) nnMediaChunks.push(e.data);
+            };
+            nnMediaRec.start();
+            var st = document.getElementById('nn-quick-rec-status');
+            if (st) st.textContent = '録音中…（停止で Drive に保存）';
+          } catch (e) {
+            alert('マイクにアクセスできません: ' + (e.message || String(e)));
+          }
+        });
+      }
+      var nnQrStop = document.getElementById('nn-quick-rec-stop');
+      if (nnQrStop) {
+        nnQrStop.addEventListener('click', function () {
+          if (!nnMediaRec || nnMediaRec.state === 'inactive') {
+            alert('「録音開始」を先に押してください。');
+            return;
+          }
+          nnMediaRec.onstop = function () {
+            var st = document.getElementById('nn-quick-rec-status');
+            if (st) st.textContent = 'Drive に保存中…';
+            var blob = new Blob(nnMediaChunks, { type: nnMediaRec.mimeType || 'audio/webm' });
+            var reader = new FileReader();
+            reader.onloadend = function () {
+              var dataUrl = reader.result;
+              var base64 = dataUrl.split(',')[1];
+              var ext = (blob.type || '').indexOf('mp4') >= 0 ? 'm4a' : 'webm';
+              var fname = 'voice_memo_' + Date.now() + '.' + ext;
+              google.script.run
+                .withSuccessHandler(function (res) {
+                  if (res && res.success && res.url) {
+                    nnLastAudioUrl = res.url;
+                    if (st) st.textContent = '保存済み。「宛先へ」を押してください。';
+                    var b = document.getElementById('nn-quick-rec-dest');
+                    if (b) b.disabled = false;
+                  } else {
+                    if (st) st.textContent = '保存失敗';
+                    alert((res && res.error) ? res.error : 'Drive 保存に失敗しました');
+                  }
+                })
+                .withFailureHandler(function (err) {
+                  if (st) st.textContent = 'エラー';
+                  alert(err && err.message ? err.message : String(err));
+                })
+                .nnSaveCaptureToDrive(base64, blob.type || 'audio/webm', fname);
+            };
+            reader.readAsDataURL(blob);
+            try {
+              nnMediaRec.stream.getTracks().forEach(function (tr) {
+                tr.stop();
+              });
+            } catch (e) {}
+          };
+          nnMediaRec.stop();
+        });
+      }
+      var nnQrDest = document.getElementById('nn-quick-rec-dest');
+      if (nnQrDest) {
+        nnQrDest.addEventListener('click', function () {
+          var noteEl = document.getElementById('nn-quick-rec-note');
+          var note = noteEl ? noteEl.value.trim() : '';
+          var body = note;
+          if (nnLastAudioUrl) body += (body ? '\n\n' : '') + '[音声メモ](' + nnLastAudioUrl + ')';
+          nnOpenQuickDestModal(body);
+        });
+      }
+
+      var nnQuickInkStrokes = [];
+      var nnQuickSketchDrawing = false;
+      var nnQuickCurrentStroke = null;
+      /** ストローク・認識API用の論理幅・高さ（CSS px） */
+      var nnQuickSketchLw = 600;
+      var nnQuickSketchLh = 220;
+      var nnQuickSketchDpr = 1;
+
+      function nnQuickSketchResize() {
+        var c = document.getElementById('nn-quick-sketch');
+        if (!c || !c.parentElement) return;
+        var wrap = c.parentElement;
+        var inner =
+          Math.max(0, wrap.clientWidth - (parseFloat(getComputedStyle(wrap).paddingLeft) || 0) - (parseFloat(getComputedStyle(wrap).paddingRight) || 0)) || 600;
+        var lw = Math.min(Math.max(inner, 200), 800);
+        var lh = 220;
+        var dpr = window.devicePixelRatio || 1;
+        if (dpr > 3) dpr = 3;
+        nnQuickSketchLw = lw;
+        nnQuickSketchLh = lh;
+        nnQuickSketchDpr = dpr;
+        c.width = Math.round(lw * dpr);
+        c.height = Math.round(lh * dpr);
+        c.style.width = lw + 'px';
+        c.style.height = lh + 'px';
+        nnQuickSketchRedraw();
+      }
+
+      /** 論理座標（ストローク保存・描画と同じ空間）へ変換 */
+      function nnQuickSketchPointerToCanvas(e, c) {
+        var rect = c.getBoundingClientRect();
+        var lw = nnQuickSketchLw || 600;
+        var lh = nnQuickSketchLh || 220;
+        var sx = rect.width > 0 ? lw / rect.width : 1;
+        var sy = rect.height > 0 ? lh / rect.height : 1;
+        return {
+          x: (e.clientX - rect.left) * sx,
+          y: (e.clientY - rect.top) * sy
+        };
+      }
+
+      function nnQuickSketchRedraw() {
+        var c = document.getElementById('nn-quick-sketch');
+        if (!c) return;
+        var ctx = c.getContext('2d');
+        var dpr = nnQuickSketchDpr || 1;
+        var lw = nnQuickSketchLw || 600;
+        var lh = nnQuickSketchLh || 220;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, lw, lh);
+        nnQuickInkStrokes.forEach(function (stroke) {
+          if (!stroke.points || stroke.points.length < 2) return;
+          ctx.beginPath();
+          ctx.strokeStyle = stroke.color || '#202124';
+          ctx.lineWidth = stroke.width || 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+          for (var i = 1; i < stroke.points.length; i++) {
+            ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+          }
+          ctx.stroke();
+        });
+      }
+
+      function nnQuickSketchDown(e) {
+        e.preventDefault();
+        var c = document.getElementById('nn-quick-sketch');
+        if (!c) return;
+        try {
+          if (typeof e.pointerId === 'number') c.setPointerCapture(e.pointerId);
+        } catch (err) {}
+        var pt = nnQuickSketchPointerToCanvas(e, c);
+        nnQuickSketchDrawing = true;
+        nnQuickCurrentStroke = {
+          color: '#202124',
+          width: 2.5,
+          points: [{ x: pt.x, y: pt.y, t: Date.now(), p: e.pressure || 0.5 }]
+        };
+        nnQuickInkStrokes.push(nnQuickCurrentStroke);
+      }
+      function nnQuickSketchMove(e) {
+        if (!nnQuickSketchDrawing || !nnQuickCurrentStroke) return;
+        e.preventDefault();
+        var c = document.getElementById('nn-quick-sketch');
+        if (!c) return;
+        var pt = nnQuickSketchPointerToCanvas(e, c);
+        nnQuickCurrentStroke.points.push({
+          x: pt.x,
+          y: pt.y,
+          t: Date.now(),
+          p: e.pressure || 0.5
+        });
+        nnQuickSketchRedraw();
+      }
+      function nnQuickSketchUp(e) {
+        var c = document.getElementById('nn-quick-sketch');
+        if (c && e && typeof e.pointerId === 'number') {
+          try {
+            if (c.releasePointerCapture) c.releasePointerCapture(e.pointerId);
+          } catch (err2) {}
+        }
+        nnQuickSketchDrawing = false;
+        nnQuickCurrentStroke = null;
+      }
+
+      var qsk = document.getElementById('nn-quick-sketch');
+      if (qsk) {
+        qsk.addEventListener('pointerdown', nnQuickSketchDown);
+        qsk.addEventListener('pointermove', nnQuickSketchMove);
+        qsk.addEventListener('pointerup', nnQuickSketchUp);
+        qsk.addEventListener('pointercancel', nnQuickSketchUp);
+        qsk.addEventListener('lostpointercapture', function () {
+          nnQuickSketchDrawing = false;
+          nnQuickCurrentStroke = null;
+        });
+      }
+      window.addEventListener('resize', function () {
+        if (document.getElementById('nn-quick-panel-sketch') && document.getElementById('nn-quick-panel-sketch').classList.contains('active')) {
+          nnQuickSketchResize();
+        }
+      });
+
+      var nnSkClear = document.getElementById('nn-quick-sk-clear');
+      if (nnSkClear) {
+        nnSkClear.addEventListener('click', function () {
+          nnQuickInkStrokes = [];
+          nnQuickSketchRedraw();
+        });
+      }
+
+      var nnSkRecog = document.getElementById('nn-quick-sk-recog');
+      if (nnSkRecog) {
+        nnSkRecog.addEventListener('click', function () {
+          if (nnQuickInkStrokes.length === 0) {
+            alert('先に手書きしてください。');
+            return;
+          }
+          var minX = Infinity;
+          var minY = Infinity;
+          var maxX = -Infinity;
+          var maxY = -Infinity;
+          nnQuickInkStrokes.forEach(function (s) {
+            s.points.forEach(function (p) {
+              if (p.x < minX) minX = p.x;
+              if (p.y < minY) minY = p.y;
+              if (p.x > maxX) maxX = p.x;
+              if (p.y > maxY) maxY = p.y;
+            });
+          });
+          var scale = Math.min(600 / Math.max(maxX - minX, 1), 300 / Math.max(maxY - minY, 1));
+          var apiInk = [];
+          nnQuickInkStrokes.forEach(function (s) {
+            if (!s.points || s.points.length === 0) return;
+            var xArr = [];
+            var yArr = [];
+            var tArr = [];
+            s.points.forEach(function (p, i) {
+              xArr.push(Math.round((p.x - minX) * scale));
+              yArr.push(Math.round((p.y - minY) * scale));
+              tArr.push(p.t != null ? p.t : i * 50);
+            });
+            apiInk.push([xArr, yArr, tArr]);
+          });
+          google.script.run
+            .withSuccessHandler(function (text) {
+              if (text) {
+                var ta = document.getElementById('nn-quick-key-ta');
+                if (ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
+                document.querySelectorAll('.nn-quick-panel').forEach(function (p) {
+                  p.classList.toggle('active', p.id === 'nn-quick-panel-keyboard');
+                });
+              } else {
+                alert('文字を認識できませんでした。');
+              }
+            })
+            .withFailureHandler(function (err) {
+              alert(err && err.message ? err.message : String(err));
+            })
+            .recognizeSentence(apiInk);
+        });
+      }
+
+      var nnSkDest = document.getElementById('nn-quick-sk-dest');
+      if (nnSkDest) {
+        nnSkDest.addEventListener('click', function () {
+          var ta = document.getElementById('nn-quick-key-ta');
+          var txt = ta ? ta.value.trim() : '';
+          var c = document.getElementById('nn-quick-sketch');
+          if (!c || nnQuickInkStrokes.length === 0) {
+            nnOpenQuickDestModal(txt);
+            return;
+          }
+          var pngBase64 = c.toDataURL('image/png').split(',')[1];
+          google.script.run
+            .withSuccessHandler(function (res) {
+              var link = res && res.success && res.url ? '\n\n[手書き画像](' + res.url + ')' : '';
+              nnOpenQuickDestModal(txt + link);
+            })
+            .withFailureHandler(function () {
+              nnOpenQuickDestModal(txt);
+            })
+            .nnSaveCaptureToDrive(pngBase64, 'image/png', 'handwriting_' + Date.now() + '.png');
+        });
+      }
+
+      var nnKeyDest = document.getElementById('nn-quick-key-dest');
+      if (nnKeyDest) {
+        nnKeyDest.addEventListener('click', function () {
+          var ta = document.getElementById('nn-quick-key-ta');
+          nnOpenQuickDestModal(ta ? ta.value : '');
+        });
+      }
+
+      window.addEventListener('online', function () {
+        nnUpdateOnlineBadge();
+        if (typeof window.nnFlushQueue === 'function') window.nnFlushQueue();
+      });
+      window.addEventListener('offline', nnUpdateOnlineBadge);
+    })();
+  </script>
+</body>
+</html>
