@@ -4,27 +4,56 @@ function doGet() {
     .setTitle('NiceNotes3 · 会議資料ワークスペース');
 }
 
-function getFileList(mode) {
+/**
+ * ホーム画面の並び・フォルダ閲覧モード等（JSON を ScriptProperties に保存）。
+ * @return {{ folderPdfMode: Object, layout: { childrenOrder: Object, fileOrder: Object, fileDue: Object } }}
+ */
+function nn_getWorkspaceMeta_() {
+  const def = { folderPdfMode: {}, layout: { childrenOrder: {}, fileOrder: {}, fileDue: {} } };
   try {
-    const props = PropertiesService.getScriptProperties();
-    let folderId = mode === 'single' ? props.getProperty('SINGLE_FOLDER_ID') : props.getProperty('SEAMLESS_FOLDER_ID');
-    
-    if (!folderId) return { error: `プロパティに ${mode} フォルダのIDがありません。` };
-
-    const folder = DriveApp.getFolderById(folderId);
-    const files = folder.getFiles();
-    const list = [];
-    
-    while (files.hasNext()) {
-      const file = files.next();
-      const mime = file.getMimeType();
-      if (mime === MimeType.PDF || mime === MimeType.JPEG || mime === MimeType.PNG) {
-        list.push({ id: file.getId(), name: file.getName() });
-      }
-    }
-    return list;
+    const s = PropertiesService.getScriptProperties().getProperty('NN_WORKSPACE_META');
+    if (!s) return def;
+    const o = JSON.parse(s);
+    if (!o.folderPdfMode || typeof o.folderPdfMode !== 'object') o.folderPdfMode = {};
+    if (!o.layout || typeof o.layout !== 'object') o.layout = {};
+    if (!o.layout.childrenOrder) o.layout.childrenOrder = {};
+    if (!o.layout.fileOrder) o.layout.fileOrder = {};
+    if (!o.layout.fileDue) o.layout.fileDue = {};
+    return o;
   } catch (e) {
-    return { error: e.toString() };
+    return def;
+  }
+}
+
+/**
+ * @param {string} jsonString JSON 文字列（全体を上書き）
+ * @return {{ success: boolean, error?: string }}
+ */
+function saveWorkspaceMeta(jsonString) {
+  try {
+    JSON.parse(jsonString);
+    PropertiesService.getScriptProperties().setProperty('NN_WORKSPACE_META', jsonString);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * フォルダを別の親フォルダへ移動（Drive 上の階層が変わる）。
+ * @param {string} folderId
+ * @param {string} newParentFolderId
+ * @return {{ success: boolean, error?: string }}
+ */
+function nn_moveFolderToParent(folderId, newParentFolderId) {
+  if (!folderId || !newParentFolderId || folderId === newParentFolderId) {
+    return { success: false, error: '無効な移動先です。' };
+  }
+  try {
+    DriveApp.getFolderById(folderId).moveTo(DriveApp.getFolderById(newParentFolderId));
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.toString() };
   }
 }
 
@@ -92,23 +121,104 @@ function recognizeSentence(allStrokes) {
 // google.script.run で index.html から呼び出す。ScriptProperties キーは元アプリ互換。
 // =============================================================================
 
+var NN_USER_MAIN_FOLDER_IDS_KEY = 'NN_USER_MAIN_FOLDER_IDS';
+
+function nn_getScriptOwnerEmail_() {
+  try {
+    const f = DriveApp.getFileById(ScriptApp.getScriptId());
+    return String(f.getOwner().getEmail() || '')
+      .toLowerCase()
+      .trim();
+  } catch (e) {
+    return '';
+  }
+}
+
+function nn_getActiveUserEmail_() {
+  try {
+    return String(Session.getActiveUser().getEmail() || '')
+      .toLowerCase()
+      .trim();
+  } catch (e) {
+    return '';
+  }
+}
+
+function nn_parseUserFolderMap_(props) {
+  const raw = props.getProperty(NN_USER_MAIN_FOLDER_IDS_KEY);
+  if (!raw) return {};
+  try {
+    const o = JSON.parse(raw);
+    return o && typeof o === 'object' ? o : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function nn_setUserFolderMap_(props, map) {
+  props.setProperty(NN_USER_MAIN_FOLDER_IDS_KEY, JSON.stringify(map));
+}
+
+function nn_sameEmail_(a, b) {
+  return !!(a && b && a === b);
+}
+
+/**
+ * ログインユーザーごとの MyNiceNotes ルート。非オーナーは共有の MAIN_FOLDER_ID を使わない。
+ */
+function nn_getMainFolderIdForCurrentUser_(props) {
+  const active = nn_getActiveUserEmail_();
+  const map = nn_parseUserFolderMap_(props);
+  if (active && map[active]) return map[active];
+  const legacy = props.getProperty('MAIN_FOLDER_ID');
+  const owner = nn_getScriptOwnerEmail_();
+  if (legacy && nn_sameEmail_(owner, active)) return legacy;
+  if (legacy && !active) return legacy;
+  return null;
+}
+
+function nn_setMainFolderIdForCurrentUser_(props, folderId) {
+  const active = nn_getActiveUserEmail_();
+  if (!active) {
+    props.setProperty('MAIN_FOLDER_ID', folderId);
+    return;
+  }
+  const map = nn_parseUserFolderMap_(props);
+  map[active] = folderId;
+  nn_setUserFolderMap_(props, map);
+  const owner = nn_getScriptOwnerEmail_();
+  if (nn_sameEmail_(owner, active)) props.setProperty('MAIN_FOLDER_ID', folderId);
+}
+
 function initializeApp() {
   const props = PropertiesService.getScriptProperties();
-  let mainFolderId = props.getProperty('MAIN_FOLDER_ID');
-
-  if (!mainFolderId) {
+  const existing = nn_getMainFolderIdForCurrentUser_(props);
+  if (existing) {
     try {
-      const scriptId = ScriptApp.getScriptId();
-      const parents = DriveApp.getFileById(scriptId).getParents();
-      const parentFolder = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
-      const newFolder = parentFolder.createFolder('MyNiceNotes');
-      mainFolderId = newFolder.getId();
-      props.setProperty('MAIN_FOLDER_ID', mainFolderId);
+      DriveApp.getFolderById(existing);
+      return { success: true, mainFolderId: existing };
     } catch (e) {
-      return { success: false, error: '初期化に失敗しました: ' + e.toString() };
+      /* フォルダ欠損時は再作成 */
     }
   }
-  return { success: true };
+  try {
+    const active = nn_getActiveUserEmail_();
+    const owner = nn_getScriptOwnerEmail_();
+    let parentFolder;
+    if (nn_sameEmail_(owner, active)) {
+      const scriptId = ScriptApp.getScriptId();
+      const parents = DriveApp.getFileById(scriptId).getParents();
+      parentFolder = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+    } else {
+      parentFolder = DriveApp.getRootFolder();
+    }
+    const newFolder = parentFolder.createFolder('MyNiceNotes');
+    const mainFolderId = newFolder.getId();
+    nn_setMainFolderIdForCurrentUser_(props, mainFolderId);
+    return { success: true, mainFolderId: mainFolderId };
+  } catch (e2) {
+    return { success: false, error: '初期化に失敗しました: ' + e2.toString() };
+  }
 }
 
 /**
@@ -121,9 +231,9 @@ function initializeApp() {
 function nnSaveCaptureToDrive(base64, mimeType, fileName) {
   try {
     const props = PropertiesService.getScriptProperties();
-    const mainFolderId = props.getProperty('MAIN_FOLDER_ID');
+    const mainFolderId = nn_getMainFolderIdForCurrentUser_(props);
     if (!mainFolderId) {
-      return { success: false, error: 'MAIN_FOLDER_ID がありません。' };
+      return { success: false, error: '管理フォルダが未初期化です。ホームを開いて初期化してください。' };
     }
     const main = DriveApp.getFolderById(mainFolderId);
     let subIter = main.getFoldersByName('MyNiceNotes_Captures');
@@ -175,7 +285,10 @@ function importPdf(inputData) {
   const id = extractIdFromUrl(inputData);
   try {
     const props = PropertiesService.getScriptProperties();
-    const mainFolderId = props.getProperty('MAIN_FOLDER_ID');
+    const mainFolderId = nn_getMainFolderIdForCurrentUser_(props);
+    if (!mainFolderId) {
+      return { success: false, error: '管理フォルダが未初期化です。' };
+    }
     const mainFolder = DriveApp.getFolderById(mainFolderId);
 
     const originalFile = DriveApp.getFileById(id);
@@ -225,7 +338,9 @@ function getFolderTree(forceRefresh) {
 
   if (!forceRefresh && cacheFile) {
     try {
-      return JSON.parse(cacheFile.getBlob().getDataAsString());
+      const cached = JSON.parse(cacheFile.getBlob().getDataAsString());
+      cached.workspaceMeta = nn_getWorkspaceMeta_();
+      return cached;
     } catch (e) {
       /* fall through */
     }
@@ -233,7 +348,7 @@ function getFolderTree(forceRefresh) {
 
   const props = PropertiesService.getScriptProperties();
   let roots = [];
-  const mainId = props.getProperty('MAIN_FOLDER_ID');
+  const mainId = nn_getMainFolderIdForCurrentUser_(props);
   if (mainId) roots.push(mainId);
   const registeredStr = props.getProperty('REGISTERED_FOLDERS');
   if (registeredStr) roots = roots.concat(JSON.parse(registeredStr));
@@ -278,6 +393,7 @@ function getFolderTree(forceRefresh) {
     files: resultFiles,
     folderColors: folderColors,
     lastUpdated: new Date().getTime(),
+    workspaceMeta: nn_getWorkspaceMeta_(),
   };
   const jsonString = JSON.stringify(result);
 

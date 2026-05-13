@@ -37,8 +37,11 @@
     #host-frame::after { content: "現在の発表箇所"; position: absolute; top: -22px; left: -3px; background: #ff0000; color: #fff; font-size: 12px; padding: 3px 8px; font-weight: bold; border-radius: 4px 4px 0 0; }
 
     #home-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #f0f2f5; z-index: 500; display: flex; flex-direction: column; }
-    .home-header { background: #fff; padding: 15px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-    .home-header h2 { margin: 0; font-size: 20px; color: #333; }
+    .home-header { background: #fff; padding: 15px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .home-header h2 { margin: 0; font-size: 20px; color: #333; flex: 1; min-width: 0; }
+    .home-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .home-nav-btn { background: #1a73e8; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; }
+    .home-nav-btn:hover { background: #1557b0; }
     .home-content { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 20px; overflow: hidden; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box;}
     .quick-access { display: flex; gap: 20px; flex-shrink: 0; }
     .meeting-card { background: #fff; padding: 15px; border-radius: 8px; flex: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; }
@@ -58,8 +61,15 @@
     .palette-color { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #aaa; cursor: pointer; transition: transform 0.1s; }
     .palette-color:hover { transform: scale(1.15); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
     .file-list { flex: 1; overflow-y: auto; padding: 10px; }
-    .file-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #f1f3f4; cursor: pointer; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .file-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px; border-bottom: 1px solid #f1f3f4; cursor: pointer; }
     .file-item:hover { background: #f8f9fa; }
+    .file-item .meet-drag-grip { cursor: grab; color: #9aa0a6; font-size: 14px; user-select: none; flex-shrink: 0; }
+    .file-item.meet-drag-over { background: #e8f0fe; outline: 1px dashed #1a73e8; }
+    .folder-item.meet-f-drag-over { outline: 2px dashed #1a73e8; background: #f8fbff; }
+    .folder-item .meet-folder-indent { display: inline-block; }
+    #meet-folder-mode { display: none; padding: 10px 14px; background: #fafafa; border-bottom: 1px solid #e0e0e0; font-size: 13px; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #meet-folder-mode.nn-show { display: flex; }
+    #meet-folder-mode label { display: inline-flex; align-items: center; gap: 6px; margin: 0 12px 0 0; cursor: pointer; }
     .file-name { font-weight: bold; color: #1a73e8; font-size: 14px; display: flex; align-items: center; gap: 8px;}
     .file-meta { font-size: 12px; color: #888; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
     .btn-meeting-action { padding: 8px 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
@@ -113,9 +123,12 @@
     #nn-task-list { flex: 1; overflow: auto; padding: 12px 14px 24px; }
     .nn-group-title { font-size: 12px; font-weight: 700; color: #5f6368; text-transform: uppercase; letter-spacing: 0.03em; margin: 16px 0 8px; }
     .nn-task-card {
-      background: #fff; border: 1px solid #dadce0; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+      background: #fff; border: 1px solid #dadce0; border-radius: 10px; padding: 10px 12px; margin-bottom: 0;
       display: flex; align-items: flex-start; gap: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
+    .nn-task-card .nn-task-grip { cursor: grab; flex-shrink: 0; user-select: none; margin-top: 2px; }
+    .nn-task-card.nn-task-drag-over { outline: 2px dashed #1a73e8; background: #f8fbff; }
+    .nn-task-sg-wrap { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
     .nn-task-card.done { opacity: 0.72; }
     .nn-task-card input[type="checkbox"] { margin-top: 4px; width: 18px; height: 18px; cursor: pointer; }
     .nn-task-body { flex: 1; min-width: 0; }
@@ -133,8 +146,10 @@
     .nn-checklist-preview {
       list-style: none; margin: 6px 0 0; padding: 0; font-size: 13px; color: #3c4043;
     }
-    .nn-checklist-preview li { margin-bottom: 4px; }
-    .nn-checklist-preview label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 13px; margin: 0; color: inherit; }
+    .nn-checklist-preview li.nn-check-preview-row { margin-bottom: 4px; display: flex; align-items: flex-start; gap: 4px; }
+    .nn-checklist-preview li.nn-check-preview-row.nn-ci-drag-over { background: #e8f0fe; outline: 1px dashed #1a73e8; border-radius: 4px; }
+    .nn-checklist-preview .nn-ci-grip { cursor: grab; user-select: none; flex-shrink: 0; margin-top: 2px; }
+    .nn-checklist-preview label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 13px; margin: 0; color: inherit; flex: 1; min-width: 0; }
     .nn-checklist-preview input { margin-top: 2px; flex-shrink: 0; }
     .nn-ci-text.done { text-decoration: line-through; color: #5f6368; }
     #nn-checklist-rows { margin-top: 4px; }
@@ -419,7 +434,11 @@
   <div id="home-screen">
     <div class="home-header">
       <h2>📁 NiceNotes3 · 会議資料ワークスペース</h2>
-      <button type="button" onclick="closeHome()" id="btn-close-home" style="display:none; background:#e8eaed; border:none; padding:8px 15px; cursor:pointer;">✕ ビューアに戻る</button>
+      <div class="home-header-actions">
+        <button type="button" class="home-nav-btn" onclick="meetGoPdfFromHome()">PDF 注釈</button>
+        <button type="button" class="home-nav-btn" onclick="meetGoTaskFromHome()">タスク</button>
+        <button type="button" onclick="closeHome()" id="btn-close-home" style="display:none; background:#e8eaed; border:none; padding:8px 15px; cursor:pointer; border-radius:6px;">✕ ビューアに戻る</button>
+      </div>
     </div>
     <div class="home-content">
       <div class="quick-access">
@@ -439,12 +458,20 @@
           <button type="button" class="file-btn-meet" onclick="loadFolderTree(true)">🔄 ツリーを最新に更新</button>
           <label style="margin:0 0 0 10px; display:inline;">並び替え:</label>
           <select id="sort-type-meet" onchange="renderFilesMeet()">
-            <option value="updated">更新日時 (新しい順)</option>
-            <option value="created">作成日時 (新しい順)</option>
-            <option value="name">ファイル名 (A-Z)</option>
+            <option value="manual">通し番号（手動・ドラッグ）</option>
+            <option value="updated">更新日時</option>
+            <option value="created">作成日時</option>
+            <option value="name">ファイル名</option>
+            <option value="due">期日（下欄で入力）</option>
           </select>
           <button type="button" onclick="toggleSortOrderMeet()" id="btn-sort-order-meet">🔽</button>
           <span id="tree-status" style="margin-left: auto; font-size: 12px; color: #888;"></span>
+        </div>
+        <div id="meet-folder-mode" aria-label="フォルダのPDF閲覧モード">
+          <strong style="margin-right:8px;">このフォルダ:</strong>
+          <label><input type="radio" name="meet-fp-mode" value="individual" checked onchange="nnSetFolderPdfMode('individual')"> 個別ビューア（1ファイルずつ）</label>
+          <label><input type="radio" name="meet-fp-mode" value="seamless" onchange="nnSetFolderPdfMode('seamless')"> シームレス（フォルダ内を1冊のように連続）</label>
+          <span style="font-size:12px;color:#5f6368;">※ 書き込み画面のプルダウンは廃止。ここで切り替えます。</span>
         </div>
         <div class="explorer-body">
           <div class="folder-tree" id="folder-tree-container"></div>
@@ -468,12 +495,9 @@
         <option value="presenter">📢 発表者（全員に共有される）</option>
       </select>
     </div>
-    <div class="tool-group" id="pdf-legacy-tools">
-      <select id="folder-select" onchange="fetchFileList()">
-        <option value="seamless">シームレス管理</option>
-        <option value="single">個別ビューア</option>
-      </select>
-      <select id="file-select" onchange="onFileDropdownChanged()"></select>
+    <div class="tool-group" id="pdf-legacy-tools" style="display:none;">
+      <label style="font-size:11px;color:#5f6368;margin:0;">シームレス内</label>
+      <select id="file-select" onchange="onFileDropdownChanged()" style="max-width:220px;"></select>
     </div>
     <div class="tool-group" id="pdf-slot-tabs" aria-label="PDFスロット">
       <span style="font-size:11px;color:#5f6368;">PDF</span>
@@ -650,7 +674,6 @@
     const pageIndicator = document.getElementById('page-indicator');
     const myLaserDot = document.getElementById('my-laser');
     
-    const folderSelect = document.getElementById('folder-select');
     const fileSelect = document.getElementById('file-select');
     const loader = document.getElementById('loader');
     const loaderText = document.getElementById('loader-text');
@@ -678,6 +701,309 @@
     let sortOrderMeet = -1;
     let legacyFolderNavActive = false;
     let currentStroke = null;
+
+    function nnEnsureWorkspaceMeta() {
+      if (!treeData.workspaceMeta) {
+        treeData.workspaceMeta = { folderPdfMode: {}, layout: { childrenOrder: {}, fileOrder: {}, fileDue: {} } };
+      }
+      if (!treeData.workspaceMeta.layout) treeData.workspaceMeta.layout = {};
+      if (!treeData.workspaceMeta.layout.childrenOrder) treeData.workspaceMeta.layout.childrenOrder = {};
+      if (!treeData.workspaceMeta.layout.fileOrder) treeData.workspaceMeta.layout.fileOrder = {};
+      if (!treeData.workspaceMeta.layout.fileDue) treeData.workspaceMeta.layout.fileDue = {};
+      if (!treeData.workspaceMeta.folderPdfMode) treeData.workspaceMeta.folderPdfMode = {};
+    }
+
+    function nnSaveWorkspaceMetaToServer() {
+      nnEnsureWorkspaceMeta();
+      if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+      google.script.run
+        .withFailureHandler(function (e) {
+          alert('レイアウト保存エラー: ' + (e && e.message ? e.message : String(e)));
+        })
+        .saveWorkspaceMeta(JSON.stringify(treeData.workspaceMeta));
+    }
+
+    function nnParentKeyFromPid(pid) {
+      return pid == null || pid === '' ? '__root__' : pid;
+    }
+
+    function nnMergeIdOrder(preferred, allIds) {
+      var have = {};
+      for (var i = 0; i < allIds.length; i++) have[allIds[i]] = true;
+      var out = [];
+      (preferred || []).forEach(function (id) {
+        if (have[id]) {
+          out.push(id);
+          delete have[id];
+        }
+      });
+      Object.keys(have).forEach(function (id) {
+        out.push(id);
+      });
+      return out;
+    }
+
+    function nnGetChildFoldersByParentId(parentId) {
+      return (treeData.folders || []).filter(function (f) {
+        return (f.parentId || null) === parentId;
+      });
+    }
+
+    function nnOrderedFolderChildren(parentId) {
+      nnEnsureWorkspaceMeta();
+      var pkey = nnParentKeyFromPid(parentId);
+      var kids = nnGetChildFoldersByParentId(parentId);
+      kids.sort(function (a, b) {
+        return (a.name || '').localeCompare(b.name || '', 'ja');
+      });
+      var ids = kids.map(function (k) {
+        return k.id;
+      });
+      var ord = treeData.workspaceMeta.layout.childrenOrder[pkey];
+      return nnMergeIdOrder(ord, ids)
+        .map(function (id) {
+          for (var i = 0; i < kids.length; i++) {
+            if (kids[i].id === id) return kids[i];
+          }
+          return null;
+        })
+        .filter(Boolean);
+    }
+
+    function nnGetFilesInFolderRaw(folderId) {
+      return (treeData.files || []).filter(function (f) {
+        return f.folderId === folderId;
+      });
+    }
+
+    function nnSortFilesMeet(filesIn, folderIdForOrder, sortType) {
+      nnEnsureWorkspaceMeta();
+      var files = filesIn.slice();
+      var fo = treeData.workspaceMeta.layout.fileOrder[folderIdForOrder];
+      var dueMap = treeData.workspaceMeta.layout.fileDue;
+      if (sortType === 'manual') {
+        var m = {};
+        files.forEach(function (x) {
+          m[x.id] = x;
+        });
+        var ord = nnMergeIdOrder(fo || [], files.map(function (x) {
+          return x.id;
+        }));
+        return ord
+          .map(function (id) {
+            return m[id];
+          })
+          .filter(Boolean);
+      }
+      if (sortType === 'due') {
+        files.sort(function (a, b) {
+          var da = dueMap[a.id] || '9999-12-31';
+          var db = dueMap[b.id] || '9999-12-31';
+          if (da !== db) return da < db ? -1 * sortOrderMeet : da > db ? 1 * sortOrderMeet : 0;
+          return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrderMeet;
+        });
+        return files;
+      }
+      if (sortType === 'name') {
+        files.sort(function (a, b) {
+          return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrderMeet;
+        });
+        return files;
+      }
+      var key = sortType === 'created' ? 'created' : 'updated';
+      files.sort(function (a, b) {
+        var va = a[key] || 0;
+        var vb = b[key] || 0;
+        if (va < vb) return -1 * sortOrderMeet;
+        if (va > vb) return 1 * sortOrderMeet;
+        return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrderMeet;
+      });
+      return files;
+    }
+
+    window.nnSetFolderPdfMode = function (mode) {
+      if (!currentFolderId) return;
+      nnEnsureWorkspaceMeta();
+      treeData.workspaceMeta.folderPdfMode[currentFolderId] = mode === 'seamless' ? 'seamless' : 'individual';
+      nnSaveWorkspaceMetaToServer();
+    };
+
+    function nnGetFolderPdfModeForFolder(folderId) {
+      nnEnsureWorkspaceMeta();
+      var m = treeData.workspaceMeta.folderPdfMode[folderId];
+      return m === 'seamless' ? 'seamless' : 'individual';
+    }
+
+    function nnUpdateMeetFolderModeBar() {
+      var bar = document.getElementById('meet-folder-mode');
+      if (!bar) return;
+      if (!currentFolderId) {
+        bar.classList.remove('nn-show');
+        return;
+      }
+      bar.classList.add('nn-show');
+      var mode = nnGetFolderPdfModeForFolder(currentFolderId);
+      var ind = bar.querySelector('input[name="meet-fp-mode"][value="individual"]');
+      var sea = bar.querySelector('input[name="meet-fp-mode"][value="seamless"]');
+      if (ind) ind.checked = mode === 'individual';
+      if (sea) sea.checked = mode === 'seamless';
+    }
+
+    function nnSyncLegacyToolsVisibility() {
+      var el = document.getElementById('pdf-legacy-tools');
+      if (el) el.style.display = legacyFolderNavActive ? 'flex' : 'none';
+    }
+
+    function nnFindFolderIdForFile(fileId) {
+      var arr = treeData.files || [];
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i].id === fileId) return arr[i].folderId;
+      }
+      return currentFolderId;
+    }
+
+    function openSeamlessViewerForFolder(folderId, startFileId, startFileName) {
+      nnEnsureWorkspaceMeta();
+      currentFolderId = folderId;
+      var sortEl = document.getElementById('sort-type-meet');
+      var sortType = sortEl ? sortEl.value : 'updated';
+      var raw = nnGetFilesInFolderRaw(folderId);
+      var files = nnSortFilesMeet(raw, folderId, sortType);
+      if (!files.length) {
+        alert('このフォルダに PDF/画像がありません。');
+        return;
+      }
+      var fs = document.getElementById('file-select');
+      if (!fs) return;
+      fs.innerHTML = '';
+      for (var i = 0; i < files.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = files[i].id;
+        opt.text = files[i].name;
+        fs.appendChild(opt);
+      }
+      var idx = 0;
+      for (var j = 0; j < files.length; j++) {
+        if (files[j].id === startFileId) {
+          idx = j;
+          break;
+        }
+      }
+      fs.selectedIndex = idx;
+      legacyFolderNavActive = true;
+      currentFileId = files[idx].id;
+      fileName = files[idx].name || startFileName || 'document.pdf';
+      try {
+        localStorage.setItem(
+          'last_opened_file',
+          JSON.stringify({ id: currentFileId, name: fileName, folderId: folderId, pdfMode: 'seamless' })
+        );
+      } catch (e1) {}
+      updateFavoriteButtonStatus();
+      homeScreen.style.display = 'none';
+      viewerContainer.style.display = 'block';
+      var st = document.getElementById('pdf-slot-tabs');
+      if (st) st.classList.add('nn-show');
+      var nnPanel = document.getElementById('nn-panel');
+      if (nnPanel) nnPanel.style.display = 'none';
+      var pdfBtn = document.getElementById('btn-mode-pdf');
+      var taskBtn = document.getElementById('btn-mode-tasks');
+      if (pdfBtn && taskBtn) {
+        taskBtn.classList.remove('active-mode');
+        pdfBtn.classList.add('active-mode');
+      }
+      nnSyncLegacyToolsVisibility();
+      if (currentFileId) autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
+      loadSelectedFile(false, false, true);
+    }
+
+    var meetFolderDragId = null;
+    var meetFileDragId = null;
+    var nnTaskDragId = null;
+    var nnCheckDragTaskId = null;
+    var nnCheckDragCiId = null;
+
+    function nnFolderById(id) {
+      var arr = treeData.folders || [];
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i].id === id) return arr[i];
+      }
+      return null;
+    }
+
+    function nnReorderFolderSibling(dragId, targetId, parentKey) {
+      nnEnsureWorkspaceMeta();
+      var pid = parentKey === '__root__' ? null : parentKey;
+      var kids = nnGetChildFoldersByParentId(pid);
+      var ids = kids.map(function (k) {
+        return k.id;
+      });
+      var cur = treeData.workspaceMeta.layout.childrenOrder[parentKey] || [];
+      var ord = nnMergeIdOrder(cur, ids);
+      var di = ord.indexOf(dragId);
+      var ti = ord.indexOf(targetId);
+      if (di < 0 || ti < 0) return;
+      ord.splice(di, 1);
+      var newTi = ord.indexOf(targetId);
+      if (newTi < 0) ord.push(dragId);
+      else ord.splice(newTi, 0, dragId);
+      treeData.workspaceMeta.layout.childrenOrder[parentKey] = ord;
+      nnSaveWorkspaceMetaToServer();
+      renderFolders();
+      renderFilesMeet();
+    }
+
+    function nnApplyFolderDrop(dragId, targetId) {
+      var a = nnFolderById(dragId);
+      var b = nnFolderById(targetId);
+      if (!a || !b) return;
+      if ((a.parentId || null) === (b.parentId || null)) {
+        nnReorderFolderSibling(dragId, targetId, nnParentKeyFromPid(a.parentId));
+        return;
+      }
+      if (
+        !confirm(
+          'フォルダ「' +
+            (a.name || '') +
+            '」を「' +
+            (b.name || '') +
+            '」の直下へ移動しますか？（Google Drive 上の階層が変わります）'
+        )
+      ) {
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (res && res.success) loadFolderTree(true);
+          else alert((res && res.error) || '移動に失敗しました');
+        })
+        .withFailureHandler(function (err) {
+          alert(err.message || String(err));
+        })
+        .nn_moveFolderToParent(dragId, targetId);
+    }
+
+    function nnReorderFileRow(dragId, targetId) {
+      if (!currentFolderId || dragId === targetId) return;
+      nnEnsureWorkspaceMeta();
+      var sortEl = document.getElementById('sort-type-meet');
+      if (sortEl) sortEl.value = 'manual';
+      var raw = nnGetFilesInFolderRaw(currentFolderId);
+      var files = nnSortFilesMeet(raw, currentFolderId, 'manual');
+      var ids = files.map(function (x) {
+        return x.id;
+      });
+      var di = ids.indexOf(dragId);
+      var ti = ids.indexOf(targetId);
+      if (di < 0 || ti < 0) return;
+      ids.splice(di, 1);
+      var newTi = ids.indexOf(targetId);
+      ids.splice(newTi, 0, dragId);
+      treeData.workspaceMeta.layout.fileOrder[currentFolderId] = ids;
+      nnSaveWorkspaceMetaToServer();
+      renderFilesMeet();
+    }
 
     const PASTEL_PALETTE = [
       '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E8BAFF',
@@ -801,6 +1127,8 @@
         bgCtx2.setTransform(1, 0, 0, 1, 0, 0);
         bgCtx2.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
       }
+      legacyFolderNavActive = false;
+      nnSyncLegacyToolsVisibility();
     }
 
     async function restorePdfSlotToGlobals(idx) {
@@ -853,6 +1181,7 @@
       updateFavoriteButtonStatus();
       applyRoleMeet();
       nnUpdatePdfSlotTabButtons();
+      nnSyncLegacyToolsVisibility();
     }
 
     window.switchPdfSlotIndex = async function switchPdfSlotIndex(nextIdx) {
@@ -897,12 +1226,12 @@
             nnUpdatePdfSlotTabButtons();
           } else {
             alert((res && res.error) ? res.error : '初期化に失敗しました');
-            fetchFileList();
+            showHomeMeet();
           }
         })
         .withFailureHandler(function () {
           hideLoader();
-          fetchFileList();
+          showHomeMeet();
         })
         .initializeApp();
     };
@@ -987,6 +1316,8 @@
     function showHomeMeet() {
       if (currentFileId) autoSaveCurrent(true);
       savePdfSlotFromGlobals();
+      legacyFolderNavActive = false;
+      nnSyncLegacyToolsVisibility();
       stopMeetSync();
       if (btnCloseHome) btnCloseHome.style.display = currentFileId ? 'block' : 'none';
       homeScreen.style.display = 'flex';
@@ -1019,9 +1350,12 @@
         .withSuccessHandler(function (data) {
           if (forceRefresh) hideLoader();
           treeData = data || { folders: [], files: [], folderColors: {} };
+          if (data && data.workspaceMeta) treeData.workspaceMeta = data.workspaceMeta;
+          nnEnsureWorkspaceMeta();
           var lu = treeData.lastUpdated ? new Date(treeData.lastUpdated).toLocaleString() : '';
           if (ts) ts.textContent = lu ? '最終更新: ' + lu : '';
           renderFolders();
+          renderFilesMeet();
         })
         .getFolderTree(forceRefresh);
     }
@@ -1030,31 +1364,77 @@
       var container = document.getElementById('folder-tree-container');
       if (!container) return;
       container.innerHTML = '';
+      nnEnsureWorkspaceMeta();
       var colors = treeData.folderColors || {};
-      (treeData.folders || []).forEach(function (f) {
+      function renderOneFolderRow(f, depth) {
         var div = document.createElement('div');
         div.className = 'folder-item' + (f.id === currentFolderId ? ' selected' : '');
+        div.dataset.folderId = f.id;
+        div.draggable = true;
+        div.style.paddingLeft = 6 + depth * 16 + 'px';
         var folderColor = colors[f.id] || '#ccc';
         var label = document.createElement('div');
         label.className = 'folder-label';
+        var grip = document.createElement('span');
+        grip.className = 'meet-drag-grip';
+        grip.textContent = '⋮⋮';
+        grip.title = 'ドラッグで並べ替え / 別フォルダへドロップで移動';
+        label.appendChild(grip);
         var dot = document.createElement('span');
         dot.className = 'color-dot';
         dot.style.backgroundColor = folderColor;
         label.appendChild(dot);
         label.appendChild(document.createTextNode(' 📁 ' + (f.name || '')));
-        label.addEventListener('click', function () { selectFolderMeet(f.id); });
+        label.addEventListener('click', function () {
+          selectFolderMeet(f.id);
+        });
+        div.addEventListener('dragstart', function (e) {
+          meetFolderDragId = f.id;
+          e.dataTransfer.setData('text/plain', 'folder:' + f.id);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        div.addEventListener('dragend', function () {
+          meetFolderDragId = null;
+          div.classList.remove('meet-f-drag-over');
+        });
+        div.addEventListener('dragover', function (e) {
+          e.preventDefault();
+          if (meetFolderDragId && meetFolderDragId !== f.id) div.classList.add('meet-f-drag-over');
+        });
+        div.addEventListener('dragleave', function () {
+          div.classList.remove('meet-f-drag-over');
+        });
+        div.addEventListener('drop', function (e) {
+          e.preventDefault();
+          div.classList.remove('meet-f-drag-over');
+          var raw = e.dataTransfer.getData('text/plain') || '';
+          var m = /^folder:(.+)$/.exec(raw);
+          var dragF = m ? m[1] : meetFolderDragId;
+          if (!dragF || dragF === f.id) return;
+          nnApplyFolderDrop(dragF, f.id);
+        });
         var palBtn = document.createElement('button');
         palBtn.type = 'button';
         palBtn.className = 'btn-palette';
         palBtn.title = '色を変更';
         palBtn.textContent = '🎨';
-        palBtn.addEventListener('click', function (ev) { openColorPalette(ev, f.id); });
+        palBtn.addEventListener('click', function (ev) {
+          openColorPalette(ev, f.id);
+        });
         div.appendChild(label);
         div.appendChild(palBtn);
         container.appendChild(div);
-      });
-      if (!currentFolderId && treeData.folders && treeData.folders.length > 0) {
-        currentFolderId = treeData.folders[0].id;
+        var kids = nnOrderedFolderChildren(f.id);
+        for (var i = 0; i < kids.length; i++) {
+          renderOneFolderRow(kids[i], depth + 1);
+        }
+      }
+      var roots = nnOrderedFolderChildren(null);
+      for (var r = 0; r < roots.length; r++) {
+        renderOneFolderRow(roots[r], 0);
+      }
+      if (!currentFolderId && roots.length > 0) {
+        currentFolderId = roots[0].id;
         renderFolders();
         renderFilesMeet();
       }
@@ -1064,6 +1444,7 @@
       currentFolderId = id;
       renderFolders();
       renderFilesMeet();
+      nnUpdateMeetFolderModeBar();
     }
 
     function toggleSortOrderMeet() {
@@ -1077,17 +1458,16 @@
       var container = document.getElementById('file-list-container');
       if (!container) return;
       container.innerHTML = '';
-      if (!currentFolderId) return;
+      nnUpdateMeetFolderModeBar();
+      if (!currentFolderId) {
+        container.innerHTML = '<div style="padding: 20px; color: #888;">← 左のフォルダを選択してください</div>';
+        return;
+      }
+      nnEnsureWorkspaceMeta();
       var sortEl = document.getElementById('sort-type-meet');
       var sortType = sortEl ? sortEl.value : 'updated';
-      var files = (treeData.files || []).filter(function (f) { return f.folderId === currentFolderId; });
-      files.sort(function (a, b) {
-        var valA = sortType === 'name' ? String(a.name || '').toLowerCase() : a[sortType];
-        var valB = sortType === 'name' ? String(b.name || '').toLowerCase() : b[sortType];
-        if (valA < valB) return -1 * sortOrderMeet;
-        if (valA > valB) return 1 * sortOrderMeet;
-        return 0;
-      });
+      var raw = nnGetFilesInFolderRaw(currentFolderId);
+      var files = nnSortFilesMeet(raw, currentFolderId, sortType);
       if (files.length === 0) {
         container.innerHTML = '<div style="padding:10px;color:#888;">ファイルがありません</div>';
         return;
@@ -1095,6 +1475,12 @@
       files.forEach(function (f) {
         var div = document.createElement('div');
         div.className = 'file-item';
+        div.dataset.fileId = f.id;
+        div.draggable = true;
+        var grip = document.createElement('span');
+        grip.className = 'meet-drag-grip';
+        grip.textContent = '⋮⋮';
+        grip.title = 'ドラッグで順番変更（並び: 通し番号）';
         var nameEl = document.createElement('div');
         nameEl.className = 'file-name';
         nameEl.textContent = '📄 ' + (f.name || '');
@@ -1102,15 +1488,63 @@
         meta.className = 'file-meta';
         var dateSpan = document.createElement('span');
         dateSpan.textContent = '更新: ' + new Date(f.updated).toLocaleDateString();
+        var dueLab = document.createElement('label');
+        dueLab.style.cssText = 'font-size:12px;color:#5f6368;display:flex;align-items:center;gap:4px;';
+        dueLab.appendChild(document.createTextNode('期日'));
+        var dueIn = document.createElement('input');
+        dueIn.type = 'text';
+        dueIn.placeholder = 'YYYY-MM-DD';
+        dueIn.style.cssText = 'width:110px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;';
+        dueIn.value = (treeData.workspaceMeta.layout.fileDue[f.id] || '').trim();
+        dueIn.addEventListener('click', function (e) {
+          e.stopPropagation();
+        });
+        dueIn.addEventListener('change', function () {
+          nnEnsureWorkspaceMeta();
+          var v = dueIn.value.trim();
+          if (v) treeData.workspaceMeta.layout.fileDue[f.id] = v;
+          else delete treeData.workspaceMeta.layout.fileDue[f.id];
+          nnSaveWorkspaceMetaToServer();
+        });
+        dueLab.appendChild(dueIn);
         var openBtn = document.createElement('button');
         openBtn.type = 'button';
         openBtn.className = 'file-btn-meet';
         openBtn.textContent = '開く';
-        openBtn.onclick = function () { openFileFromHome(f.id, f.name); };
+        openBtn.onclick = function () {
+          openFileFromHome(f.id, f.name);
+        };
         meta.appendChild(dateSpan);
+        meta.appendChild(dueLab);
         meta.appendChild(openBtn);
+        div.appendChild(grip);
         div.appendChild(nameEl);
         div.appendChild(meta);
+        div.addEventListener('dragstart', function (e) {
+          meetFileDragId = f.id;
+          e.dataTransfer.setData('text/plain', 'file:' + f.id);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        div.addEventListener('dragend', function () {
+          meetFileDragId = null;
+          div.classList.remove('meet-drag-over');
+        });
+        div.addEventListener('dragover', function (e) {
+          e.preventDefault();
+          if (meetFileDragId && meetFileDragId !== f.id) div.classList.add('meet-drag-over');
+        });
+        div.addEventListener('dragleave', function () {
+          div.classList.remove('meet-drag-over');
+        });
+        div.addEventListener('drop', function (e) {
+          e.preventDefault();
+          div.classList.remove('meet-drag-over');
+          var raw2 = e.dataTransfer.getData('text/plain') || '';
+          var mf = /^file:(.+)$/.exec(raw2);
+          var dragId = mf ? mf[1] : meetFileDragId;
+          if (!dragId || dragId === f.id) return;
+          nnReorderFileRow(dragId, f.id);
+        });
         container.appendChild(div);
       });
     }
@@ -1190,11 +1624,27 @@
     function openFileFromHome(id, name) {
       if (currentFileId) autoSaveCurrent(true);
       savePdfSlotFromGlobals();
+      var folderForFile = nnFindFolderIdForFile(id);
+      if (folderForFile) currentFolderId = folderForFile;
+      var mode = nnGetFolderPdfModeForFolder(currentFolderId);
+      if (mode === 'seamless') {
+        openSeamlessViewerForFolder(currentFolderId, id, name);
+        return;
+      }
       legacyFolderNavActive = false;
+      nnSyncLegacyToolsVisibility();
       currentFileId = id;
       fileName = name || 'document.pdf';
       try {
-        localStorage.setItem('last_opened_file', JSON.stringify({ id: id, name: fileName }));
+        localStorage.setItem(
+          'last_opened_file',
+          JSON.stringify({
+            id: id,
+            name: fileName,
+            folderId: currentFolderId,
+            pdfMode: 'individual'
+          })
+        );
       } catch (e) {}
       updateFavoriteButtonStatus();
       homeScreen.style.display = 'none';
@@ -1279,38 +1729,6 @@
           redraw();
         })
         .loadAnnotation(baseName);
-    }
-
-    function fetchFileList() {
-      var mode = folderSelect.value;
-      showLoader('ファイル一覧を取得中...');
-      legacyFolderNavActive = true;
-      homeScreen.style.display = 'none';
-      viewerContainer.style.display = 'block';
-      var slotTabs0 = document.getElementById('pdf-slot-tabs');
-      if (slotTabs0) slotTabs0.classList.add('nn-show');
-      google.script.run
-        .withSuccessHandler(function (list) {
-          if (list && list.error) {
-            alert('エラー: ' + list.error);
-            hideLoader();
-            return;
-          }
-          if (!list || list.length === 0) {
-            fileSelect.innerHTML = '<option>ファイルなし</option>';
-            hideLoader();
-            return;
-          }
-          fileSelect.innerHTML = '';
-          list.forEach(function (file) {
-            var option = document.createElement('option');
-            option.value = file.id;
-            option.text = file.name;
-            fileSelect.appendChild(option);
-          });
-          loadSelectedFile(false, false, true);
-        })
-        .getFileList(mode);
     }
 
     function onFileDropdownChanged() {
@@ -1415,6 +1833,7 @@
                   updateFavoriteButtonStatus();
                   applyRoleMeet();
                   savePdfSlotFromGlobals();
+                  nnSyncLegacyToolsVisibility();
                 })
                 .loadAnnotation(baseName);
             } catch (err) {
@@ -1463,10 +1882,14 @@
       currentFileId = id;
       fileName = name || 'document.pdf';
       legacyFolderNavActive = false;
+      nnSyncLegacyToolsVisibility();
       fileType = 'pdf';
       var baseName = fileName.replace(/\.[^/.]+$/, '');
       try {
-        localStorage.setItem('last_opened_file', JSON.stringify({ id: currentFileId, name: fileName }));
+        localStorage.setItem(
+          'last_opened_file',
+          JSON.stringify({ id: currentFileId, name: fileName, pdfMode: 'individual' })
+        );
       } catch (e) {}
       if (!silent) showLoader('PDFを開いています...');
       (async function () {
@@ -1504,6 +1927,7 @@
               updateFavoriteButtonStatus();
               applyRoleMeet();
               savePdfSlotFromGlobals();
+              nnSyncLegacyToolsVisibility();
             })
             .loadAnnotation(baseName);
         } catch (err) {
@@ -1562,6 +1986,34 @@
     function startupChoosePdfHome() {
       hideStartupGate();
       showHomeMeet();
+    }
+
+    /** ホームヘッダーから PDF 書き込み画面へ（前回ファイルがあれば開く） */
+    function meetGoPdfFromHome() {
+      hideStartupGate();
+      if (homeScreen) homeScreen.style.display = 'none';
+      if (viewerContainer) viewerContainer.style.display = 'block';
+      setAppMode('pdf');
+      if (window.nnPdfPreload && window.nnPdfPreload.base64) {
+        loadPdfFromBase64(window.nnPdfPreload.base64, window.nnPdfPreload.id, window.nnPdfPreload.name, false);
+        return;
+      }
+      var s = localStorage.getItem('last_opened_file');
+      if (s) {
+        try {
+          var last = JSON.parse(s);
+          if (last && last.id) {
+            openFileFromHome(last.id, last.name || 'document.pdf');
+            return;
+          }
+        } catch (e2) {}
+      }
+    }
+
+    /** ホームヘッダーからタスク画面へ */
+    function meetGoTaskFromHome() {
+      hideStartupGate();
+      startupChooseTaskHome();
     }
 
     function startupWireMainMenu() {
@@ -1928,6 +2380,8 @@
       if (mode === 'tasks') {
         if (currentFileId) autoSaveCurrent(true);
         savePdfSlotFromGlobals();
+        legacyFolderNavActive = false;
+        nnSyncLegacyToolsVisibility();
         stopMeetSync();
         pdfBtn.classList.remove('active-mode');
         taskBtn.classList.add('active-mode');
@@ -1943,6 +2397,7 @@
         if (homeScreen) homeScreen.style.display = 'none';
         viewer.style.display = 'block';
         if (slotTabs) slotTabs.classList.add('nn-show');
+        nnSyncLegacyToolsVisibility();
         if (currentFileId) applyRoleMeet();
       }
     }
@@ -2547,6 +3002,83 @@
         window.nnFpAtLastRender = nnFingerprintTasks(all);
       }
 
+      async function nnReorderTasksInSubgroup(wrapEl, dragId, targetId) {
+        if (!wrapEl || !dragId || dragId === targetId) return;
+        const cards = wrapEl.querySelectorAll('.nn-task-card[data-task-id]');
+        const ids = [];
+        cards.forEach(function (c) {
+          ids.push(c.getAttribute('data-task-id'));
+        });
+        const di = ids.indexOf(dragId);
+        const ti = ids.indexOf(targetId);
+        if (di < 0 || ti < 0) return;
+        ids.splice(di, 1);
+        const newTi = ids.indexOf(targetId);
+        ids.splice(newTi, 0, dragId);
+        const base = 1024;
+        for (let i = 0; i < ids.length; i++) {
+          const row = await nnDb.tasks.get(ids[i]);
+          if (!row) continue;
+          const next = nnNormalizeTask(row);
+          next.sortOrder = base + i * 64;
+          nnEnsureCheckItemIds(next);
+          await nnDb.tasks.put(next);
+          await nnQueueOp({ type: 'upsert', task: next });
+        }
+        await nnRecomputeFpFromDb();
+        await nnRenderTaskList();
+      }
+
+      async function nnReorderCheckItemsInTask(taskId, orderedVisibleIds) {
+        const row = await nnDb.tasks.get(taskId);
+        if (!row) return;
+        const next = nnNormalizeTask(row);
+        nnEnsureCheckItemIds(next);
+        const all = nnNormalizeCheckItems(next.checkItems);
+        const withText = [];
+        const withoutText = [];
+        all.forEach(function (ci) {
+          if ((ci.text || '').trim()) withText.push(ci);
+          else withoutText.push(ci);
+        });
+        const remaining = withText.slice();
+        const newWith = [];
+        orderedVisibleIds.forEach(function (id) {
+          for (let j = 0; j < remaining.length; j++) {
+            if (remaining[j].id === id) {
+              newWith.push(remaining[j]);
+              remaining.splice(j, 1);
+              return;
+            }
+          }
+        });
+        remaining.forEach(function (c) {
+          newWith.push(c);
+        });
+        next.checkItems = newWith.concat(withoutText);
+        nnEnsureCheckItemIds(next);
+        await nnDb.tasks.put(next);
+        await nnQueueOp({ type: 'upsert', task: next });
+        await nnRecomputeFpFromDb();
+        await nnRenderTaskList();
+      }
+
+      async function nnReorderCheckItemRow(taskId, ulEl, dragCiId, targetCiId) {
+        if (!ulEl || !dragCiId || dragCiId === targetCiId) return;
+        const lis = ulEl.querySelectorAll('li[data-ci-id]');
+        const ids = [];
+        lis.forEach(function (li) {
+          ids.push(li.getAttribute('data-ci-id'));
+        });
+        const di = ids.indexOf(dragCiId);
+        const ti = ids.indexOf(targetCiId);
+        if (di < 0 || ti < 0) return;
+        ids.splice(di, 1);
+        const newTi = ids.indexOf(targetCiId);
+        ids.splice(newTi, 0, dragCiId);
+        await nnReorderCheckItemsInTask(taskId, ids);
+      }
+
       async function nnRenderTaskList() {
         const host = document.getElementById('nn-task-list');
         if (!host) return;
@@ -2561,8 +3093,38 @@
           if (gh !== 0) return gh;
           return (a.sortOrder || 0) - (b.sortOrder || 0);
         });
+        let idFixCount = 0;
+        for (let fi = 0; fi < list.length; fi++) {
+          const tk = list[fi];
+          let need = false;
+          (tk.checkItems || []).forEach(function (ci) {
+            if (ci && (ci.text || '').trim() && (!ci.id || !String(ci.id).trim())) need = true;
+          });
+          if (need) {
+            const nextT = nnNormalizeTask(tk);
+            nnEnsureCheckItemIds(nextT);
+            await nnDb.tasks.put(nextT);
+            await nnQueueOp({ type: 'upsert', task: nextT });
+            idFixCount++;
+          }
+        }
+        if (idFixCount) await nnRecomputeFpFromDb();
+        let listForStructure = list;
+        if (idFixCount) {
+          listForStructure = await nnDb.tasks.toArray();
+          listForStructure.sort(function (a, b) {
+            const ba = NN_BUCKET_RANK[nnListBucket(a)];
+            const bb = NN_BUCKET_RANK[nnListBucket(b)];
+            if (ba !== bb) return ba - bb;
+            const pj = ((a.project || '').trim() || NN_INBOX_NAME).localeCompare((b.project || '').trim() || NN_INBOX_NAME);
+            if (pj !== 0) return pj;
+            const gh = (a.heading || '').localeCompare(b.heading || '');
+            if (gh !== 0) return gh;
+            return (a.sortOrder || 0) - (b.sortOrder || 0);
+          });
+        }
         const structure = [];
-        list.forEach(function (t) {
+        listForStructure.forEach(function (t) {
           const b = nnListBucket(t);
           let bg = null;
           for (let i = 0; i < structure.length; i++) {
@@ -2605,12 +3167,16 @@
             th.className = 'nn-group-title';
             th.textContent = sg.key;
             host.appendChild(th);
+            const wrap = document.createElement('div');
+            wrap.className = 'nn-task-sg-wrap';
             sg.items.forEach(function (t) {
               const card = document.createElement('div');
               card.className = 'nn-task-card' + (t.status !== 'active' ? ' done' : '');
+              card.setAttribute('data-task-id', t.id);
               const done = t.status === 'completed' || t.status === 'canceled';
               const canceled = t.status === 'canceled';
               card.innerHTML =
+                '<span class="nn-task-grip meet-drag-grip" draggable="true" title="ドラッグで順番変更">⋮⋮</span>' +
                 '<input type="checkbox" data-nn-check ' +
                 (done ? 'checked ' : '') +
                 (canceled ? 'disabled ' : '') +
@@ -2648,6 +3214,13 @@
                 ul.className = 'nn-checklist-preview';
                 itemsRaw.forEach(function (ci, idx) {
                   const li = document.createElement('li');
+                  li.className = 'nn-check-preview-row';
+                  li.setAttribute('data-ci-id', ci.id || '');
+                  const cg = document.createElement('span');
+                  cg.className = 'nn-ci-grip meet-drag-grip';
+                  cg.textContent = '⋮⋮';
+                  cg.title = 'ドラッグで順番変更';
+                  cg.setAttribute('draggable', 'true');
                   const label = document.createElement('label');
                   const inp = document.createElement('input');
                   inp.type = 'checkbox';
@@ -2665,11 +3238,72 @@
                   });
                   label.appendChild(inp);
                   label.appendChild(span);
+                  li.appendChild(cg);
                   li.appendChild(label);
+                  cg.addEventListener('dragstart', function (e) {
+                    e.stopPropagation();
+                    nnCheckDragTaskId = t.id;
+                    nnCheckDragCiId = ci.id || '';
+                    e.dataTransfer.setData('text/plain', 'nnchk:' + t.id + ':' + (ci.id || ''));
+                    e.dataTransfer.effectAllowed = 'move';
+                  });
+                  cg.addEventListener('dragend', function () {
+                    nnCheckDragTaskId = null;
+                    nnCheckDragCiId = null;
+                    li.classList.remove('nn-ci-drag-over');
+                  });
+                  li.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    if (nnCheckDragTaskId === t.id && nnCheckDragCiId && nnCheckDragCiId !== (ci.id || '')) {
+                      li.classList.add('nn-ci-drag-over');
+                    }
+                  });
+                  li.addEventListener('dragleave', function () {
+                    li.classList.remove('nn-ci-drag-over');
+                  });
+                  li.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    li.classList.remove('nn-ci-drag-over');
+                    const raw = e.dataTransfer.getData('text/plain') || '';
+                    const m = /^nnchk:([^:]+):(.*)$/.exec(raw);
+                    const dragT = m ? m[1] : nnCheckDragTaskId;
+                    const dragCi = m ? m[2] : nnCheckDragCiId;
+                    if (!dragT || dragT !== t.id || !dragCi || dragCi === (ci.id || '')) return;
+                    nnReorderCheckItemRow(t.id, ul, dragCi, ci.id || '');
+                  });
                   ul.appendChild(li);
                 });
                 body.appendChild(ul);
               }
+              const grip = card.querySelector('.nn-task-grip');
+              if (grip) {
+                grip.addEventListener('dragstart', function (e) {
+                  e.stopPropagation();
+                  nnTaskDragId = t.id;
+                  e.dataTransfer.setData('text/plain', 'nntask:' + t.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                });
+                grip.addEventListener('dragend', function () {
+                  nnTaskDragId = null;
+                  card.classList.remove('nn-task-drag-over');
+                });
+              }
+              card.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                if (nnTaskDragId && nnTaskDragId !== t.id) card.classList.add('nn-task-drag-over');
+              });
+              card.addEventListener('dragleave', function () {
+                card.classList.remove('nn-task-drag-over');
+              });
+              card.addEventListener('drop', function (e) {
+                e.preventDefault();
+                card.classList.remove('nn-task-drag-over');
+                const raw = e.dataTransfer.getData('text/plain') || '';
+                const m = /^nntask:(.+)$/.exec(raw);
+                const dragId = m ? m[1] : nnTaskDragId;
+                if (!dragId || dragId === t.id) return;
+                nnReorderTasksInSubgroup(wrap, dragId, t.id);
+              });
               const chk = card.querySelector('[data-nn-check]');
               chk.addEventListener('change', function () {
                 nnToggleDone(t.id, chk.checked);
@@ -2680,8 +3314,9 @@
               card.querySelector('[data-nn-del]').addEventListener('click', function () {
                 nnDeleteTask(t.id);
               });
-              host.appendChild(card);
+              wrap.appendChild(card);
             });
+            host.appendChild(wrap);
           });
         });
       }
