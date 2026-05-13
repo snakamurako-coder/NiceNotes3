@@ -26,7 +26,10 @@
     #page-indicator { min-width: 60px; text-align: center; }
 
     #status { margin-left: auto; font-size: 12px; color: #888; text-align: right; flex-shrink: 0; padding-left: 10px; }
-    #viewer-container { margin-top: var(--ui-height); width: 100vw; height: calc(100vh - var(--ui-height)); overflow: auto; background: #555; overscroll-behavior: none; padding: 20px; box-sizing: border-box; display: none; }
+    #viewer-container { position: relative; margin-top: var(--ui-height); width: 100vw; height: calc(100vh - var(--ui-height)); overflow: auto; background: #555; overscroll-behavior: none; padding: 20px; box-sizing: border-box; display: none; }
+    .nn-pdf-edge-swipe { position: absolute; top: 20px; bottom: 20px; width: 32px; z-index: 12; touch-action: none; pointer-events: auto; }
+    #nn-swipe-left-zone { left: 20px; }
+    #nn-swipe-right-zone { right: 20px; }
     #scroll-spacer { position: relative; }
     #page-wrapper { position: absolute; top: 0; left: 0; background: #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); transform-origin: 0 0; }
     canvas { position: absolute; top: 0; left: 0; }
@@ -487,9 +490,11 @@
       <button type="button" class="nn-mode-btn active-mode" id="btn-mode-pdf" onclick="setAppMode('pdf')">PDF</button>
       <button type="button" class="nn-mode-btn" id="btn-mode-tasks" onclick="setAppMode('tasks')">タスク</button>
     </div>
-    <div class="tool-group">
-      <button type="button" style="background:#e8eaed; border:none; font-weight:bold;" onclick="showHomeMeet()">🏠 ホーム</button>
-      <button type="button" id="btn-favorite" onclick="toggleFavoriteMeet()" style="background:transparent; border:none; font-size:18px;" title="お気に入り登録">☆</button>
+    <div class="tool-group" id="nn-realtime-toolbar" style="align-items:center;gap:6px;">
+      <label style="font-size:12px;color:#3c4043;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+        <input type="checkbox" id="nn-realtime-share" checked onchange="nnOnRealtimeShareToggle()">
+        リアルタイム共有
+      </label>
       <select id="role-select" onchange="applyRoleMeet()">
         <option value="participant">📝 個人メモ（自分だけに見える）</option>
         <option value="presenter">📢 発表者（全員に共有される）</option>
@@ -540,6 +545,8 @@
   </div>
 
   <div id="viewer-container">
+    <div id="nn-swipe-left-zone" class="nn-pdf-edge-swipe" aria-hidden="true"></div>
+    <div id="nn-swipe-right-zone" class="nn-pdf-edge-swipe" aria-hidden="true"></div>
     <div id="scroll-spacer">
       <div id="page-wrapper">
         <canvas id="bg-canvas"></canvas>
@@ -704,13 +711,20 @@
 
     function nnEnsureWorkspaceMeta() {
       if (!treeData.workspaceMeta) {
-        treeData.workspaceMeta = { folderPdfMode: {}, layout: { childrenOrder: {}, fileOrder: {}, fileDue: {} } };
+        treeData.workspaceMeta = {
+          folderPdfMode: {},
+          folderKind: {},
+          fileLogicalPages: {},
+          layout: { childrenOrder: {}, fileOrder: {}, fileDue: {} },
+        };
       }
       if (!treeData.workspaceMeta.layout) treeData.workspaceMeta.layout = {};
       if (!treeData.workspaceMeta.layout.childrenOrder) treeData.workspaceMeta.layout.childrenOrder = {};
       if (!treeData.workspaceMeta.layout.fileOrder) treeData.workspaceMeta.layout.fileOrder = {};
       if (!treeData.workspaceMeta.layout.fileDue) treeData.workspaceMeta.layout.fileDue = {};
       if (!treeData.workspaceMeta.folderPdfMode) treeData.workspaceMeta.folderPdfMode = {};
+      if (!treeData.workspaceMeta.folderKind) treeData.workspaceMeta.folderKind = {};
+      if (!treeData.workspaceMeta.fileLogicalPages) treeData.workspaceMeta.fileLogicalPages = {};
     }
 
     function nnSaveWorkspaceMetaToServer() {
@@ -860,6 +874,188 @@
         if (arr[i].id === fileId) return arr[i].folderId;
       }
       return currentFolderId;
+    }
+
+    function nnExtractDriveIdMeet(input) {
+      var m = String(input || '').match(/[-\w]{25,}/);
+      return m ? m[0] : String(input || '').trim();
+    }
+
+    function nnGetFolderKindForFolderId(folderId) {
+      if (!folderId) return 'personal';
+      nnEnsureWorkspaceMeta();
+      return treeData.workspaceMeta.folderKind[folderId] === 'org' ? 'org' : 'personal';
+    }
+
+    function nnGetFolderKindForCurrentFile() {
+      if (!currentFileId) return 'personal';
+      return nnGetFolderKindForFolderId(nnFindFolderIdForFile(currentFileId));
+    }
+
+    function nnLoadRealtimeSharePref() {
+      try {
+        var v = localStorage.getItem('NN_REALTIME_SHARE');
+        if (v === null) return true;
+        return v === '1';
+      } catch (e) {
+        return true;
+      }
+    }
+
+    function nnPersistRealtimeSharePref() {
+      try {
+        var el = document.getElementById('nn-realtime-share');
+        if (el) localStorage.setItem('NN_REALTIME_SHARE', el.checked ? '1' : '0');
+      } catch (e) {}
+    }
+
+    function nnRealtimeShareEnabled() {
+      var el = document.getElementById('nn-realtime-share');
+      if (!el) return true;
+      return !!el.checked;
+    }
+
+    function nnOnRealtimeShareToggle() {
+      nnPersistRealtimeSharePref();
+      autoSaveCurrent(true);
+      applyRoleMeet();
+    }
+
+    function nnLpNewId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return 'lp-' + crypto.randomUUID();
+      return 'lp-' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+    }
+
+    function nnLpGetLogicalIdAt(logical1Based) {
+      if (fileType !== 'pdf' || !currentFileId) return String(logical1Based);
+      nnEnsureWorkspaceMeta();
+      var plan = treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
+      if (!plan || !plan.order || plan.order.length === 0) return String(logical1Based);
+      var i = logical1Based - 1;
+      if (i < 0 || i >= plan.order.length) return plan.order[0];
+      return plan.order[i];
+    }
+
+    function nnLpCurrentStrokeKey() {
+      return nnLpGetLogicalIdAt(currentPageNum);
+    }
+
+    function nnLpMigrateNumericStrokeKeys(plan, physicalCount) {
+      function migrateOne(obj) {
+        var hasNum = Object.keys(obj).some(function (k) {
+          return /^\d+$/.test(k);
+        });
+        if (!hasNum) return false;
+        var out = {};
+        Object.keys(obj).forEach(function (k) {
+          if (!/^\d+$/.test(k)) out[k] = obj[k];
+        });
+        Object.keys(obj).forEach(function (k) {
+          var m = /^(\d+)$/.exec(k);
+          if (!m) return;
+          var p = parseInt(m[1], 10);
+          if (p < 1 || p > physicalCount || !plan.order[p - 1]) return;
+          var lid = plan.order[p - 1];
+          out[lid] = (out[lid] || []).concat(obj[k] || []);
+        });
+        Object.keys(obj).forEach(function (k) {
+          delete obj[k];
+        });
+        Object.keys(out).forEach(function (k) {
+          obj[k] = out[k];
+        });
+        return true;
+      }
+      var a = migrateOne(localStrokesByPage);
+      var b = migrateOne(sharedStrokesByPage);
+      return a || b;
+    }
+
+    function nnLpEnsurePlanForCurrentFile(physicalCount) {
+      if (!currentFileId || fileType !== 'pdf' || !physicalCount) return;
+      nnEnsureWorkspaceMeta();
+      var fid = currentFileId;
+      var plan = treeData.workspaceMeta.fileLogicalPages[fid];
+      var needSave = false;
+      if (!plan || !Array.isArray(plan.order) || plan.order.length === 0 || !plan.sources) {
+        plan = { order: [], sources: {} };
+        for (var i = 0; i < physicalCount; i++) {
+          var lid = nnLpNewId();
+          plan.order.push(lid);
+          plan.sources[lid] = { sourcePdfPage: i + 1 };
+        }
+        treeData.workspaceMeta.fileLogicalPages[fid] = plan;
+        needSave = true;
+      }
+      if (nnLpMigrateNumericStrokeKeys(plan, physicalCount)) needSave = true;
+      totalPages = plan.order.length;
+      if (needSave) nnSaveWorkspaceMetaToServer();
+    }
+
+    function nnLpInsertBlankDuplicateAfterCurrent() {
+      return (async function () {
+        try {
+          if (!pdfDocJs || !currentFileId || fileType !== 'pdf') return;
+          if (legacyFolderNavActive) return;
+          if (nnGetFolderKindForCurrentFile() === 'org') return;
+          var physN = pdfDocJs.numPages;
+          nnLpEnsurePlanForCurrentFile(physN);
+          var plan = treeData.workspaceMeta.fileLogicalPages[currentFileId];
+          if (!plan || !plan.order || !plan.order.length) return;
+          var curId = plan.order[currentPageNum - 1];
+          if (!curId || !plan.sources[curId]) return;
+          var phys = plan.sources[curId].sourcePdfPage;
+          var newId = nnLpNewId();
+          plan.sources[newId] = { sourcePdfPage: phys };
+          plan.order.splice(currentPageNum, 0, newId);
+          if (!localStrokesByPage[newId]) localStrokesByPage[newId] = [];
+          if (!sharedStrokesByPage[newId]) sharedStrokesByPage[newId] = [];
+          totalPages = plan.order.length;
+          currentPageNum++;
+          nnSaveWorkspaceMetaToServer();
+          await renderPage(currentPageNum);
+          autoSaveCurrent(true);
+          savePdfSlotFromGlobals();
+        } catch (err) {
+          console.error(err);
+        }
+      })();
+    }
+
+    function nnWirePdfEdgeSwipeZones() {
+      var leftZ = document.getElementById('nn-swipe-left-zone');
+      var rightZ = document.getElementById('nn-swipe-right-zone');
+      if (!leftZ || !rightZ) return;
+      function bindZone(zone, dir) {
+        var sx = 0;
+        var sy = 0;
+        zone.addEventListener(
+          'touchstart',
+          function (e) {
+            if (!e.changedTouches || e.changedTouches.length !== 1) return;
+            sx = e.changedTouches[0].clientX;
+            sy = e.changedTouches[0].clientY;
+          },
+          { passive: true }
+        );
+        zone.addEventListener(
+          'touchend',
+          function (e) {
+            if (!e.changedTouches || e.changedTouches.length !== 1) return;
+            var dx = e.changedTouches[0].clientX - sx;
+            var dy = e.changedTouches[0].clientY - sy;
+            if (Math.abs(dy) > Math.abs(dx) * 1.15) return;
+            if (Math.abs(dx) < 110) return;
+            if (nnGetFolderKindForCurrentFile() === 'org') return;
+            if (!pdfDocJs || fileType !== 'pdf' || legacyFolderNavActive) return;
+            if (dir === 'right' && dx < -110) nnLpInsertBlankDuplicateAfterCurrent();
+            if (dir === 'left' && dx > 110) nnLpInsertBlankDuplicateAfterCurrent();
+          },
+          { passive: true }
+        );
+      }
+      bindZone(rightZ, 'right');
+      bindZone(leftZ, 'left');
     }
 
     function openSeamlessViewerForFolder(folderId, startFileId, startFileName) {
@@ -1153,7 +1349,8 @@
         if (fileType === 'pdf' && originalPdfBytes) {
           var u8 = new Uint8Array(originalPdfBytes);
           pdfDocJs = await pdfjsLib.getDocument(u8).promise;
-          totalPages = pdfDocJs.numPages;
+          var physPages3 = pdfDocJs.numPages;
+          nnLpEnsurePlanForCurrentFile(physPages3);
           currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
           await renderPage(currentPageNum);
         } else if (s.imageDataUrl) {
@@ -1212,6 +1409,9 @@
     }
 
     window.onload = function () {
+      var rt = document.getElementById('nn-realtime-share');
+      if (rt) rt.checked = nnLoadRealtimeSharePref();
+      nnWirePdfEdgeSwipeZones();
       applyRoleMeet();
       showLoader('システムを初期設定中...');
       google.script.run
@@ -1252,11 +1452,16 @@
       var input = document.getElementById('input-folder-id').value;
       var isOrg = document.querySelector('input[name="folder-type"]:checked').value === 'org';
       if (!input) return alert('URLまたはIDを入力してください。');
+      var folderIdGuess = nnExtractDriveIdMeet(input);
       showLoader('フォルダを確認中...');
       google.script.run
         .withSuccessHandler(function (res) {
           hideLoader();
           if (res && res.success) {
+            nnEnsureWorkspaceMeta();
+            var fid = res.folderId || folderIdGuess;
+            if (fid) treeData.workspaceMeta.folderKind[fid] = isOrg ? 'org' : 'personal';
+            nnSaveWorkspaceMetaToServer();
             alert('✅ フォルダをワークスペースに追加しました！');
             closeAddModal();
             document.getElementById('input-folder-id').value = '';
@@ -1664,8 +1869,22 @@
 
     function applyRoleMeet() {
       stopMeetSync();
-      currentUserRole = roleSelect.value;
-      roleSelect.className = 'role-' + currentUserRole;
+      var rs = document.getElementById('role-select');
+      if (!nnRealtimeShareEnabled()) {
+        if (rs) {
+          rs.style.display = 'none';
+          rs.value = 'participant';
+        }
+        currentUserRole = 'participant';
+        if (roleSelect) roleSelect.className = 'role-participant';
+        drawCanvas.style.pointerEvents = 'auto';
+        hostFrame.style.display = 'none';
+        statusDiv.textContent = '📝 メモ（リアルタイム共有オフ）';
+        return;
+      }
+      if (rs) rs.style.display = '';
+      currentUserRole = roleSelect ? roleSelect.value : 'participant';
+      if (roleSelect) roleSelect.className = 'role-' + currentUserRole;
       drawCanvas.style.pointerEvents = 'auto';
       hostFrame.style.display = 'none';
       if (currentUserRole === 'presenter') {
@@ -1678,6 +1897,7 @@
     }
 
     function pushMeetingState() {
+      if (!nnRealtimeShareEnabled()) return;
       if (!currentFileId) return;
       var state = {
         fileId: currentFileId,
@@ -1799,7 +2019,7 @@
                 for (var i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
                 originalPdfBytes = bytes.buffer;
                 pdfDocJs = await pdfjsLib.getDocument(bytes).promise;
-                totalPages = pdfDocJs.numPages;
+                var physPages = pdfDocJs.numPages;
               } else {
                 var mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
                 currentImageObj = new Image();
@@ -1810,19 +2030,24 @@
                 totalPages = 1;
               }
 
-              var maxPage = Math.max(1, totalPages);
-              if (!silent) {
-                currentPageNum = goToLastPage ? maxPage : 1;
-              } else {
-                currentPageNum = Math.min(Math.max(1, currentPageNum), maxPage);
-              }
               var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
               localStrokesByPage = savedLocalMemo ? JSON.parse(savedLocalMemo) : {};
+
+              var maxPageGuess = fileType === 'pdf' ? pdfDocJs.numPages : totalPages;
+              if (!silent) {
+                currentPageNum = goToLastPage ? maxPageGuess : 1;
+              } else {
+                currentPageNum = Math.min(Math.max(1, currentPageNum), maxPageGuess);
+              }
 
               google.script.run
                 .withSuccessHandler(async function (res) {
                   if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
                   else sharedStrokesByPage = {};
+                  if (fileType === 'pdf') {
+                    nnLpEnsurePlanForCurrentFile(pdfDocJs.numPages);
+                    currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
+                  }
                   if (!silent) {
                     currentScale = 1.0;
                     viewerContainer.scrollLeft = 0;
@@ -1899,14 +2124,15 @@
           for (var i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
           originalPdfBytes = bytes.buffer;
           pdfDocJs = await pdfjsLib.getDocument(bytes).promise;
-          totalPages = pdfDocJs.numPages;
-          currentPageNum = 1;
+          var physPages2 = pdfDocJs.numPages;
           var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
           localStrokesByPage = savedLocalMemo ? JSON.parse(savedLocalMemo) : {};
           google.script.run
             .withSuccessHandler(async function (res) {
               if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
               else sharedStrokesByPage = {};
+              nnLpEnsurePlanForCurrentFile(physPages2);
+              currentPageNum = 1;
               currentScale = 1.0;
               viewerContainer.scrollLeft = 0;
               viewerContainer.scrollTop = 0;
@@ -2044,13 +2270,15 @@
 
     async function renderPage(pageNum) {
       statusDiv.textContent = 'レンダリング中...';
-      if (!sharedStrokesByPage[pageNum]) sharedStrokesByPage[pageNum] = [];
-      if (!localStrokesByPage[pageNum]) localStrokesByPage[pageNum] = [];
+      var lid = nnLpGetLogicalIdAt(pageNum);
+      if (!sharedStrokesByPage[lid]) sharedStrokesByPage[lid] = [];
+      if (!localStrokesByPage[lid]) localStrokesByPage[lid] = [];
 
       var bgCtx = bgCanvas.getContext('2d');
 
       if (fileType === 'pdf') {
-        var page = await pdfDocJs.getPage(pageNum);
+        var phys = parseInt(nnLpGetSourcePhysicalForId(lid), 10) || pageNum;
+        var page = await pdfDocJs.getPage(phys);
         var viewport = page.getViewport({ scale: 1.5 });
         baseWidth = viewport.width;
         baseHeight = viewport.height;
@@ -2075,6 +2303,14 @@
       redraw();
     }
 
+    function nnLpGetSourcePhysicalForId(logicalId) {
+      nnEnsureWorkspaceMeta();
+      if (fileType !== 'pdf' || !currentFileId) return '1';
+      var plan = treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
+      if (!plan || !plan.sources || !plan.sources[logicalId]) return '1';
+      return String(plan.sources[logicalId].sourcePdfPage || 1);
+    }
+
     function setSizeAndScale(bgCtx) {
       scrollSpacer.style.width = (baseWidth * currentScale) + 'px';
       scrollSpacer.style.height = (baseHeight * currentScale) + 'px';
@@ -2096,7 +2332,7 @@
       var newPage = currentPageNum + delta;
 
       if (newPage >= 1 && newPage <= totalPages) {
-        if (!allowLegacyNav && currentUserRole !== 'presenter') {
+        if (!allowLegacyNav && nnRealtimeShareEnabled() && currentUserRole !== 'presenter') {
           statusDiv.textContent = 'ページ送りは発表者モードでのみ利用できます';
           return;
         }
@@ -2153,12 +2389,13 @@
     }
 
     function getTargetStrokesArray() {
+      var sk = nnLpCurrentStrokeKey();
       if (currentUserRole === 'presenter') {
-        if (!sharedStrokesByPage[currentPageNum]) sharedStrokesByPage[currentPageNum] = [];
-        return sharedStrokesByPage[currentPageNum];
+        if (!sharedStrokesByPage[sk]) sharedStrokesByPage[sk] = [];
+        return sharedStrokesByPage[sk];
       }
-      if (!localStrokesByPage[currentPageNum]) localStrokesByPage[currentPageNum] = [];
-      return localStrokesByPage[currentPageNum];
+      if (!localStrokesByPage[sk]) localStrokesByPage[sk] = [];
+      return localStrokesByPage[sk];
     }
 
     drawCanvas.addEventListener('pointerdown', (e) => {
@@ -2238,10 +2475,11 @@
       const filterFn = function (stroke) {
         return !stroke.points.some(function (p) { return Math.hypot(p.x - point.x, p.y - point.y) < threshold; });
       };
+      var skE = nnLpCurrentStrokeKey();
       if (currentUserRole === 'presenter') {
-        sharedStrokesByPage[currentPageNum] = (sharedStrokesByPage[currentPageNum] || []).filter(filterFn);
+        sharedStrokesByPage[skE] = (sharedStrokesByPage[skE] || []).filter(filterFn);
       } else {
-        localStrokesByPage[currentPageNum] = (localStrokesByPage[currentPageNum] || []).filter(filterFn);
+        localStrokesByPage[skE] = (localStrokesByPage[skE] || []).filter(filterFn);
       }
       redraw();
     }
@@ -2264,8 +2502,9 @@
 
     function redraw() {
       drawCtx.clearRect(0, 0, drawCanvas.width / dpr, drawCanvas.height / dpr);
-      if (sharedStrokesByPage[currentPageNum]) drawStrokesToContext(drawCtx, sharedStrokesByPage[currentPageNum], false);
-      if (localStrokesByPage[currentPageNum]) drawStrokesToContext(drawCtx, localStrokesByPage[currentPageNum], false);
+      var sk = nnLpCurrentStrokeKey();
+      if (sharedStrokesByPage[sk]) drawStrokesToContext(drawCtx, sharedStrokesByPage[sk], false);
+      if (localStrokesByPage[sk]) drawStrokesToContext(drawCtx, localStrokesByPage[sk], false);
     }
 
     function saveToServer() {
@@ -2274,8 +2513,9 @@
     }
 
     function recognizeCurrentPageText() {
-      const shared = sharedStrokesByPage[currentPageNum] || [];
-      const local = localStrokesByPage[currentPageNum] || [];
+      var sk = nnLpCurrentStrokeKey();
+      const shared = sharedStrokesByPage[sk] || [];
+      const local = localStrokesByPage[sk] || [];
       const combinedStrokes = shared.concat(local);
       if (combinedStrokes.length === 0) {
         alert('このページに手書きがありません。');
@@ -2326,24 +2566,60 @@
         showLoader("PDFを合成・生成中...");
         try {
           const { PDFDocument } = PDFLib;
-          const pdfDoc = await PDFDocument.load(originalPdfBytes);
-          const offCanvas = document.createElement('canvas'); const offCtx = offCanvas.getContext('2d');
-          offCanvas.width = baseWidth * dpr; offCanvas.height = baseHeight * dpr; offCtx.scale(dpr, dpr);
+          const srcPdf = await PDFDocument.load(originalPdfBytes);
+          const offCanvas = document.createElement('canvas');
+          const offCtx = offCanvas.getContext('2d');
+          nnEnsureWorkspaceMeta();
+          var plan = currentFileId && treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
+          var order = plan && plan.order && plan.order.length ? plan.order : null;
 
-          for (let i = 1; i <= totalPages; i++) {
-            const pageStrokes = (sharedStrokesByPage[i] || []).concat(localStrokesByPage[i] || []);
-            if (!pageStrokes || pageStrokes.length === 0) continue;
-            drawStrokesToContext(offCtx, pageStrokes, true);
-            const pngImage = await pdfDoc.embedPng(offCanvas.toDataURL('image/png'));
-            const pdfPage = pdfDoc.getPage(i - 1);
-            pdfPage.drawImage(pngImage, { x: 0, y: 0, width: pdfPage.getWidth(), height: pdfPage.getHeight() });
+          if (order && plan.sources) {
+            const newPdf = await PDFDocument.create();
+            for (let li = 0; li < order.length; li++) {
+              var lid = order[li];
+              var phys = plan.sources[lid] && plan.sources[lid].sourcePdfPage ? plan.sources[lid].sourcePdfPage : 1;
+              var copiedPages = await newPdf.copyPages(srcPdf, [phys - 1]);
+              newPdf.addPage(copiedPages[0]);
+              var pages = newPdf.getPages();
+              var pdfPage = pages[pages.length - 1];
+              var pageStrokes = (sharedStrokesByPage[lid] || []).concat(localStrokesByPage[lid] || []);
+              if (!pageStrokes.length) continue;
+              var pw = pdfPage.getWidth();
+              var ph = pdfPage.getHeight();
+              offCanvas.width = pw * dpr;
+              offCanvas.height = ph * dpr;
+              offCtx.setTransform(1, 0, 0, 1, 0, 0);
+              offCtx.scale(dpr, dpr);
+              drawStrokesToContext(offCtx, pageStrokes, true);
+              var pngImage = await newPdf.embedPng(offCanvas.toDataURL('image/png'));
+              pdfPage.drawImage(pngImage, { x: 0, y: 0, width: pw, height: ph });
+            }
+            var pdfBytesNew = await newPdf.save();
+            triggerDownload(new Blob([pdfBytesNew], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, '') + '_annotated.pdf');
+          } else {
+            var pdfDoc = srcPdf;
+            offCanvas.width = baseWidth * dpr;
+            offCanvas.height = baseHeight * dpr;
+            offCtx.setTransform(1, 0, 0, 1, 0, 0);
+            offCtx.scale(dpr, dpr);
+            var nPhys = pdfDoc.getPageCount();
+            for (let i = 1; i <= nPhys; i++) {
+              var pageStrokes2 = (sharedStrokesByPage[String(i)] || []).concat(localStrokesByPage[String(i)] || []);
+              if (!pageStrokes2 || pageStrokes2.length === 0) continue;
+              drawStrokesToContext(offCtx, pageStrokes2, true);
+              var pngImage2 = await pdfDoc.embedPng(offCanvas.toDataURL('image/png'));
+              var pdfPage2 = pdfDoc.getPage(i - 1);
+              pdfPage2.drawImage(pngImage2, { x: 0, y: 0, width: pdfPage2.getWidth(), height: pdfPage2.getHeight() });
+            }
+            var pdfBytesLeg = await pdfDoc.save();
+            triggerDownload(new Blob([pdfBytesLeg], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, '') + '_annotated.pdf');
           }
-
-          const pdfBytes = await pdfDoc.save();
-          triggerDownload(new Blob([pdfBytes], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, "") + "_annotated.pdf");
           hideLoader();
-        } catch (error) { console.error(error); alert("生成失敗: " + error.message); hideLoader(); }
-        
+        } catch (error) {
+          console.error(error);
+          alert('生成失敗: ' + error.message);
+          hideLoader();
+        }
       } else {
         showLoader("画像を合成・生成中...");
         try {

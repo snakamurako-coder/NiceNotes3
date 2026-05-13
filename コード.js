@@ -6,15 +6,22 @@ function doGet() {
 
 /**
  * ホーム画面の並び・フォルダ閲覧モード等（JSON を ScriptProperties に保存）。
- * @return {{ folderPdfMode: Object, layout: { childrenOrder: Object, fileOrder: Object, fileDue: Object } }}
+ * @return {{ folderPdfMode: Object, folderKind: Object, fileLogicalPages: Object, layout: { childrenOrder: Object, fileOrder: Object, fileDue: Object } }}
  */
 function nn_getWorkspaceMeta_() {
-  const def = { folderPdfMode: {}, layout: { childrenOrder: {}, fileOrder: {}, fileDue: {} } };
+  const def = {
+    folderPdfMode: {},
+    folderKind: {},
+    fileLogicalPages: {},
+    layout: { childrenOrder: {}, fileOrder: {}, fileDue: {} },
+  };
   try {
     const s = PropertiesService.getScriptProperties().getProperty('NN_WORKSPACE_META');
     if (!s) return def;
     const o = JSON.parse(s);
     if (!o.folderPdfMode || typeof o.folderPdfMode !== 'object') o.folderPdfMode = {};
+    if (!o.folderKind || typeof o.folderKind !== 'object') o.folderKind = {};
+    if (!o.fileLogicalPages || typeof o.fileLogicalPages !== 'object') o.fileLogicalPages = {};
     if (!o.layout || typeof o.layout !== 'object') o.layout = {};
     if (!o.layout.childrenOrder) o.layout.childrenOrder = {};
     if (!o.layout.fileOrder) o.layout.fileOrder = {};
@@ -265,7 +272,7 @@ function registerFolder(inputData, isOrg) {
       folders.push(id);
       props.setProperty('REGISTERED_FOLDERS', JSON.stringify(folders));
     }
-    return { success: true };
+    return { success: true, folderId: id };
   } catch (e) {
     if (isOrg) {
       return {
