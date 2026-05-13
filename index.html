@@ -467,7 +467,7 @@
             <option value="updated">更新日時</option>
             <option value="created">作成日時</option>
             <option value="name">ファイル名</option>
-            <option value="due">期日（下欄で入力）</option>
+            <option value="due">期限・メモ欄の日付で並べ替え</option>
           </select>
           <button type="button" onclick="toggleSortOrderMeet()" id="btn-sort-order-meet">🔽</button>
           <span id="tree-status" style="margin-left: auto; font-size: 12px; color: #888;"></span>
@@ -1065,6 +1065,10 @@
 
     function openSeamlessViewerForFolder(folderId, startFileId, startFileName) {
       nnEnsureWorkspaceMeta();
+      if (!folderId) {
+        alert('フォルダ情報がありません。ホームでツリーを更新し、一覧の「開く」から開いてください。');
+        return;
+      }
       currentFolderId = folderId;
       var sortEl = document.getElementById('sort-type-meet');
       var sortType = sortEl ? sortEl.value : 'updated';
@@ -1075,7 +1079,10 @@
         return;
       }
       var fs = document.getElementById('file-select');
-      if (!fs) return;
+      if (!fs) {
+        alert('ツールバーのファイル一覧を表示できません。ページを再読み込みしてください。');
+        return;
+      }
       fs.innerHTML = '';
       for (var i = 0; i < files.length; i++) {
         var opt = document.createElement('option');
@@ -1091,6 +1098,8 @@
         }
       }
       fs.selectedIndex = idx;
+      autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
       legacyFolderNavActive = true;
       currentFileId = files[idx].id;
       fileName = files[idx].name || startFileName || 'document.pdf';
@@ -1114,8 +1123,6 @@
         pdfBtn.classList.add('active-mode');
       }
       nnSyncLegacyToolsVisibility();
-      if (currentFileId) autoSaveCurrent(true);
-      savePdfSlotFromGlobals();
       loadSelectedFile(false, false, true);
     }
 
@@ -1233,6 +1240,8 @@
 
     const NN_PDF_SLOT_COUNT = 3;
     let pdfActiveSlot = 0;
+    var __pdfSlotSwitchChain = Promise.resolve();
+
     function nnEmptyPdfSlot() {
       return {
         fileId: null,
@@ -1280,10 +1289,16 @@
     function savePdfSlotFromGlobals() {
       var s = pdfSlots[pdfActiveSlot];
       if (!s) return;
+      var prevSlotId = s.fileId;
+      var prevSlotBytes = s.originalPdfBytes;
       s.fileId = currentFileId;
       s.fileName = fileName;
       s.fileType = fileType;
-      s.originalPdfBytes = nnClonePdfBytes(originalPdfBytes);
+      var clonedBytes = nnClonePdfBytes(originalPdfBytes);
+      if (!clonedBytes && currentFileId && currentFileId === prevSlotId && fileType === 'pdf' && prevSlotBytes) {
+        clonedBytes = nnClonePdfBytes(prevSlotBytes);
+      }
+      s.originalPdfBytes = clonedBytes;
       s.imageDataUrl =
         fileType !== 'pdf' && currentImageObj && currentImageObj.src && currentImageObj.src.indexOf('data:') === 0
           ? currentImageObj.src
@@ -1351,6 +1366,19 @@
       originalPdfBytes = nnClonePdfBytes(s.originalPdfBytes);
       currentImageObj = null;
       try {
+        if (fileType === 'pdf' && !originalPdfBytes && currentFileId && typeof google !== 'undefined' && google.script && google.script.run) {
+          var b64re = await new Promise(function (resolve, reject) {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getFileData(currentFileId);
+          });
+          if (b64re && typeof b64re === 'object' && b64re.error) throw new Error(b64re.error);
+          if (typeof b64re === 'string') {
+            var bstr = window.atob(b64re);
+            var uarr = new Uint8Array(bstr.length);
+            for (var ir = 0; ir < bstr.length; ir++) uarr[ir] = bstr.charCodeAt(ir);
+            originalPdfBytes = uarr.buffer;
+            s.originalPdfBytes = nnClonePdfBytes(originalPdfBytes);
+          }
+        }
         if (fileType === 'pdf' && originalPdfBytes) {
           var u8 = new Uint8Array(originalPdfBytes);
           pdfDocJs = await pdfjsLib.getDocument(u8).promise;
@@ -1386,13 +1414,25 @@
       nnSyncLegacyToolsVisibility();
     }
 
-    window.switchPdfSlotIndex = async function switchPdfSlotIndex(nextIdx) {
+    window.switchPdfSlotIndex = function switchPdfSlotIndex(nextIdx) {
+      if (nextIdx < 0 || nextIdx >= NN_PDF_SLOT_COUNT || nextIdx === pdfActiveSlot) return;
+      __pdfSlotSwitchChain = __pdfSlotSwitchChain
+        .then(function () {
+          return switchPdfSlotIndexDo(nextIdx);
+        })
+        .catch(function (e) {
+          console.error('switchPdfSlotIndex', e);
+        });
+      return __pdfSlotSwitchChain;
+    };
+
+    async function switchPdfSlotIndexDo(nextIdx) {
       if (nextIdx < 0 || nextIdx >= NN_PDF_SLOT_COUNT || nextIdx === pdfActiveSlot) return;
       autoSaveCurrent(true);
       savePdfSlotFromGlobals();
       pdfActiveSlot = nextIdx;
       await restorePdfSlotToGlobals(pdfActiveSlot);
-    };
+    }
 
     const MIN_WIDTH = 0.5; const MAX_WIDTH = 30.0;
     function updateWidthFromSlider() {
@@ -1700,10 +1740,12 @@
         dateSpan.textContent = '更新: ' + new Date(f.updated).toLocaleDateString();
         var dueLab = document.createElement('label');
         dueLab.style.cssText = 'font-size:12px;color:#5f6368;display:flex;align-items:center;gap:4px;';
-        dueLab.appendChild(document.createTextNode('期日'));
+        dueLab.title =
+          '会議日・配布期限・校了日など、資料ごとの目安日をメモする欄です（任意）。上部の並び替えで「期限・メモ」欄の日付を選ぶと、この日付で並べ替えられます。未入力のファイルは並び替え時に末尾扱いになります。';
+        dueLab.appendChild(document.createTextNode('期限・メモ'));
         var dueIn = document.createElement('input');
         dueIn.type = 'text';
-        dueIn.placeholder = 'YYYY-MM-DD';
+        dueIn.placeholder = '例: 2026-05-20';
         dueIn.style.cssText = 'width:110px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;';
         dueIn.value = (treeData.workspaceMeta.layout.fileDue[f.id] || '').trim();
         dueIn.addEventListener('click', function (e) {
@@ -1722,11 +1764,24 @@
         openBtn.className = 'file-btn-meet';
         openBtn.textContent = '開く';
         openBtn.onclick = function () {
-          openFileFromHome(f.id, f.name);
+          openFileFromHome(f.id, f.name, f.folderId);
         };
+        var driveLink = document.createElement('a');
+        driveLink.href = 'https://drive.google.com/file/d/' + encodeURIComponent(f.id) + '/view';
+        driveLink.target = '_blank';
+        driveLink.rel = 'noopener noreferrer';
+        driveLink.className = 'file-btn-meet';
+        driveLink.textContent = 'Driveで開く';
+        driveLink.title = 'ブラウザで Google Drive のプレビューを開きます（閲覧のみ）';
+        driveLink.style.textDecoration = 'none';
+        driveLink.style.color = '#1a73e8';
+        driveLink.addEventListener('click', function (e) {
+          e.stopPropagation();
+        });
         meta.appendChild(dateSpan);
         meta.appendChild(dueLab);
         meta.appendChild(openBtn);
+        meta.appendChild(driveLink);
         div.appendChild(grip);
         div.appendChild(nameEl);
         div.appendChild(meta);
@@ -1766,14 +1821,26 @@
         if (lastStr) {
           try {
             var last = JSON.parse(lastStr);
+            var lastId =
+              last && last.id != null && String(last.id).trim() !== ''
+                ? String(last.id).trim()
+                : last && last.fileId != null && String(last.fileId).trim() !== ''
+                  ? String(last.fileId).trim()
+                  : '';
             lastContainer.innerHTML = '';
-            var b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'file-btn-meet';
-            b.style.cssText = 'background:#e8f0fe;color:#1a73e8;border-color:#1a73e8;';
-            b.textContent = '📄 ' + (last.name || '');
-            b.onclick = function () { openFileFromHome(last.id, last.name); };
-            lastContainer.appendChild(b);
+            if (!lastId) {
+              lastContainer.textContent = '（記録が無効です。ファイル一覧から開き直してください）';
+            } else {
+              var b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'file-btn-meet';
+              b.style.cssText = 'background:#e8f0fe;color:#1a73e8;border-color:#1a73e8;';
+              b.textContent = '📄 ' + (last.name || '');
+              b.onclick = function () {
+                openFileFromHome(lastId, last.name || 'document.pdf', last.folderId);
+              };
+              lastContainer.appendChild(b);
+            }
           } catch (err) {
             lastContainer.textContent = '（記録がありません）';
           }
@@ -1794,7 +1861,9 @@
               btn.type = 'button';
               btn.className = 'file-btn-meet';
               btn.textContent = '⭐ ' + (f.name || '');
-              btn.onclick = function () { openFileFromHome(f.id, f.name); };
+              btn.onclick = function () {
+                openFileFromHome(f.id, f.name, f.folderId);
+              };
               favContainer.appendChild(btn);
             });
           } else {
@@ -1817,7 +1886,11 @@
         btnFavorite.style.color = '#ccc';
         btnFavorite.innerHTML = '☆';
       } else {
-        favs.push({ id: currentFileId, name: fileName });
+        favs.push({
+          id: currentFileId,
+          name: fileName,
+          folderId: nnFindFolderIdForFile(currentFileId) || currentFolderId || null,
+        });
         btnFavorite.style.color = '#f4b400';
         btnFavorite.innerHTML = '⭐';
       }
@@ -1831,28 +1904,57 @@
       btnFavorite.innerHTML = isFav ? '⭐' : '☆';
     }
 
-    function openFileFromHome(id, name) {
-      if (currentFileId) autoSaveCurrent(true);
-      savePdfSlotFromGlobals();
-      var folderForFile = nnFindFolderIdForFile(id);
+    function openFileFromHome(id, name, storedFolderId) {
+      hideStartupGate();
+      setAppMode('pdf');
+      var fid =
+        id != null && String(id).trim() !== ''
+          ? String(id).trim()
+          : '';
+      if (!fid) {
+        alert('ファイル ID がありません。一覧の「開く」から開いてください。');
+        showHomeMeet();
+        return;
+      }
+      try {
+        if (currentFileId) autoSaveCurrent(true);
+      } catch (e0) {
+        console.warn(e0);
+      }
+      try {
+        savePdfSlotFromGlobals();
+      } catch (e1) {
+        console.warn('savePdfSlotFromGlobals', e1);
+      }
+      var folderForFile = nnFindFolderIdForFile(fid);
       if (folderForFile) currentFolderId = folderForFile;
+      else if (storedFolderId != null && String(storedFolderId).trim() !== '') {
+        currentFolderId = String(storedFolderId).trim();
+      }
       var mode = nnGetFolderPdfModeForFolder(currentFolderId);
       if (mode === 'seamless') {
-        openSeamlessViewerForFolder(currentFolderId, id, name);
+        if (!currentFolderId) {
+          alert(
+            'シームレス表示のフォルダを特定できませんでした。ホームで「ツリーを最新に更新」してから、一覧の「開く」で開くか、前回の記録を開き直してください。'
+          );
+          showHomeMeet();
+          return;
+        }
+        openSeamlessViewerForFolder(currentFolderId, fid, name);
         return;
       }
       legacyFolderNavActive = false;
       nnSyncLegacyToolsVisibility();
-      currentFileId = id;
+      currentFileId = fid;
       fileName = name || 'document.pdf';
       try {
         localStorage.setItem(
           'last_opened_file',
           JSON.stringify({
-            id: id,
+            id: fid,
             name: fileName,
             folderId: currentFolderId,
-            pdfMode: 'individual'
+            pdfMode: 'individual',
           })
         );
       } catch (e) {}
@@ -1923,7 +2025,7 @@
           if (!res) return;
           var state = JSON.parse(res);
           if (state.fileId && state.fileId !== currentFileId) {
-            openFileFromHome(state.fileId, state.fileName || 'document.pdf');
+            openFileFromHome(state.fileId, state.fileName || 'document.pdf', state.folderId);
             return;
           }
           if (state.pageNum && state.pageNum !== currentPageNum && currentFileId) {
@@ -2009,10 +2111,27 @@
       fileType = ext === 'jpg' || ext === 'jpeg' || ext === 'png' ? 'image' : 'pdf';
 
       if (!silent) showLoader('ファイルを開いています...');
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        hideLoader();
+        alert('Google Apps Script からファイルを取得できません。アプリを開き直してください。');
+        return;
+      }
       google.script.run
+        .withFailureHandler(function (err) {
+          hideLoader();
+          alert(
+            'Drive からファイルを取得できませんでした。権限・ファイルサイズ・ネットワークを確認してください。\n' +
+              (err && err.message ? err.message : String(err))
+          );
+        })
         .withSuccessHandler(function (base64Data) {
           if (base64Data && base64Data.error) {
             alert('エラー: ' + base64Data.error);
+            hideLoader();
+            return;
+          }
+          if (typeof base64Data !== 'string' || !base64Data.length) {
+            alert('ファイルデータが空です。共有ドライブの権限や、ファイルが大きすぎないか確認してください。');
             hideLoader();
             return;
           }
@@ -2045,30 +2164,52 @@
                 currentPageNum = Math.min(Math.max(1, currentPageNum), maxPageGuess);
               }
 
+              async function nnAfterAnnotation_(res) {
+                if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
+                else sharedStrokesByPage = {};
+                if (fileType === 'pdf') {
+                  nnLpEnsurePlanForCurrentFile(pdfDocJs.numPages);
+                  currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
+                }
+                if (!silent) {
+                  currentScale = 1.0;
+                  viewerContainer.scrollLeft = 0;
+                  viewerContainer.scrollTop = 0;
+                }
+                await renderPage(currentPageNum);
+                hideLoader();
+                updateFavoriteButtonStatus();
+                applyRoleMeet();
+                savePdfSlotFromGlobals();
+                nnSyncLegacyToolsVisibility();
+              }
+
               google.script.run
-                .withSuccessHandler(async function (res) {
-                  if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
-                  else sharedStrokesByPage = {};
-                  if (fileType === 'pdf') {
-                    nnLpEnsurePlanForCurrentFile(pdfDocJs.numPages);
-                    currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
-                  }
-                  if (!silent) {
-                    currentScale = 1.0;
-                    viewerContainer.scrollLeft = 0;
-                    viewerContainer.scrollTop = 0;
-                  }
-                  await renderPage(currentPageNum);
-                  hideLoader();
-                  updateFavoriteButtonStatus();
-                  applyRoleMeet();
-                  savePdfSlotFromGlobals();
-                  nnSyncLegacyToolsVisibility();
+                .withFailureHandler(function (err2) {
+                  (async function () {
+                    try {
+                      await nnAfterAnnotation_(null);
+                    } catch (e) {
+                      console.error(e);
+                      hideLoader();
+                    }
+                    alert(
+                      '共有メモ（注釈）の読み込みに失敗しました。資料は表示しています。\n' +
+                        (err2 && err2.message ? err2.message : String(err2))
+                    );
+                  })();
+                })
+                .withSuccessHandler(function (res) {
+                  Promise.resolve(nnAfterAnnotation_(res)).catch(function (e) {
+                    console.error(e);
+                    hideLoader();
+                    alert('表示に失敗しました: ' + (e && e.message ? e.message : String(e)));
+                  });
                 })
                 .loadAnnotation(baseName);
             } catch (err) {
               console.error(err);
-              alert('読み込み失敗: ' + err.message);
+              alert('読み込み失敗: ' + (err && err.message ? err.message : String(err)));
               hideLoader();
             }
           })();
@@ -2118,7 +2259,12 @@
       try {
         localStorage.setItem(
           'last_opened_file',
-          JSON.stringify({ id: currentFileId, name: fileName, pdfMode: 'individual' })
+          JSON.stringify({
+            id: currentFileId,
+            name: fileName,
+            folderId: currentFolderId || null,
+            pdfMode: 'individual',
+          })
         );
       } catch (e) {}
       if (!silent) showLoader('PDFを開いています...');
@@ -2197,8 +2343,14 @@
         if (s) {
           try {
             var last = JSON.parse(s);
-            if (last && last.id) {
-              openFileFromHome(last.id, last.name || 'document.pdf');
+            var lid =
+              last && last.id != null && String(last.id).trim() !== ''
+                ? String(last.id).trim()
+                : last && last.fileId != null && String(last.fileId).trim() !== ''
+                  ? String(last.fileId).trim()
+                  : '';
+            if (lid) {
+              openFileFromHome(lid, last.name || 'document.pdf', last.folderId);
               return;
             }
           } catch (e2) {}
@@ -2233,15 +2385,19 @@
       if (s) {
         try {
           var last = JSON.parse(s);
-          if (last && last.id) {
-            openFileFromHome(last.id, last.name || 'document.pdf');
+          var lid =
+            last && last.id != null && String(last.id).trim() !== ''
+              ? String(last.id).trim()
+              : last && last.fileId != null && String(last.fileId).trim() !== ''
+                ? String(last.fileId).trim()
+                : '';
+          if (lid) {
+            openFileFromHome(lid, last.name || 'document.pdf', last.folderId);
             return;
           }
         } catch (e2) {}
       }
     }
-
-    /** ホームヘッダーからタスク画面へ */
     function meetGoTaskFromHome() {
       hideStartupGate();
       startupChooseTaskHome();
@@ -2565,15 +2721,47 @@
         .recognizeSentence(apiInk);
     }
 
+    /** pdf.js 利用後にデタッチされた ArrayBuffer でも PDFLib が読めるよう複製する */
+    function nnBytesForPdfLibLoad(buf) {
+      if (!buf) return null;
+      try {
+        if (buf instanceof ArrayBuffer) return buf.slice(0);
+        if (buf.buffer && buf.buffer instanceof ArrayBuffer) {
+          return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+        }
+      } catch (e) {}
+      return buf;
+    }
+
+    async function nnExportViewportSizeForPhysicalPage(phys1Based) {
+      var ew = baseWidth > 0 ? baseWidth : 612;
+      var eh = baseHeight > 0 ? baseHeight : 792;
+      if (pdfDocJs && phys1Based >= 1) {
+        try {
+          var pjs = await pdfDocJs.getPage(phys1Based);
+          var vp = pjs.getViewport({ scale: 1.5 });
+          ew = vp.width;
+          eh = vp.height;
+        } catch (e) {}
+      }
+      return { ew: ew, eh: eh };
+    }
+
     async function exportFile() {
       if (fileType === 'pdf') {
         if (!originalPdfBytes) return alert("PDFがありません。");
         showLoader("PDFを合成・生成中...");
         try {
           const { PDFDocument } = PDFLib;
-          const srcPdf = await PDFDocument.load(originalPdfBytes);
+          const rawBytes = nnBytesForPdfLibLoad(originalPdfBytes);
+          if (!rawBytes) {
+            hideLoader();
+            return alert('PDFバイナリを読み取れません。タブを切り替えるか、ファイルを開き直してから再度お試しください。');
+          }
+          const srcPdf = await PDFDocument.load(rawBytes);
           const offCanvas = document.createElement('canvas');
           const offCtx = offCanvas.getContext('2d');
+          const nSrcPages = srcPdf.getPageCount();
           nnEnsureWorkspaceMeta();
           var plan = currentFileId && treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
           var order = plan && plan.order && plan.order.length ? plan.order : null;
@@ -2582,39 +2770,44 @@
             const newPdf = await PDFDocument.create();
             for (let li = 0; li < order.length; li++) {
               var lid = order[li];
-              var phys = plan.sources[lid] && plan.sources[lid].sourcePdfPage ? plan.sources[lid].sourcePdfPage : 1;
+              var physRaw = plan.sources[lid] && plan.sources[lid].sourcePdfPage ? plan.sources[lid].sourcePdfPage : 1;
+              var phys = Math.min(Math.max(1, parseInt(physRaw, 10) || 1), nSrcPages);
               var copiedPages = await newPdf.copyPages(srcPdf, [phys - 1]);
               newPdf.addPage(copiedPages[0]);
               var pages = newPdf.getPages();
               var pdfPage = pages[pages.length - 1];
               var pageStrokes = (sharedStrokesByPage[lid] || []).concat(localStrokesByPage[lid] || []);
               if (!pageStrokes.length) continue;
-              var pw = pdfPage.getWidth();
-              var ph = pdfPage.getHeight();
-              offCanvas.width = pw * dpr;
-              offCanvas.height = ph * dpr;
+              var dim = await nnExportViewportSizeForPhysicalPage(phys);
+              offCanvas.width = dim.ew * dpr;
+              offCanvas.height = dim.eh * dpr;
               offCtx.setTransform(1, 0, 0, 1, 0, 0);
               offCtx.scale(dpr, dpr);
               drawStrokesToContext(offCtx, pageStrokes, true);
               var pngImage = await newPdf.embedPng(offCanvas.toDataURL('image/png'));
+              var pw = pdfPage.getWidth();
+              var ph = pdfPage.getHeight();
               pdfPage.drawImage(pngImage, { x: 0, y: 0, width: pw, height: ph });
             }
             var pdfBytesNew = await newPdf.save();
             triggerDownload(new Blob([pdfBytesNew], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, '') + '_annotated.pdf');
           } else {
             var pdfDoc = srcPdf;
-            offCanvas.width = baseWidth * dpr;
-            offCanvas.height = baseHeight * dpr;
-            offCtx.setTransform(1, 0, 0, 1, 0, 0);
-            offCtx.scale(dpr, dpr);
             var nPhys = pdfDoc.getPageCount();
             for (let i = 1; i <= nPhys; i++) {
               var pageStrokes2 = (sharedStrokesByPage[String(i)] || []).concat(localStrokesByPage[String(i)] || []);
               if (!pageStrokes2 || pageStrokes2.length === 0) continue;
+              var dim2 = await nnExportViewportSizeForPhysicalPage(i);
+              offCanvas.width = dim2.ew * dpr;
+              offCanvas.height = dim2.eh * dpr;
+              offCtx.setTransform(1, 0, 0, 1, 0, 0);
+              offCtx.scale(dpr, dpr);
               drawStrokesToContext(offCtx, pageStrokes2, true);
               var pngImage2 = await pdfDoc.embedPng(offCanvas.toDataURL('image/png'));
               var pdfPage2 = pdfDoc.getPage(i - 1);
-              pdfPage2.drawImage(pngImage2, { x: 0, y: 0, width: pdfPage2.getWidth(), height: pdfPage2.getHeight() });
+              var pw2 = pdfPage2.getWidth();
+              var ph2 = pdfPage2.getHeight();
+              pdfPage2.drawImage(pngImage2, { x: 0, y: 0, width: pw2, height: ph2 });
             }
             var pdfBytesLeg = await pdfDoc.save();
             triggerDownload(new Blob([pdfBytesLeg], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, '') + '_annotated.pdf');
@@ -2622,7 +2815,7 @@
           hideLoader();
         } catch (error) {
           console.error(error);
-          alert('生成失敗: ' + error.message);
+          alert('生成失敗: ' + (error && error.message ? error.message : String(error)));
           hideLoader();
         }
       } else {
