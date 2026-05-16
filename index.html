@@ -175,6 +175,8 @@
 
     #pdf-slot-tabs { display: none; align-items: center; gap: 6px; flex-shrink: 0; }
     #pdf-slot-tabs.nn-show { display: flex; }
+    #nn-pdf-save-export { display: none; align-items: center; gap: 6px; flex-shrink: 0; }
+    #nn-pdf-save-export.nn-show { display: flex; }
     .pdf-slot-btn { padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #f8f9fa; cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pdf-slot-btn.active-slot { background: #e8f0fe; border-color: #1a73e8; font-weight: 600; }
 
@@ -280,9 +282,18 @@
     }
     .nn-pen-swatch.nn-pen-swatch-active { border-color: #174ea6; box-shadow: 0 0 0 2px #e8f0fe; }
     #nn-layer-row label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
-    #nn-text-style-panel { font-size: 11px; color: #3c4043; max-width: 320px; }
-    #nn-text-style-panel .nn-ts-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: 4px; }
-    #nn-text-style-panel input[type="number"] { width: 52px; }
+    #nn-text-style-panel { font-size: 11px; color: #3c4043; width: 100%; max-width: 220px; }
+    #nn-text-style-panel .nn-ts-row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    #nn-text-style-panel .nn-ts-row label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+    #nn-text-style-panel input[type="number"] { width: 100%; max-width: 80px; }
+    #nn-text-style-panel input[type="range"] { width: 100%; max-width: 160px; }
+    #nn-text-style-panel select { width: 100%; max-width: 200px; }
 
     #viewer-shell {
       display: none;
@@ -335,31 +346,100 @@
       border: 1px solid #dadce0;
       border-radius: 10px;
       box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
-      max-width: min(96vw, 520px);
+      max-width: min(calc(100vw - 24px), 280px);
       touch-action: none;
+      box-sizing: border-box;
     }
-    .nn-float-palette.nn-palette-docked { position: static; box-shadow: none; border: none; border-radius: 8px; max-width: none; width: 100%; }
+    .nn-float-palette.nn-palette-docked {
+      position: static;
+      box-shadow: none;
+      border: none;
+      border-radius: 8px;
+      max-width: none;
+      width: 100%;
+    }
+    .nn-float-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #e8eaed;
+      border-radius: 8px 8px 0 0;
+      border-bottom: 1px solid #dadce0;
+    }
+    .nn-float-palette.nn-palette-docked .nn-float-header { border-radius: 6px; }
     .nn-float-handle {
+      flex: 1;
       cursor: grab;
       user-select: none;
       padding: 6px 10px;
       font-size: 12px;
       font-weight: 600;
       color: #3c4043;
-      background: #e8eaed;
-      border-radius: 8px 8px 0 0;
-      border-bottom: 1px solid #dadce0;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      background: transparent;
+      border: none;
+      text-align: left;
     }
-    .nn-float-palette.nn-palette-docked .nn-float-handle { border-radius: 6px; cursor: grab; }
     .nn-float-handle:active { cursor: grabbing; }
+    .nn-palette-min-btn {
+      flex-shrink: 0;
+      border: none;
+      background: #fff;
+      color: #3c4043;
+      width: 28px;
+      height: 28px;
+      margin: 4px 6px 4px 0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      font-weight: 700;
+    }
+    .nn-palette-min-btn:hover { background: #f1f3f4; }
     .nn-float-body { padding: 8px 10px 10px; font-size: 12px; }
-    .nn-float-palette.nn-orient-h .nn-float-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-    .nn-float-palette.nn-orient-v .nn-float-body { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
-    .nn-float-palette .nn-palette-section { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-    .nn-float-palette.nn-orient-v .nn-palette-section { flex-direction: column; align-items: stretch; }
+    .nn-float-palette.nn-palette-minimized .nn-float-body { display: none; }
+    .nn-float-palette.nn-palette-minimized.nn-palette-docked { max-width: 160px; }
+    .nn-float-palette .nn-float-body {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      max-height: min(70vh, 520px);
+      overflow-y: auto;
+    }
+    .nn-float-palette.nn-orient-h .nn-float-body { flex-direction: column; }
+    .nn-palette-section {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 8px;
+    }
+    .nn-palette-section.nn-palette-section-col {
+      flex-direction: column;
+      align-items: stretch;
+      flex-wrap: nowrap;
+    }
+    .nn-palette-section-label {
+      width: 100%;
+      font-size: 10px;
+      font-weight: 600;
+      color: #5f6368;
+      margin: 0 0 2px;
+    }
+    #nn-palette-fab {
+      display: none;
+      position: absolute;
+      z-index: 1310;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 999px;
+      background: #1a73e8;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    }
+    #nn-palette-fab:hover { background: #1557b0; }
     #nn-layer-shared-wrap { display: none; flex-wrap: wrap; gap: 8px; align-items: center; }
     #nn-layer-shared-wrap.nn-show { display: flex; }
     #nn-realtime-toolbar.nn-hidden-shared { display: none !important; }
@@ -612,6 +692,10 @@
       <label style="font-size:11px;color:#5f6368;margin:0;">シームレス内</label>
       <select id="file-select" onchange="onFileDropdownChanged()" style="max-width:220px;"></select>
     </div>
+    <div class="tool-group" id="nn-pdf-save-export" aria-label="PDF保存と出力">
+      <button type="button" style="background:#1a73e8;color:white;border:none;" onclick="saveToServer()">手動保存</button>
+      <button type="button" style="background:#0f9d58;color:white;border:none;" onclick="exportFile()">出力</button>
+    </div>
     <div class="tool-group" id="pdf-slot-tabs" aria-label="PDFスロット">
       <span style="font-size:11px;color:#5f6368;">PDF</span>
       <button type="button" class="pdf-slot-btn active-slot" id="pdf-slot-btn-0" onclick="switchPdfSlotIndex(0)" title="スロット1">①</button>
@@ -688,8 +772,6 @@
 
     <div class="tool-group">
       <button style="background:#f4b400; color:white; border:none;" onclick="recognizeCurrentPageText()">文字起こし</button>
-      <button style="background:#1a73e8; color:white; border:none;" onclick="saveToServer()">手動保存</button>
-      <button style="background:#0f9d58; color:white; border:none;" onclick="exportFile()">出力</button>
     </div>
     
     <div id="status">初期化中...</div>
@@ -714,13 +796,13 @@
       <div id="nn-dock-right" class="nn-dock-slot" data-edge="right"></div>
     </div>
     <div id="nn-dock-bottom" class="nn-dock-slot" data-edge="bottom"></div>
-    <div id="nn-float-pen" class="nn-float-palette nn-orient-h" data-palette-id="pen">
-      <div class="nn-float-handle" title="ドラッグして画面の辺（上下左右）にドック">⋮⋮ ペン・描画</div>
-      <div class="nn-float-body" id="nn-float-pen-body"></div>
-    </div>
-    <div id="nn-float-text" class="nn-float-palette nn-orient-v" data-palette-id="text">
-      <div class="nn-float-handle" title="ドラッグして画面の辺（上下左右）にドック">⋮⋮ テキスト框</div>
-      <div class="nn-float-body" id="nn-float-text-body"></div>
+    <button type="button" id="nn-palette-fab" title="描画ツールパレットを開く">🎨 ツール</button>
+    <div id="nn-float-tools" class="nn-float-palette nn-orient-h" data-palette-id="tools">
+      <div class="nn-float-header">
+        <button type="button" class="nn-float-handle" title="ドラッグして画面の辺にドック">⋮⋮ 描画ツール</button>
+        <button type="button" class="nn-palette-min-btn" id="nn-palette-min-btn" title="最小化">−</button>
+      </div>
+      <div class="nn-float-body" id="nn-float-tools-body"></div>
     </div>
   </div>
 
@@ -1522,10 +1604,20 @@
       return nnGetFolderKindForCurrentFile() === 'org';
     }
 
+    function nnSetPdfSlotToolbarVisible(show) {
+      ['pdf-slot-tabs', 'nn-pdf-save-export'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.toggle('nn-show', !!show);
+      });
+    }
+
     function nnShowPdfViewer() {
       var shell = document.getElementById('viewer-shell');
       if (shell) shell.classList.add('nn-show');
       else if (viewerContainer) viewerContainer.style.display = 'block';
+      var pal = nnGetToolsPalette();
+      if (pal && !pal.classList.contains('nn-palette-minimized')) nnClampPaletteInShell(pal);
+      nnPositionPaletteFab();
     }
 
     function nnHidePdfViewer() {
@@ -1556,61 +1648,199 @@
       nnSyncPresenterTargetUi();
     }
 
-    function nnBuildFloatingPalettes() {
-      var penBody = document.getElementById('nn-float-pen-body');
-      var textBody = document.getElementById('nn-float-text-body');
-      if (!penBody || penBody.dataset.built === '1') return;
 
-      function section() {
+    function nnGetToolsPalette() {
+      return document.getElementById('nn-float-tools');
+    }
+
+    function nnBuildFloatingPalettes() {
+      var body = document.getElementById('nn-float-tools-body');
+      if (!body || body.dataset.built === '1') return;
+
+      function section(className) {
         var d = document.createElement('div');
-        d.className = 'nn-palette-section';
+        d.className = 'nn-palette-section' + (className ? ' ' + className : '');
         return d;
       }
 
-      var penTools = section();
-      ['btn-pen', 'btn-eraser', 'btn-laser'].forEach(function (id) {
+      function label(text) {
+        var s = document.createElement('span');
+        s.className = 'nn-palette-section-label';
+        s.textContent = text;
+        return s;
+      }
+
+      var toolsSec = section();
+      toolsSec.appendChild(label('描画ツール'));
+      ['btn-pen', 'btn-eraser', 'btn-laser', 'btn-textbox', 'btn-select'].forEach(function (id) {
         var el = document.getElementById(id);
-        if (el) penTools.appendChild(el);
+        if (el) toolsSec.appendChild(el);
       });
-      if (penTools.childNodes.length) penBody.appendChild(penTools);
+      body.appendChild(toolsSec);
 
       var penSrc = document.getElementById('nn-toolbar-pen-source');
       if (penSrc) {
         var penBlock = section();
+        penBlock.appendChild(label('ペン設定'));
         while (penSrc.firstChild) penBlock.appendChild(penSrc.firstChild);
-        penBody.appendChild(penBlock);
+        body.appendChild(penBlock);
         penSrc.remove();
       }
 
       var pres = document.getElementById('nn-presenter-layer-target');
-      if (pres) penBody.appendChild(pres);
-
-      var textTools = section();
-      ['btn-textbox', 'btn-select'].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (el) textTools.appendChild(el);
-      });
-      if (textTools.childNodes.length) textBody.appendChild(textTools);
+      if (pres) body.appendChild(pres);
 
       var panel = document.getElementById('nn-text-style-panel');
-      if (panel) textBody.appendChild(panel);
+      if (panel) {
+        var textBlock = section('nn-palette-section-col');
+        textBlock.appendChild(label('テキスト框の既定スタイル'));
+        panel.style.marginTop = '0';
+        panel.style.padding = '6px';
+        panel.style.border = '1px solid #e8eaed';
+        panel.style.borderRadius = '6px';
+        panel.style.background = '#fafafa';
+        textBlock.appendChild(panel);
+        body.appendChild(textBlock);
+      }
       var details = document.getElementById('nn-text-style-details');
       if (details && !details.querySelector('#nn-text-style-panel')) details.remove();
 
       var toolsSrc = document.getElementById('nn-toolbar-tools-source');
       if (toolsSrc) toolsSrc.remove();
 
-      penBody.dataset.built = '1';
-      textBody.dataset.built = '1';
+      body.dataset.built = '1';
       nnRenderPenPaletteUI();
     }
 
-    var NN_PALETTE_DOCK_KEY = 'nn_palette_dock_v1';
+    var NN_PALETTE_DOCK_KEY = 'nn_palette_dock_v2';
+
+    function nnClampPaletteInShell(pal) {
+      var shell = document.getElementById('viewer-shell');
+      if (!pal || !shell || pal.classList.contains('nn-palette-docked')) return;
+      var pad = 8;
+      var w = pal.offsetWidth;
+      var h = pal.offsetHeight;
+      var maxL = Math.max(pad, shell.clientWidth - w - pad);
+      var maxT = Math.max(pad, shell.clientHeight - h - pad);
+      var left = parseFloat(pal.style.left);
+      var top = parseFloat(pal.style.top);
+      if (isNaN(left)) left = pad;
+      if (isNaN(top)) top = pad;
+      pal.style.left = Math.min(Math.max(pad, left), maxL) + 'px';
+      pal.style.top = Math.min(Math.max(pad, top), maxT) + 'px';
+    }
+
+    function nnClampFabInShell(fab) {
+      var shell = document.getElementById('viewer-shell');
+      if (!fab || !shell) return;
+      var pad = 8;
+      var left = parseFloat(fab.style.left) || pad;
+      var top = parseFloat(fab.style.top) || pad;
+      var maxL = Math.max(pad, shell.clientWidth - fab.offsetWidth - pad);
+      var maxT = Math.max(pad, shell.clientHeight - fab.offsetHeight - pad);
+      fab.style.left = Math.min(Math.max(pad, left), maxL) + 'px';
+      fab.style.top = Math.min(Math.max(pad, top), maxT) + 'px';
+    }
+
+    function nnPositionPaletteFab() {
+      var fab = document.getElementById('nn-palette-fab');
+      var shell = document.getElementById('viewer-shell');
+      if (!fab || !shell) return;
+      var pad = 12;
+      var fl = parseFloat(fab.dataset.fabLeft);
+      var ft = parseFloat(fab.dataset.fabTop);
+      if (!isNaN(fl) && !isNaN(ft)) {
+        fab.style.left = fl + 'px';
+        fab.style.top = ft + 'px';
+      } else {
+        fab.style.left = Math.max(pad, shell.clientWidth - fab.offsetWidth - pad) + 'px';
+        fab.style.top = Math.max(pad, shell.clientHeight - fab.offsetHeight - pad) + 'px';
+      }
+      nnClampFabInShell(fab);
+    }
+
+    function nnSavePaletteState() {
+      var pal = nnGetToolsPalette();
+      var fab = document.getElementById('nn-palette-fab');
+      if (!pal) return;
+      var state = { minimized: pal.classList.contains('nn-palette-minimized') };
+      if (pal.classList.contains('nn-palette-docked')) {
+        var slot = pal.parentElement;
+        state.edge = slot && slot.dataset ? slot.dataset.edge : null;
+      } else if (!state.minimized) {
+        state.float = true;
+        state.left = pal.style.left || '12px';
+        state.top = pal.style.top || '12px';
+      }
+      if (fab && state.minimized) {
+        state.fabLeft = fab.style.left;
+        state.fabTop = fab.style.top;
+      }
+      try {
+        localStorage.setItem(NN_PALETTE_DOCK_KEY, JSON.stringify(state));
+      } catch (e) {}
+    }
+
+    function nnMinimizeToolsPalette() {
+      var pal = nnGetToolsPalette();
+      var fab = document.getElementById('nn-palette-fab');
+      var shell = document.getElementById('viewer-shell');
+      if (!pal || !fab) return;
+      if (pal.classList.contains('nn-palette-docked')) {
+        var slot = pal.parentElement;
+        if (slot && slot.dataset && slot.dataset.edge) {
+          pal.dataset.dockedEdge = slot.dataset.edge;
+          slot.classList.remove('nn-dock-active');
+        }
+        pal.classList.remove('nn-palette-docked');
+        if (shell) shell.appendChild(pal);
+      } else {
+        fab.dataset.fabLeft = pal.style.left;
+        fab.dataset.fabTop = pal.style.top;
+      }
+      pal.classList.add('nn-palette-minimized');
+      pal.style.display = 'none';
+      fab.style.display = 'block';
+      nnPositionPaletteFab();
+      nnSavePaletteState();
+    }
+
+    function nnExpandToolsPalette() {
+      var pal = nnGetToolsPalette();
+      var fab = document.getElementById('nn-palette-fab');
+      if (!pal || !fab) return;
+      pal.classList.remove('nn-palette-minimized');
+      pal.style.display = '';
+      fab.style.display = 'none';
+      if (pal.dataset.dockedEdge) {
+        var edge = pal.dataset.dockedEdge;
+        pal.dataset.dockedEdge = '';
+        var slot = document.getElementById('nn-dock-' + edge);
+        if (slot) {
+          pal.classList.add('nn-palette-docked');
+          pal.style.left = '';
+          pal.style.top = '';
+          pal.style.position = '';
+          pal.classList.toggle('nn-orient-h', edge === 'top' || edge === 'bottom');
+          pal.classList.toggle('nn-orient-v', edge === 'left' || edge === 'right');
+          slot.appendChild(pal);
+          slot.classList.add('nn-dock-active');
+        }
+      } else if (!pal.classList.contains('nn-palette-docked')) {
+        pal.style.position = 'absolute';
+        if (fab.dataset.fabLeft) pal.style.left = fab.dataset.fabLeft;
+        if (fab.dataset.fabTop) pal.style.top = fab.dataset.fabTop;
+        nnClampPaletteInShell(pal);
+      }
+      nnSavePaletteState();
+    }
 
     function nnInitFloatingPaletteDock() {
       var shell = document.getElementById('viewer-shell');
-      if (!shell || shell.dataset.dockInit === '1') return;
+      var pal = nnGetToolsPalette();
+      if (!shell || !pal || shell.dataset.dockInit === '1') return;
       shell.dataset.dockInit = '1';
+
       var slots = {
         top: document.getElementById('nn-dock-top'),
         bottom: document.getElementById('nn-dock-bottom'),
@@ -1625,26 +1855,27 @@
         });
       }
 
-      function setOrient(pal, edge) {
+      function setOrient(edge) {
         pal.classList.toggle('nn-orient-h', edge === 'top' || edge === 'bottom');
         pal.classList.toggle('nn-orient-v', edge === 'left' || edge === 'right');
       }
 
-      function dockTo(pal, edge) {
+      function dockTo(edge) {
         var slot = slots[edge];
-        if (!pal || !slot) return;
+        if (!slot) return;
         pal.classList.add('nn-palette-docked');
         pal.style.left = '';
         pal.style.top = '';
-        setOrient(pal, edge);
+        pal.style.display = '';
+        setOrient(edge);
         slot.appendChild(pal);
         updateSlots();
       }
 
-      function undock(pal) {
-        if (!pal) return;
+      function undock() {
         pal.classList.remove('nn-palette-docked');
         shell.appendChild(pal);
+        pal.style.position = 'absolute';
         updateSlots();
       }
 
@@ -1667,43 +1898,34 @@
         return min < 80 ? edge : null;
       }
 
-      function saveDockState() {
-        var state = {};
-        ['pen', 'text'].forEach(function (id) {
-          var pal = document.querySelector('.nn-float-palette[data-palette-id="' + id + '"]');
-          if (!pal) return;
-          if (pal.classList.contains('nn-palette-docked')) {
-            var slot = pal.parentElement;
-            var edge = slot && slot.dataset ? slot.dataset.edge : null;
-            if (edge) state[id] = { edge: edge };
-          } else {
-            state[id] = {
-              float: true,
-              left: pal.style.left || '12px',
-              top: pal.style.top || '12px',
-            };
-          }
+      var handle = pal.querySelector('.nn-float-handle');
+      var minBtn = document.getElementById('nn-palette-min-btn');
+      var fab = document.getElementById('nn-palette-fab');
+      if (minBtn) {
+        minBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          nnMinimizeToolsPalette();
         });
-        try {
-          localStorage.setItem(NN_PALETTE_DOCK_KEY, JSON.stringify(state));
-        } catch (e) {}
+      }
+      if (fab) {
+        fab.addEventListener('click', function () {
+          nnExpandToolsPalette();
+        });
       }
 
-      function wirePalette(pal) {
-        var handle = pal.querySelector('.nn-float-handle');
-        if (!handle) return;
-        var drag = null;
+      var drag = null;
+      if (handle) {
         handle.addEventListener('pointerdown', function (e) {
           if (e.button !== 0) return;
-          undock(pal);
+          undock();
           var rect = pal.getBoundingClientRect();
           var shellRect = shell.getBoundingClientRect();
           drag = {
             pid: e.pointerId,
             ox: e.clientX,
             oy: e.clientY,
-            sl: rect.left - shellRect.left + shell.scrollLeft,
-            st: rect.top - shellRect.top + shell.scrollTop,
+            sl: rect.left - shellRect.left,
+            st: rect.top - shellRect.top,
           };
           pal.style.position = 'absolute';
           pal.style.left = drag.sl + 'px';
@@ -1715,6 +1937,7 @@
           if (!drag || e.pointerId !== drag.pid) return;
           pal.style.left = drag.sl + (e.clientX - drag.ox) + 'px';
           pal.style.top = drag.st + (e.clientY - drag.oy) + 'px';
+          nnClampPaletteInShell(pal);
           var edge = nearestEdge(e.clientX, e.clientY);
           Object.keys(slots).forEach(function (k) {
             if (slots[k]) slots[k].classList.toggle('nn-dock-drag-over', edge === k);
@@ -1726,8 +1949,9 @@
           Object.keys(slots).forEach(function (k) {
             if (slots[k]) slots[k].classList.remove('nn-dock-drag-over');
           });
-          if (edge) dockTo(pal, edge);
-          saveDockState();
+          if (edge) dockTo(edge);
+          else nnClampPaletteInShell(pal);
+          nnSavePaletteState();
           drag = null;
           try {
             handle.releasePointerCapture(e.pointerId);
@@ -1737,28 +1961,40 @@
         handle.addEventListener('pointercancel', endDrag);
       }
 
-      document.querySelectorAll('.nn-float-palette').forEach(wirePalette);
-
       var saved = null;
       try {
         saved = JSON.parse(localStorage.getItem(NN_PALETTE_DOCK_KEY) || 'null');
       } catch (e) {}
-      var defaults = { pen: { edge: 'bottom' }, text: { edge: 'right' } };
-      var cfg = saved && typeof saved === 'object' ? saved : defaults;
-      ['pen', 'text'].forEach(function (id) {
-        var pal = document.querySelector('.nn-float-palette[data-palette-id="' + id + '"]');
-        if (!pal) return;
-        var c = cfg[id] || defaults[id];
-        if (c && c.edge) dockTo(pal, c.edge);
-        else if (c && c.float) {
-          pal.style.position = 'absolute';
-          pal.style.left = c.left || '12px';
-          pal.style.top = c.top || '12px';
+      var cfg = saved && typeof saved === 'object' ? saved : { edge: 'bottom' };
+      if (cfg.minimized) {
+        pal.style.position = 'absolute';
+        pal.style.left = cfg.left || '12px';
+        pal.style.top = cfg.top || '12px';
+        if (cfg.fabLeft) {
+          var f = document.getElementById('nn-palette-fab');
+          if (f) {
+            f.dataset.fabLeft = cfg.fabLeft;
+            f.dataset.fabTop = cfg.fabTop;
+          }
         }
-      });
+        nnMinimizeToolsPalette();
+      } else if (cfg.edge) {
+        dockTo(cfg.edge);
+      } else if (cfg.float) {
+        pal.style.position = 'absolute';
+        pal.style.left = cfg.left || '12px';
+        pal.style.top = cfg.top || '12px';
+        nnClampPaletteInShell(pal);
+      } else {
+        dockTo('bottom');
+      }
       updateSlots();
-    }
 
+      window.addEventListener('resize', function () {
+        nnClampPaletteInShell(pal);
+        nnPositionPaletteFab();
+      });
+    }
     function nnLoadRealtimeSharePref() {
       try {
         var v = localStorage.getItem('NN_REALTIME_SHARE');
@@ -2096,8 +2332,7 @@
       updateFavoriteButtonStatus();
       homeScreen.style.display = 'none';
       nnShowPdfViewer();
-      var st = document.getElementById('pdf-slot-tabs');
-      if (st) st.classList.add('nn-show');
+      nnSetPdfSlotToolbarVisible(true);
       var nnPanel = document.getElementById('nn-panel');
       if (nnPanel) nnPanel.style.display = 'none';
       var pdfBtn = document.getElementById('btn-mode-pdf');
@@ -2486,8 +2721,7 @@
       pdfActiveSlot = nextIdx;
       if (homeScreen) homeScreen.style.display = 'none';
       if (viewerContainer) nnShowPdfViewer();
-      var st = document.getElementById('pdf-slot-tabs');
-      if (st) st.classList.add('nn-show');
+      nnSetPdfSlotToolbarVisible(true);
       await restorePdfSlotToGlobals(pdfActiveSlot);
     }
 
@@ -2653,8 +2887,7 @@
       if (!currentFileId) return;
       homeScreen.style.display = 'none';
       nnShowPdfViewer();
-      var st = document.getElementById('pdf-slot-tabs');
-      if (st) st.classList.add('nn-show');
+      nnSetPdfSlotToolbarVisible(true);
       applyRoleMeet();
       nnSyncDupCurrentPdfPageButton();
     }
@@ -3028,8 +3261,7 @@
       updateFavoriteButtonStatus();
       homeScreen.style.display = 'none';
       nnShowPdfViewer();
-      var st = document.getElementById('pdf-slot-tabs');
-      if (st) st.classList.add('nn-show');
+      nnSetPdfSlotToolbarVisible(true);
       var nnPanel = document.getElementById('nn-panel');
       if (nnPanel) nnPanel.style.display = 'none';
       var pdfBtn = document.getElementById('btn-mode-pdf');
@@ -3284,8 +3516,7 @@
                 }
                 homeScreen.style.display = 'none';
                 nnShowPdfViewer();
-                var stLoad = document.getElementById('pdf-slot-tabs');
-                if (stLoad) stLoad.classList.add('nn-show');
+                nnSetPdfSlotToolbarVisible(true);
                 await renderPage(currentPageNum);
                 hideLoader();
                 updateFavoriteButtonStatus();
@@ -3422,8 +3653,7 @@
               viewerContainer.scrollTop = 0;
               homeScreen.style.display = 'none';
               nnShowPdfViewer();
-              var st2 = document.getElementById('pdf-slot-tabs');
-              if (st2) st2.classList.add('nn-show');
+              nnSetPdfSlotToolbarVisible(true);
               var nnPanel = document.getElementById('nn-panel');
               if (nnPanel) nnPanel.style.display = 'none';
               var pdfBtn = document.getElementById('btn-mode-pdf');
@@ -4116,7 +4346,6 @@
       const pdfBtn = document.getElementById('btn-mode-pdf');
       const taskBtn = document.getElementById('btn-mode-tasks');
       const nnPanel = document.getElementById('nn-panel');
-      const slotTabs = document.getElementById('pdf-slot-tabs');
       if (!pdfBtn || !taskBtn || !nnPanel) return;
       if (mode === 'tasks') {
         if (currentFileId) autoSaveCurrent(true);
@@ -4129,7 +4358,7 @@
         nnHidePdfViewer();
         nnPanel.style.display = 'flex';
         if (homeScreen) homeScreen.style.display = 'none';
-        if (slotTabs) slotTabs.classList.remove('nn-show');
+        nnSetPdfSlotToolbarVisible(false);
         if (typeof window.nnPhase3Init === 'function') window.nnPhase3Init();
       } else {
         taskBtn.classList.remove('active-mode');
@@ -4137,7 +4366,7 @@
         nnPanel.style.display = 'none';
         if (homeScreen) homeScreen.style.display = 'none';
         nnShowPdfViewer();
-        if (slotTabs) slotTabs.classList.add('nn-show');
+        nnSetPdfSlotToolbarVisible(true);
         nnSyncLegacyToolsVisibility();
         if (currentFileId) applyRoleMeet();
       }
