@@ -375,22 +375,26 @@
       display: none;
       pointer-events: none;
       box-sizing: border-box;
+      overflow: visible;
     }
-    #nn-text-box-chrome.nn-show { display: block; pointer-events: auto; }
-    #nn-text-box-chrome .nn-tb-grip {
+    #nn-text-box-chrome.nn-show { display: block; }
+    #nn-text-box-chrome.nn-show .nn-tb-grip,
+    #nn-text-box-chrome.nn-show .nn-tb-resize { pointer-events: auto; }
+    #nn-text-box-chrome .nn-tb-grip.nn-panel-grip {
       position: absolute;
       left: 0;
-      border-radius: 6px;
-      min-height: 24px;
-      padding: 10px 8px;
-      box-sizing: content-box;
+      width: 100%;
+      min-height: 0;
+      height: 28px;
+      padding: 4px 8px;
+      box-sizing: border-box;
+      border-radius: 8px;
+      border: 1px solid #dadce0;
     }
     #nn-text-box-chrome .nn-tb-resize {
       position: absolute;
       width: 14px;
       height: 14px;
-      right: -4px;
-      bottom: -4px;
       background: #1a73e8;
       border: 2px solid #fff;
       border-radius: 3px;
@@ -1656,7 +1660,10 @@
     var nnInspectorManualPos = null;
     var nnTextEditActive = false;
     var nnTextTouchBoxOp = false;
-    var NN_TEXT_GRIP_H = 24;
+    var NN_TEXT_GRIP_H = 28;
+    var NN_TEXT_GRIP_GAP = 4;
+    var NN_TEXT_RESIZE_SZ = 14;
+    var NN_TEXT_RESIZE_OUT = 6;
     var NN_TEXT_DEFAULT_W = 160;
     var NN_TEXT_DEFAULT_H = 80;
 
@@ -1692,14 +1699,18 @@
 
     function nnHitTextGripZone(pt, box) {
       if (!box) return false;
-      var gh = NN_TEXT_GRIP_H;
-      return pt.x >= box.x && pt.x <= box.x + box.w && pt.y >= box.y - gh - 4 && pt.y < box.y;
+      var gh = NN_TEXT_GRIP_H / currentScale;
+      var gap = NN_TEXT_GRIP_GAP / currentScale;
+      return pt.x >= box.x && pt.x <= box.x + box.w && pt.y >= box.y - gh - gap && pt.y < box.y;
     }
 
     function nnHitTextResizeSE(pt, box) {
       if (!box) return false;
-      var hs = 16 / currentScale;
-      return pt.x >= box.x + box.w - hs && pt.x <= box.x + box.w + hs && pt.y >= box.y + box.h - hs && pt.y <= box.y + box.h + hs;
+      var hs = 20 / currentScale;
+      var out = NN_TEXT_RESIZE_OUT / currentScale;
+      var cx = box.x + box.w + out;
+      var cy = box.y + box.h + out;
+      return pt.x >= cx - hs && pt.x <= cx + hs && pt.y >= cy - hs && pt.y <= cy + hs;
     }
 
     function nnBeginGripDrag() {
@@ -2228,18 +2239,21 @@
       if (!sr) return;
       chrome.classList.add('nn-show');
       chrome.style.left = sr.left - pr.left + 'px';
-      chrome.style.top = sr.top - pr.top - NN_TEXT_GRIP_H - 2 + 'px';
+      chrome.style.top = sr.top - pr.top + 'px';
       chrome.style.width = sr.width + 'px';
-      chrome.style.height = sr.height + NN_TEXT_GRIP_H + 2 + 'px';
+      chrome.style.height = sr.height + 'px';
       var grip = chrome.querySelector('.nn-tb-grip');
       var res = chrome.querySelector('.nn-tb-resize');
       if (grip) {
         grip.style.width = sr.width + 'px';
-        grip.style.top = '0';
+        grip.style.height = NN_TEXT_GRIP_H + 'px';
+        grip.style.top = (-NN_TEXT_GRIP_H - NN_TEXT_GRIP_GAP) + 'px';
+        grip.style.left = '0';
       }
       if (res) {
-        res.style.left = sr.width - 10 + 'px';
-        res.style.top = NN_TEXT_GRIP_H + sr.height - 10 + 'px';
+        var rh = NN_TEXT_RESIZE_SZ;
+        res.style.left = sr.width + NN_TEXT_RESIZE_OUT - rh / 2 + 'px';
+        res.style.top = sr.height + NN_TEXT_RESIZE_OUT - rh / 2 + 'px';
       }
     }
 
