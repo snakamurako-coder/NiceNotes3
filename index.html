@@ -295,8 +295,11 @@
     #nn-text-style-panel input[type="range"] { width: 100%; max-width: 160px; }
     #nn-text-style-panel select { width: 100%; max-width: 200px; }
 
+    body.nn-grabbing, body.nn-grabbing * { cursor: grabbing !important; }
     .nn-panel-grip {
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
       box-sizing: border-box;
       cursor: grab;
@@ -307,8 +310,9 @@
       color: #5f6368;
       font-size: 12px;
       font-weight: 600;
+      line-height: 1;
       padding: 8px 10px;
-      min-height: 28px;
+      min-height: 44px;
       text-align: center;
       border-radius: 8px 8px 0 0;
     }
@@ -398,6 +402,7 @@
       min-height: 0;
       min-width: 0;
       position: relative;
+      overflow: visible;
     }
     #viewer-container {
       position: relative;
@@ -412,7 +417,7 @@
       display: block;
     }
 
-    .nn-dock-slot { display: none; align-items: stretch; justify-content: flex-start; gap: 8px; background: #f1f3f4; box-sizing: border-box; }
+    .nn-dock-slot { display: none; align-items: stretch; justify-content: flex-start; gap: 8px; background: #f1f3f4; box-sizing: border-box; overflow: visible; }
     .nn-dock-slot.nn-dock-active { display: flex; }
     .nn-dock-slot[data-edge="top"],
     .nn-dock-slot[data-edge="bottom"] { flex-direction: row; flex-wrap: wrap; padding: 6px 10px; border: 1px solid #dadce0; }
@@ -436,12 +441,82 @@
       box-sizing: border-box;
     }
     .nn-float-palette.nn-palette-docked {
-      position: static;
+      position: relative;
+      overflow: visible;
       box-shadow: none;
       border: none;
       border-radius: 8px;
       max-width: none;
       width: 100%;
+    }
+    .nn-float-palette.nn-palette-docked .nn-float-header-stacked { overflow: visible; }
+    .nn-float-palette.nn-palette-docked .nn-float-grip {
+      position: absolute;
+      z-index: 1400;
+      width: 32px;
+      min-height: 44px;
+      padding: 8px 6px;
+      flex: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+      border-radius: 6px;
+    }
+    .nn-float-palette.nn-palette-docked[data-dock-edge="left"] .nn-float-grip {
+      right: -34px;
+      top: 50%;
+      left: auto;
+      transform: translateY(-50%);
+      border-radius: 0 8px 8px 0;
+    }
+    .nn-float-palette.nn-palette-docked[data-dock-edge="right"] .nn-float-grip {
+      left: -34px;
+      top: 50%;
+      right: auto;
+      transform: translateY(-50%);
+      border-radius: 8px 0 0 8px;
+    }
+    .nn-float-palette.nn-palette-docked[data-dock-edge="top"] .nn-float-grip {
+      left: 50%;
+      bottom: -30px;
+      top: auto;
+      transform: translateX(-50%);
+      width: auto;
+      min-width: 48px;
+      border-radius: 0 0 8px 8px;
+    }
+    .nn-float-palette.nn-palette-docked[data-dock-edge="bottom"] .nn-float-grip {
+      left: 50%;
+      top: -30px;
+      bottom: auto;
+      transform: translateX(-50%);
+      width: auto;
+      min-width: 48px;
+      border-radius: 8px 8px 0 0;
+    }
+    .nn-float-palette.nn-palette-docked.nn-orient-h .nn-float-body {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      max-height: none;
+      overflow-y: visible;
+      gap: 8px 12px;
+    }
+    .nn-float-palette.nn-palette-docked.nn-orient-h .nn-palette-section {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .nn-float-palette.nn-palette-docked.nn-orient-h .nn-palette-section-label {
+      width: auto;
+      margin: 0 6px 0 0;
+    }
+    .nn-float-palette.nn-palette-docked.nn-orient-v .nn-float-body {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .nn-float-palette.nn-palette-docked.nn-orient-v .nn-palette-section {
+      flex-direction: column;
+      align-items: stretch;
+      flex-wrap: nowrap;
     }
     .nn-float-header {
       display: flex;
@@ -1457,9 +1532,52 @@
       return pt.x >= box.x + box.w - hs && pt.x <= box.x + box.w + hs && pt.y >= box.y + box.h - hs && pt.y <= box.y + box.h + hs;
     }
 
+    function nnBeginGripDrag() {
+      document.body.classList.add('nn-grabbing');
+    }
+
+    function nnEndGripDrag() {
+      document.body.classList.remove('nn-grabbing');
+    }
+
+    function nnMoveTextStylePanelToInspector() {
+      var body = document.getElementById('nn-text-inspector-body');
+      var panel = document.getElementById('nn-text-style-panel');
+      if (body && panel && !body.contains(panel)) {
+        panel.style.marginTop = '0';
+        panel.style.border = 'none';
+        panel.style.background = 'transparent';
+        body.appendChild(panel);
+      }
+    }
+
+    function nnApplyTextMoveFromPt(pt) {
+      if (!nnTextMove || !nnTextMove.hit) return;
+      var dx = pt.x - nnTextMove.px;
+      var dy = pt.y - nnTextMove.py;
+      nnTextMove.hit.box.x = nnTextMove.ox + dx;
+      nnTextMove.hit.box.y = nnTextMove.oy + dy;
+      redraw();
+      nnSyncTextBoxChrome();
+      if (nnSelectedTextRef && nnSelectedTextRef.box) nnPositionTextInspector(nnSelectedTextRef.box);
+      if (nnTextEditActive) nnSyncTextEditOverlayGeometry();
+    }
+
+    function nnApplyTextResizeFromPt(pt) {
+      if (!nnTextResize) return;
+      var dx = pt.x - nnTextResize.px;
+      var dy = pt.y - nnTextResize.py;
+      nnTextResize.box.w = Math.max(40, nnTextResize.ow + dx);
+      nnTextResize.box.h = Math.max(24, nnTextResize.oh + dy);
+      redraw();
+      nnSyncTextBoxChrome();
+      nnPositionTextInspector(nnTextResize.box);
+      if (nnTextEditActive) nnSyncTextEditOverlayGeometry();
+    }
+
     function nnClearTextSelection() {
+      nnCloseTextEditOverlay(true);
       nnHideTextInspector();
-      nnCloseTextEditOverlay(false);
       nnSelectedTextRef = null;
       nnTextMove = null;
       nnTextResize = null;
@@ -1698,14 +1816,7 @@
     }
 
     function nnInitTextInspectorUi() {
-      var body = document.getElementById('nn-text-inspector-body');
-      var panel = document.getElementById('nn-text-style-panel');
-      if (body && panel && !body.contains(panel)) {
-        panel.style.marginTop = '0';
-        panel.style.border = 'none';
-        panel.style.background = 'transparent';
-        body.appendChild(panel);
-      }
+      nnMoveTextStylePanelToInspector();
       var ids = ['nn-ts-border', 'nn-ts-border-op', 'nn-ts-border-w', 'nn-ts-fill', 'nn-ts-fill-op', 'nn-ts-fg', 'nn-ts-fs', 'nn-ts-font'];
       ids.forEach(function (id) {
         var el = document.getElementById(id);
@@ -1722,36 +1833,14 @@
       if (placeBtn) placeBtn.addEventListener('click', function () { nnToggleTextPlacementMode(); });
     }
 
-    function nnInitTextChromeDrag() {
-      var chrome = document.getElementById('nn-text-box-chrome');
-      if (!chrome || chrome.dataset.wired === '1') return;
-      chrome.dataset.wired = '1';
-      var grip = chrome.querySelector('.nn-tb-grip');
-      var res = chrome.querySelector('.nn-tb-resize');
-      if (grip) {
-        grip.addEventListener('pointerdown', function (e) {
-          if (!nnSelectedTextRef || !nnCanEditTextHit(nnSelectedTextRef)) return;
-          e.preventDefault();
-          e.stopPropagation();
-          var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
-          nnTextMove = {
-            hit: nnSelectedTextRef,
-            px: pt.x,
-            py: pt.y,
-            ox: nnSelectedTextRef.box.x,
-            oy: nnSelectedTextRef.box.y,
-            pointerId: e.pointerId,
-          };
-          grip.setPointerCapture(e.pointerId);
-        });
-      }
-      if (res) {
-        res.addEventListener('pointerdown', function (e) {
-          if (!nnSelectedTextRef || !nnCanEditTextHit(nnSelectedTextRef)) return;
-          e.preventDefault();
-          e.stopPropagation();
-          var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
-          var box = nnSelectedTextRef.box;
+    function nnWireChromeTransformPointer(el, mode) {
+      function onDown(e) {
+        if (!nnSelectedTextRef || !nnCanEditTextHit(nnSelectedTextRef)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
+        var box = nnSelectedTextRef.box;
+        if (mode === 'resize') {
           nnTextResize = {
             box: box,
             px: pt.x,
@@ -1762,9 +1851,55 @@
             oh: box.h,
             pointerId: e.pointerId,
           };
-          res.setPointerCapture(e.pointerId);
-        });
+        } else {
+          nnTextMove = {
+            hit: nnSelectedTextRef,
+            px: pt.x,
+            py: pt.y,
+            ox: box.x,
+            oy: box.y,
+            pointerId: e.pointerId,
+          };
+        }
+        nnBeginGripDrag();
+        el.setPointerCapture(e.pointerId);
       }
+      function onMove(e) {
+        if (e.pointerId !== (nnTextResize && nnTextResize.pointerId) && e.pointerId !== (nnTextMove && nnTextMove.pointerId)) return;
+        var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
+        if (nnTextResize && nnTextResize.pointerId === e.pointerId) nnApplyTextResizeFromPt(pt);
+        else if (nnTextMove && nnTextMove.pointerId === e.pointerId) nnApplyTextMoveFromPt(pt);
+      }
+      function onUp(e) {
+        if (e.pointerId !== (nnTextResize && nnTextResize.pointerId) && e.pointerId !== (nnTextMove && nnTextMove.pointerId)) return;
+        if (nnTextResize && nnTextResize.pointerId === e.pointerId) {
+          nnTextResize = null;
+          nnBumpStrokeTime();
+          autoSaveCurrent(true);
+        } else if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
+          nnTextMove = null;
+          nnBumpStrokeTime();
+          autoSaveCurrent(true);
+          nnTextTouchBoxOp = false;
+        }
+        nnEndGripDrag();
+        try { el.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+      el.addEventListener('pointerdown', onDown);
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointercancel', onUp);
+    }
+
+    function nnInitTextChromeDrag() {
+      var chrome = document.getElementById('nn-text-box-chrome');
+      if (!chrome || chrome.dataset.wired === '1') return;
+      chrome.dataset.wired = '1';
+      chrome.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+      var grip = chrome.querySelector('.nn-tb-grip');
+      var res = chrome.querySelector('.nn-tb-resize');
+      if (grip) nnWireChromeTransformPointer(grip, 'move');
+      if (res) nnWireChromeTransformPointer(res, 'resize');
     }
 
     function nnInitInspectorGripDrag() {
@@ -1774,12 +1909,15 @@
       if (!grip || !ins || !shell || grip.dataset.wired === '1') return;
       grip.dataset.wired = '1';
       var drag = null;
+      ins.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
       grip.addEventListener('pointerdown', function (e) {
         if (e.button !== 0) return;
         e.preventDefault();
+        e.stopPropagation();
         var r = ins.getBoundingClientRect();
         var sr = shell.getBoundingClientRect();
         drag = { pid: e.pointerId, ox: e.clientX, oy: e.clientY, sl: r.left - sr.left, st: r.top - sr.top };
+        nnBeginGripDrag();
         grip.setPointerCapture(e.pointerId);
       });
       grip.addEventListener('pointermove', function (e) {
@@ -1795,6 +1933,7 @@
       function end(e) {
         if (!drag || e.pointerId !== drag.pid) return;
         drag = null;
+        nnEndGripDrag();
         try { grip.releasePointerCapture(e.pointerId); } catch (err) {}
       }
       grip.addEventListener('pointerup', end);
@@ -1805,11 +1944,17 @@
       nnInitTextInspectorUi();
       nnInitTextChromeDrag();
       nnInitInspectorGripDrag();
+      var ov = document.getElementById('nn-text-edit-overlay');
+      if (ov) ov.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
       var field = document.getElementById('nn-text-edit-field');
       if (field) {
+        field.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
         field.addEventListener('keydown', function (e) {
           if (e.key === 'Escape') { e.preventDefault(); nnCloseTextEditOverlay(false); }
           if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); nnCloseTextEditOverlay(true); }
+        });
+        field.addEventListener('blur', function () {
+          if (nnTextEditActive) nnCloseTextEditOverlay(true);
         });
       }
     }
@@ -1881,25 +2026,11 @@
 
     function nnTryHandleTextPointerMove(e, pt) {
       if (nnTextResize && nnTextResize.pointerId === e.pointerId) {
-        var dx = pt.x - nnTextResize.px;
-        var dy = pt.y - nnTextResize.py;
-        nnTextResize.box.w = Math.max(40, nnTextResize.ow + dx);
-        nnTextResize.box.h = Math.max(24, nnTextResize.oh + dy);
-        redraw();
-        nnSyncTextBoxChrome();
-        nnPositionTextInspector(nnTextResize.box);
-        if (nnTextEditActive) nnSyncTextEditOverlayGeometry();
+        nnApplyTextResizeFromPt(pt);
         return true;
       }
       if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
-        var dx = pt.x - nnTextMove.px;
-        var dy = pt.y - nnTextMove.py;
-        nnTextMove.hit.box.x = nnTextMove.ox + dx;
-        nnTextMove.hit.box.y = nnTextMove.oy + dy;
-        redraw();
-        nnSyncTextBoxChrome();
-        if (nnSelectedTextRef && nnSelectedTextRef.box) nnPositionTextInspector(nnSelectedTextRef.box);
-        if (nnTextEditActive) nnSyncTextEditOverlayGeometry();
+        nnApplyTextMoveFromPt(pt);
         return true;
       }
       if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
@@ -2323,6 +2454,7 @@
       var pres = document.getElementById('nn-presenter-layer-target');
       if (pres) body.appendChild(pres);
 
+      nnMoveTextStylePanelToInspector();
       var details = document.getElementById('nn-text-style-details');
       if (details) details.remove();
 
@@ -2439,6 +2571,7 @@
         var slot = document.getElementById('nn-dock-' + edge);
         if (slot) {
           pal.classList.add('nn-palette-docked');
+          pal.dataset.dockEdge = edge;
           pal.style.left = '';
           pal.style.top = '';
           pal.style.position = '';
@@ -2485,6 +2618,7 @@
         var slot = slots[edge];
         if (!slot) return;
         pal.classList.add('nn-palette-docked');
+        pal.dataset.dockEdge = edge;
         pal.style.left = '';
         pal.style.top = '';
         pal.style.display = '';
@@ -2495,6 +2629,7 @@
 
       function undock() {
         pal.classList.remove('nn-palette-docked');
+        delete pal.dataset.dockEdge;
         shell.appendChild(pal);
         pal.style.position = 'absolute';
         updateSlots();
@@ -2538,21 +2673,27 @@
       if (handle) {
         handle.addEventListener('pointerdown', function (e) {
           if (e.button !== 0) return;
-          undock();
-          var rect = pal.getBoundingClientRect();
-          var shellRect = shell.getBoundingClientRect();
-          drag = {
-            pid: e.pointerId,
-            ox: e.clientX,
-            oy: e.clientY,
-            sl: rect.left - shellRect.left,
-            st: rect.top - shellRect.top,
-          };
-          pal.style.position = 'absolute';
-          pal.style.left = drag.sl + 'px';
-          pal.style.top = drag.st + 'px';
-          handle.setPointerCapture(e.pointerId);
           e.preventDefault();
+          e.stopPropagation();
+          var shellRect = shell.getBoundingClientRect();
+          var wasDocked = pal.classList.contains('nn-palette-docked');
+          var rect = pal.getBoundingClientRect();
+          if (wasDocked) undock();
+          pal.style.position = 'absolute';
+          var sl = rect.left - shellRect.left;
+          var st = rect.top - shellRect.top;
+          if (wasDocked) {
+            pal.style.left = sl + 'px';
+            pal.style.top = st + 'px';
+          } else {
+            sl = parseFloat(pal.style.left);
+            st = parseFloat(pal.style.top);
+            if (isNaN(sl)) sl = rect.left - shellRect.left;
+            if (isNaN(st)) st = rect.top - shellRect.top;
+          }
+          drag = { pid: e.pointerId, ox: e.clientX, oy: e.clientY, sl: sl, st: st };
+          nnBeginGripDrag();
+          handle.setPointerCapture(e.pointerId);
         });
         handle.addEventListener('pointermove', function (e) {
           if (!drag || e.pointerId !== drag.pid) return;
@@ -2574,6 +2715,7 @@
           else nnClampPaletteInShell(pal);
           nnSavePaletteState();
           drag = null;
+          nnEndGripDrag();
           try {
             handle.releasePointerCapture(e.pointerId);
           } catch (err) {}
