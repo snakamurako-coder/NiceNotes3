@@ -322,7 +322,40 @@
     .nn-float-header-stacked { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
     .nn-float-header-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 4px 8px; }
     .nn-float-title { font-size: 12px; font-weight: 600; color: #3c4043; }
-    #nn-btn-place-textbox.nn-place-active { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: 600; }
+    #nn-btn-place-textbox.nn-place-active,
+    #nn-btn-partial-ink-recog.nn-place-active { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: 600; }
+    #nn-partial-ink-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 20000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    #nn-partial-ink-modal.nn-show { display: flex; }
+    #nn-partial-ink-modal .nn-partial-ink-inner {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+    #nn-partial-ink-result {
+      width: 100%;
+      min-height: 88px;
+      margin: 12px 0;
+      padding: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+    #nn-partial-ink-modal .nn-partial-ink-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     #nn-text-inspector {
       position: absolute;
       z-index: 1350;
@@ -749,6 +782,18 @@
     </div>
   </div>
 
+  <div id="nn-partial-ink-modal" aria-modal="true" role="dialog" onclick="if (event.target === this) nnClosePartialInkModal()">
+    <div class="nn-partial-ink-inner" onclick="event.stopPropagation()">
+      <div style="font-weight:600;font-size:15px;color:#202124;">部分手書きテキスト化</div>
+      <p style="font-size:13px;color:#5f6368;margin:8px 0 0;">認識結果（編集してから利用できます）</p>
+      <textarea id="nn-partial-ink-result" aria-label="認識結果"></textarea>
+      <div class="nn-partial-ink-actions">
+        <button type="button" class="btn-meeting-action" id="nn-partial-ink-copy">コピー</button>
+        <button type="button" class="btn-meeting-action" id="nn-partial-ink-to-textbox" style="background:#1a73e8;color:#fff;border:none;">テキスト框に貼って編集</button>
+        <button type="button" class="file-btn-meet" onclick="nnClosePartialInkModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
   <div id="add-modal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-tabs">
@@ -914,6 +959,7 @@
       <button id="btn-eraser" onclick="setTool('eraser')">消しゴム</button>
       <button id="btn-laser" onclick="setTool('laser')">レーザー</button>
       <button type="button" id="nn-btn-place-textbox" class="file-btn-meet">テキストボックスを配置</button>
+      <button type="button" id="nn-btn-partial-ink-recog" class="file-btn-meet" style="display:none" aria-hidden="true">部分手書きテキスト化</button>
       <button id="btn-textbox" style="display:none" aria-hidden="true">テキスト框</button>
       <button id="btn-select" style="display:none" aria-hidden="true">選択</button>
       <details id="nn-text-style-details" style="display:none;font-size:11px;max-width:280px;">
@@ -1721,8 +1767,322 @@
 
     function nnToggleTextPlacementMode() {
       nnTextPlacementMode = !nnTextPlacementMode;
+      if (nnTextPlacementMode) nnCancelPartialInkRecogMode(false);
       var btn = document.getElementById('nn-btn-place-textbox');
       if (btn) btn.classList.toggle('nn-place-active', nnTextPlacementMode);
+    }
+
+    var nnPartialInkRecogMode = false;
+    var nnPartialInkLassoDrag = null;
+    var nnPartialInkLastResult = null;
+    var NN_PARTIAL_INK_CLOSE_DIST = 28;
+
+    function nnCancelPartialInkRecogMode(redrawCanvas) {
+      nnPartialInkRecogMode = false;
+      nnPartialInkLassoDrag = null;
+      var btn = document.getElementById('nn-btn-partial-ink-recog');
+      if (btn) btn.classList.remove('nn-place-active');
+      if (redrawCanvas !== false) redraw();
+    }
+
+    function nnTogglePartialInkRecogMode() {
+      if (nnPartialInkRecogMode) {
+        nnCancelPartialInkRecogMode(true);
+        return;
+      }
+      nnTextPlacementMode = false;
+      var pb = document.getElementById('nn-btn-place-textbox');
+      if (pb) pb.classList.remove('nn-place-active');
+      nnPartialInkRecogMode = true;
+      nnPartialInkLassoDrag = null;
+      var btn = document.getElementById('nn-btn-partial-ink-recog');
+      if (btn) btn.classList.add('nn-place-active');
+      if (statusDiv) statusDiv.textContent = '範囲を一筆書きでなぞってください（始点付近で終えると閉じます）';
+      redraw();
+    }
+
+    function nnClosePartialInkPolygon(points) {
+      if (!points || points.length < 3) return null;
+      var poly = [];
+      for (var i = 0; i < points.length; i++) {
+        poly.push({ x: points[i].x, y: points[i].y });
+      }
+      var first = poly[0];
+      var last = poly[poly.length - 1];
+      if (Math.hypot(last.x - first.x, last.y - first.y) > NN_PARTIAL_INK_CLOSE_DIST) {
+        poly.push({ x: first.x, y: first.y });
+      }
+      return poly;
+    }
+
+    function nnPointInPolygon(pt, poly) {
+      var inside = false;
+      for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        var xi = poly[i].x;
+        var yi = poly[i].y;
+        var xj = poly[j].x;
+        var yj = poly[j].y;
+        var intersect =
+          yi > pt.y !== yj > pt.y && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi + 1e-12) + xi;
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    function nnStrokeInsidePolygon(stroke, poly) {
+      if (!stroke || !stroke.points || !stroke.points.length) return false;
+      var inside = 0;
+      for (var i = 0; i < stroke.points.length; i++) {
+        if (nnPointInPolygon(stroke.points[i], poly)) inside++;
+      }
+      if (inside / stroke.points.length >= 0.2) return true;
+      var cx = 0;
+      var cy = 0;
+      stroke.points.forEach(function (p) {
+        cx += p.x;
+        cy += p.y;
+      });
+      cx /= stroke.points.length;
+      cy /= stroke.points.length;
+      return nnPointInPolygon({ x: cx, y: cy }, poly);
+    }
+
+    function nnFilterStrokesInPolygon(strokes, poly) {
+      if (!strokes || !poly) return [];
+      return strokes.filter(function (s) {
+        return nnStrokeInsidePolygon(s, poly);
+      });
+    }
+
+    function nnCollectVisiblePageStrokes() {
+      var sk = nnLpCurrentStrokeKey();
+      var shared = nnLayerVis.sharedPen ? sharedStrokesByPage[sk] || [] : [];
+      var local = nnLayerVis.localPen ? localStrokesByPage[sk] || [] : [];
+      return shared.concat(local);
+    }
+
+    function nnStrokesToApiInk(strokes) {
+      if (!strokes || !strokes.length) return [];
+      var minX = Infinity;
+      var minY = Infinity;
+      var maxX = -Infinity;
+      var maxY = -Infinity;
+      strokes.forEach(function (s) {
+        (s.points || []).forEach(function (p) {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        });
+      });
+      if (!isFinite(minX)) return [];
+      var scale = Math.min(600 / Math.max(maxX - minX, 1), 300 / Math.max(maxY - minY, 1));
+      var apiInk = [];
+      strokes.forEach(function (s) {
+        if (!s.points || s.points.length === 0) return;
+        var xArr = [];
+        var yArr = [];
+        var tArr = [];
+        s.points.forEach(function (p, i) {
+          xArr.push(Math.round((p.x - minX) * scale));
+          yArr.push(Math.round((p.y - minY) * scale));
+          tArr.push(p.t != null ? p.t : i * 50);
+        });
+        apiInk.push([xArr, yArr, tArr]);
+      });
+      return apiInk;
+    }
+
+    function nnPolygonBBox(poly) {
+      var minX = Infinity;
+      var minY = Infinity;
+      var maxX = -Infinity;
+      var maxY = -Infinity;
+      poly.forEach(function (p) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      });
+      var pad = 12;
+      return {
+        x: Math.max(0, minX - pad),
+        y: Math.max(0, minY - pad),
+        w: Math.max(80, maxX - minX + pad * 2),
+        h: Math.max(40, maxY - minY + pad * 2),
+      };
+    }
+
+    function nnDrawPartialInkLasso(ctx) {
+      if (!nnPartialInkLassoDrag || !nnPartialInkLassoDrag.points || nnPartialInkLassoDrag.points.length < 2) return;
+      var pts = nnPartialInkLassoDrag.points;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      var last = pts[pts.length - 1];
+      var dist = Math.hypot(last.x - pts[0].x, last.y - pts[0].y);
+      if (dist <= NN_PARTIAL_INK_CLOSE_DIST) ctx.lineTo(pts[0].x, pts[0].y);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(26,115,232,0.14)';
+      ctx.fill();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = 'rgba(26,115,232,0.92)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function nnTryHandlePartialInkPointerDown(e, pt) {
+      if (!nnPartialInkRecogMode) return false;
+      nnPartialInkLassoDrag = { points: [{ x: pt.x, y: pt.y }], pointerId: e.pointerId };
+      isDrawing = true;
+      isPanning = false;
+      return true;
+    }
+
+    function nnTryHandlePartialInkPointerMove(e, pt) {
+      if (!nnPartialInkLassoDrag || nnPartialInkLassoDrag.pointerId !== e.pointerId) return false;
+      var pts = nnPartialInkLassoDrag.points;
+      var last = pts[pts.length - 1];
+      if (Math.hypot(pt.x - last.x, pt.y - last.y) >= 2) {
+        pts.push({ x: pt.x, y: pt.y });
+        redraw();
+      }
+      return true;
+    }
+
+    function nnTryHandlePartialInkPointerEnd(e) {
+      if (!nnPartialInkLassoDrag || nnPartialInkLassoDrag.pointerId !== e.pointerId) return false;
+      var poly = nnClosePartialInkPolygon(nnPartialInkLassoDrag.points);
+      nnPartialInkLassoDrag = null;
+      isDrawing = false;
+      nnCancelPartialInkRecogMode(false);
+      if (!poly) {
+        alert('範囲が小さすぎます。もう一度、一筆書きでなぞってください。');
+        redraw();
+        return true;
+      }
+      nnRunPartialInkRecognition(poly);
+      return true;
+    }
+
+    function nnOpenPartialInkResultModal(text, bbox) {
+      nnPartialInkLastResult = { text: text, bbox: bbox };
+      var ta = document.getElementById('nn-partial-ink-result');
+      var modal = document.getElementById('nn-partial-ink-modal');
+      if (ta) ta.value = text || '';
+      if (modal) modal.classList.add('nn-show');
+    }
+
+    function nnClosePartialInkModal() {
+      var modal = document.getElementById('nn-partial-ink-modal');
+      if (modal) modal.classList.remove('nn-show');
+    }
+
+    function nnCopyPartialInkResult() {
+      var ta = document.getElementById('nn-partial-ink-result');
+      var text = ta ? String(ta.value) : '';
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          function () {
+            if (statusDiv) statusDiv.textContent = 'コピーしました';
+          },
+          function () {
+            prompt('コピーしてください:', text);
+          }
+        );
+      } else {
+        prompt('コピーしてください:', text);
+      }
+    }
+
+    function nnCreateTextBoxFromPartialInk() {
+      var ta = document.getElementById('nn-partial-ink-result');
+      var text = ta ? String(ta.value).trim() : '';
+      if (!text) {
+        alert('テキストが空です。');
+        return;
+      }
+      var bbox = (nnPartialInkLastResult && nnPartialInkLastResult.bbox) || {
+        x: 40,
+        y: 40,
+        w: NN_TEXT_DEFAULT_W,
+        h: NN_TEXT_DEFAULT_H,
+      };
+      nnReadTextStyleFromPanel();
+      var tb = Object.assign(
+        {
+          id: nnNewTextBoxId(),
+          x: bbox.x,
+          y: bbox.y,
+          w: Math.max(120, bbox.w),
+          h: Math.max(60, bbox.h),
+          text: text,
+        },
+        nnCloneTextStyleFromDefaults()
+      );
+      var arr = getTargetTextBoxesArray();
+      arr.push(tb);
+      var sk = nnLpCurrentStrokeKey();
+      var layer = currentUserRole === 'presenter' && nnPresenterTextToShared ? 'shared' : 'local';
+      nnClosePartialInkModal();
+      nnSelectTextBox({ box: tb, layer: layer, index: arr.length - 1, sk: sk });
+      nnBumpStrokeTime();
+      autoSaveCurrent(true);
+      nnOpenTextEditOverlay();
+      redraw();
+    }
+
+    function nnRunPartialInkRecognition(poly) {
+      var filtered = nnFilterStrokesInPolygon(nnCollectVisiblePageStrokes(), poly);
+      if (!filtered.length) {
+        alert('選択範囲内に手書きがありません。');
+        redraw();
+        return;
+      }
+      var apiInk = nnStrokesToApiInk(filtered);
+      if (!apiInk.length) {
+        alert('認識できる手書きがありません。');
+        redraw();
+        return;
+      }
+      var bbox = nnPolygonBBox(poly);
+      showLoader('部分手書きを文字起こし中...');
+      google.script.run
+        .withSuccessHandler(function (text) {
+          hideLoader();
+          redraw();
+          if (text) nnOpenPartialInkResultModal(text, bbox);
+          else alert('文字を認識できませんでした。');
+        })
+        .withFailureHandler(function (err) {
+          hideLoader();
+          redraw();
+          alert('サーバーとの通信エラー: ' + (err && err.message ? err.message : String(err)));
+        })
+        .recognizeSentence(apiInk);
+    }
+
+    function nnInitPartialInkRecogUi() {
+      var btn = document.getElementById('nn-btn-partial-ink-recog');
+      if (btn && btn.dataset.wired !== '1') {
+        btn.dataset.wired = '1';
+        btn.style.display = '';
+        btn.removeAttribute('aria-hidden');
+        btn.addEventListener('click', nnTogglePartialInkRecogMode);
+      }
+      var cp = document.getElementById('nn-partial-ink-copy');
+      var tb = document.getElementById('nn-partial-ink-to-textbox');
+      if (cp && cp.dataset.wired !== '1') {
+        cp.dataset.wired = '1';
+        cp.addEventListener('click', nnCopyPartialInkResult);
+      }
+      if (tb && tb.dataset.wired !== '1') {
+        tb.dataset.wired = '1';
+        tb.addEventListener('click', nnCreateTextBoxFromPartialInk);
+      }
     }
 
     function nnLoadInspectorFromBox(box) {
@@ -2322,6 +2682,13 @@
     }
 
     function nnOnKeyDownTextSelect(ev) {
+      if (ev.key === 'Escape') {
+        if (nnPartialInkRecogMode || nnPartialInkLassoDrag) {
+          nnCancelPartialInkRecogMode(true);
+          ev.preventDefault();
+          return;
+        }
+      }
       if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
       if (!nnSelectedTextRef || nnTextEditActive) return;
       nnDeleteSelectedTextBox();
@@ -2644,6 +3011,12 @@
       if (placeBtn) textSec.appendChild(placeBtn);
       body.appendChild(textSec);
 
+      var inkSec = section();
+      inkSec.appendChild(label('文字起こし'));
+      var partialInkBtn = document.getElementById('nn-btn-partial-ink-recog');
+      if (partialInkBtn) inkSec.appendChild(partialInkBtn);
+      body.appendChild(inkSec);
+
       var penSrc = document.getElementById('nn-toolbar-pen-source');
       if (penSrc) {
         var penBlock = section();
@@ -2665,6 +3038,7 @@
 
       body.dataset.built = '1';
       nnRenderPenPaletteUI();
+      nnInitPartialInkRecogUi();
     }
 
     var NN_PALETTE_DOCK_KEY = 'nn_palette_dock_v2';
@@ -3903,6 +4277,7 @@
       nnSyncTextStylePanelFromDefaults();
       nnWireTextStylePanelInputs();
       nnBuildFloatingPalettes();
+      nnInitPartialInkRecogUi();
       nnInitTextUxV2();
       nnInitFloatingPaletteDock();
       window.addEventListener('keydown', nnOnKeyDownTextSelect);
@@ -5069,6 +5444,7 @@
       const pt = getScaledCoords(e);
       if (e.pointerType === 'touch') {
         if (activePointers.size === 1) {
+          if (nnTryHandlePartialInkPointerDown(e, pt)) return;
           if (nnTryHandleTextPointerDown(e, pt)) return;
           isPanning = true;
           lastPanX = e.clientX;
@@ -5090,6 +5466,7 @@
       if (e.buttons === 0) return;
       const isHardwareEraser = (e.buttons === 32 || e.button === 5);
       const activeTool = isHardwareEraser ? 'eraser' : currentTool;
+      if (nnTryHandlePartialInkPointerDown(e, pt)) return;
       if (nnTryHandleTextPointerDown(e, pt)) return;
       if (activeTool === 'laser') {
         myLaserDot.style.display = 'block';
@@ -5115,7 +5492,9 @@
       if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, e);
       if (e.pointerType === 'touch') {
         const ptTouch = getScaledCoords(e);
-        if (nnTryHandleTextPointerMove(e, ptTouch)) {
+        if (nnTryHandlePartialInkPointerMove(e, ptTouch)) {
+          /* handled */
+        } else if (nnTryHandleTextPointerMove(e, ptTouch)) {
           /* handled */
         } else if (activePointers.size === 1 && isPanning && !nnTextTouchBoxOp) {
           viewerContainer.scrollLeft -= (e.clientX - lastPanX);
@@ -5139,6 +5518,7 @@
       }
       if (e.pointerType !== 'pen' && e.pointerType !== 'mouse') return;
       const pt = getScaledCoords(e);
+      if (nnTryHandlePartialInkPointerMove(e, pt)) return;
       if (nnTryHandleTextPointerMove(e, pt)) return;
       const isHardwareEraser = (e.buttons === 32 || e.button === 5);
       const activeTool = isHardwareEraser ? 'eraser' : currentTool;
@@ -5160,7 +5540,7 @@
     function handlePointerEnd(e) {
       activePointers.delete(e.pointerId);
       if (currentTool === 'laser') myLaserDot.style.display = 'none';
-      var skipPenAutosave = nnTryHandleTextPointerEnd(e);
+      var skipPenAutosave = nnTryHandlePartialInkPointerEnd(e) || nnTryHandleTextPointerEnd(e);
       if (activePointers.size === 0) {
         if (isDrawing && !skipPenAutosave) {
           lastStrokeTime = Date.now();
@@ -5224,6 +5604,7 @@
         drawCtx.strokeRect(nnTempTextRect.x, nnTempTextRect.y, nnTempTextRect.w, nnTempTextRect.h);
         drawCtx.restore();
       }
+      nnDrawPartialInkLasso(drawCtx);
       nnSyncTextBoxChrome();
       if (nnSelectedTextRef && nnSelectedTextRef.box) nnPositionTextInspector(nnSelectedTextRef.box);
     }
@@ -5243,37 +5624,13 @@
     }
 
     function recognizeCurrentPageText() {
-      var sk = nnLpCurrentStrokeKey();
-      const shared = sharedStrokesByPage[sk] || [];
-      const local = localStrokesByPage[sk] || [];
-      const combinedStrokes = shared.concat(local);
+      var combinedStrokes = nnCollectVisiblePageStrokes();
       if (combinedStrokes.length === 0) {
         alert('このページに手書きがありません。');
         return;
       }
       showLoader('文字起こしを実行中...');
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      combinedStrokes.forEach(function (s) {
-        s.points.forEach(function (p) {
-          if (p.x < minX) minX = p.x;
-          if (p.y < minY) minY = p.y;
-          if (p.x > maxX) maxX = p.x;
-          if (p.y > maxY) maxY = p.y;
-        });
-      });
-      const scale = Math.min(600 / Math.max(maxX - minX, 1), 300 / Math.max(maxY - minY, 1));
-      const apiInk = [];
-      combinedStrokes.forEach(function (s) {
-        if (!s.points || s.points.length === 0) return;
-        const xArr = [], yArr = [], tArr = [];
-        s.points.forEach(function (p, i) {
-          xArr.push(Math.round((p.x - minX) * scale));
-          yArr.push(Math.round((p.y - minY) * scale));
-          tArr.push(p.t != null ? p.t : i * 50);
-        });
-        apiInk.push([xArr, yArr, tArr]);
-      });
-
+      var apiInk = nnStrokesToApiInk(combinedStrokes);
       google.script.run
         .withSuccessHandler(function (text) {
           hideLoader();
