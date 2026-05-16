@@ -295,6 +295,91 @@
     #nn-text-style-panel input[type="range"] { width: 100%; max-width: 160px; }
     #nn-text-style-panel select { width: 100%; max-width: 200px; }
 
+    .nn-panel-grip {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+      border: none;
+      background: #f1f3f4;
+      color: #5f6368;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 10px;
+      min-height: 28px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    .nn-panel-grip:active { cursor: grabbing; background: #e8eaed; }
+    .nn-float-header-stacked { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
+    .nn-float-header-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 4px 8px; }
+    .nn-float-title { font-size: 12px; font-weight: 600; color: #3c4043; }
+    #nn-btn-place-textbox.nn-place-active { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: 600; }
+    #nn-text-inspector {
+      position: absolute;
+      z-index: 1350;
+      display: none;
+      flex-direction: column;
+      max-width: min(calc(100vw - 24px), 240px);
+      touch-action: none;
+    }
+    #nn-text-inspector.nn-show { display: flex; }
+    #nn-text-inspector .nn-text-inspector-body { padding: 8px 10px 10px; max-height: min(50vh, 400px); overflow-y: auto; }
+    #nn-text-inspector .nn-ti-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 10px 10px; }
+    #nn-text-inspector .nn-ti-actions button { font-size: 11px; padding: 5px 8px; border-radius: 6px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
+    #nn-text-inspector .nn-ti-actions button.nn-ti-danger { color: #c5221f; border-color: #f5c6c6; }
+    #nn-text-box-chrome {
+      position: absolute;
+      z-index: 1200;
+      display: none;
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+    #nn-text-box-chrome.nn-show { display: block; pointer-events: auto; }
+    #nn-text-box-chrome .nn-tb-grip {
+      position: absolute;
+      left: 0;
+      border-radius: 6px;
+      min-height: 24px;
+      padding: 10px 8px;
+      box-sizing: content-box;
+    }
+    #nn-text-box-chrome .nn-tb-resize {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      right: -4px;
+      bottom: -4px;
+      background: #1a73e8;
+      border: 2px solid #fff;
+      border-radius: 3px;
+      cursor: nwse-resize;
+      box-sizing: border-box;
+    }
+    #nn-text-edit-overlay {
+      position: absolute;
+      z-index: 1250;
+      display: none;
+      box-sizing: border-box;
+      padding: 0;
+    }
+    #nn-text-edit-overlay.nn-show { display: block; }
+    #nn-text-edit-field {
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 6px;
+      border: 2px solid #1a73e8;
+      border-radius: 6px;
+      resize: none;
+      font-size: 15px;
+      line-height: 1.25;
+      background: rgba(255, 255, 255, 0.97);
+    }
+
     #viewer-shell {
       display: none;
       position: fixed;
@@ -751,12 +836,14 @@
       <button id="btn-pen" class="active-tool" onclick="setTool('pen')">ペン</button>
       <button id="btn-eraser" onclick="setTool('eraser')">消しゴム</button>
       <button id="btn-laser" onclick="setTool('laser')">レーザー</button>
-      <button id="btn-textbox" onclick="setTool('textbox')">テキスト框</button>
-      <button id="btn-select" onclick="setTool('select')">選択</button>
-      <details id="nn-text-style-details" style="font-size:11px;max-width:280px;">
+      <button type="button" id="nn-btn-place-textbox" class="file-btn-meet">テキストボックスを配置</button>
+      <button id="btn-textbox" style="display:none" aria-hidden="true">テキスト框</button>
+      <button id="btn-select" style="display:none" aria-hidden="true">選択</button>
+      <details id="nn-text-style-details" style="display:none;font-size:11px;max-width:280px;">
         <summary style="cursor:pointer;color:#1a73e8;">新規テキスト框の既定スタイル</summary>
         <div id="nn-text-style-panel" style="margin-top:6px;padding:6px;border:1px solid #dadce0;border-radius:8px;background:#fafafa;">
           <div class="nn-ts-row"><label>枠色 <input type="color" id="nn-ts-border" /></label><label>枠α <input type="range" id="nn-ts-border-op" min="0" max="1" step="0.05" value="1" style="width:90px" /></label></div>
+          <div class="nn-ts-row"><label>枠太さ <input type="number" id="nn-ts-border-w" min="0" max="12" step="1" value="2" /></label></div>
           <div class="nn-ts-row"><label>背景 <input type="color" id="nn-ts-fill" /></label><label>背景α <input type="range" id="nn-ts-fill-op" min="0" max="1" step="0.05" value="0.4" style="width:90px" /></label></div>
           <div class="nn-ts-row"><label>文字色 <input type="color" id="nn-ts-fg" /></label><label>サイズ <input type="number" id="nn-ts-fs" min="8" max="48" step="1" value="15" /></label></div>
           <div class="nn-ts-row"><label>フォント
@@ -789,6 +876,9 @@
         <canvas id="bg-canvas"></canvas>
         <canvas id="draw-canvas"></canvas>
         <div id="my-laser" class="laser-dot"></div>
+        <div id="nn-text-box-chrome"><button type="button" class="nn-panel-grip nn-tb-grip" title="移動">⋮⋮</button><span class="nn-tb-resize" title="リサイズ"></span></div>
+        <div id="nn-text-edit-overlay"><textarea id="nn-text-edit-field" placeholder="テキスト"></textarea></div>
+         
         <div id="host-frame"></div>
       </div>
     </div>
@@ -797,10 +887,22 @@
     </div>
     <div id="nn-dock-bottom" class="nn-dock-slot" data-edge="bottom"></div>
     <button type="button" id="nn-palette-fab" title="描画ツールパレットを開く">🎨 ツール</button>
+    <div id="nn-text-inspector" class="nn-float-palette" aria-label="テキスト框の書式">
+      <button type="button" class="nn-panel-grip nn-inspector-grip" title="ドラッグして移動">⋮⋮ 書式</button>
+      <div class="nn-text-inspector-body" id="nn-text-inspector-body"></div>
+      <div class="nn-ti-actions">
+        <button type="button" id="nn-ti-edit-text">文字を編集</button>
+        <button type="button" id="nn-ti-delete" class="nn-ti-danger">削除</button>
+      </div>
+    </div>
+     
     <div id="nn-float-tools" class="nn-float-palette nn-orient-h" data-palette-id="tools">
-      <div class="nn-float-header">
-        <button type="button" class="nn-float-handle" title="ドラッグして画面の辺にドック">⋮⋮ 描画ツール</button>
-        <button type="button" class="nn-palette-min-btn" id="nn-palette-min-btn" title="最小化">−</button>
+      <div class="nn-float-header nn-float-header-stacked">
+        <button type="button" class="nn-panel-grip nn-float-grip" title="ドラッグして画面の辺にドック">⋮⋮</button>
+        <div class="nn-float-header-row">
+          <span class="nn-float-title">描画ツール</span>
+          <button type="button" class="nn-palette-min-btn" id="nn-palette-min-btn" title="最小化">−</button>
+        </div>
       </div>
       <div class="nn-float-body" id="nn-float-tools-body"></div>
     </div>
@@ -1143,7 +1245,9 @@
       var fo = document.getElementById('nn-ts-fill-op');
       var fg = document.getElementById('nn-ts-fg');
       var fs = document.getElementById('nn-ts-fs');
+      var bw = document.getElementById('nn-ts-border-w');
       var ff = document.getElementById('nn-ts-font');
+      if (bw) nnTextStyleDefaults.borderWidth = parseFloat(bw.value) || 2;
       nnTextStyleDefaults.borderColor = b && b.value ? b.value : nnTextStyleDefaults.borderColor;
       nnTextStyleDefaults.borderOpacity = bo ? parseFloat(bo.value) || 1 : 1;
       nnTextStyleDefaults.fillColor = f && f.value ? f.value : nnTextStyleDefaults.fillColor;
@@ -1167,6 +1271,8 @@
       if (fo) fo.value = String(nnTextStyleDefaults.fillOpacity != null ? nnTextStyleDefaults.fillOpacity : 0.4);
       if (fg) fg.value = nnTextStyleDefaults.color;
       if (fs) fs.value = String(nnTextStyleDefaults.fontSize);
+      var bw = document.getElementById('nn-ts-border-w');
+      if (bw) bw.value = String(nnTextStyleDefaults.borderWidth != null ? nnTextStyleDefaults.borderWidth : 2);
       if (ff) ff.value = nnTextStyleDefaults.fontFamily;
     }
 
@@ -1298,6 +1404,537 @@
       if (nnSelectedTextRef && nnSelectedTextRef.id === hit.box.id) nnSelectedTextRef = null;
     }
 
+/* NN_TEXTBOX_V2 — paste block */
+    var nnTextPlacementMode = false;
+    var nnTextResize = null;
+    var nnInspectorPinned = false;
+    var nnInspectorManualPos = null;
+    var nnTextEditActive = false;
+    var nnTextTouchBoxOp = false;
+    var NN_TEXT_GRIP_H = 24;
+    var NN_TEXT_DEFAULT_W = 160;
+    var NN_TEXT_DEFAULT_H = 80;
+
+    function nnCanEditTextHit(hit) {
+      if (!hit) return false;
+      if (hit.layer === 'local') return true;
+      if (hit.layer === 'shared') return nnIsSharedFolderFile() && currentUserRole === 'presenter';
+      return false;
+    }
+
+    function nnGetPageWrapperRect() {
+      var pw = document.getElementById('page-wrapper');
+      if (!pw) return null;
+      return pw.getBoundingClientRect();
+    }
+
+    function nnBoxToScreenRect(box) {
+      var pr = nnGetPageWrapperRect();
+      if (!pr || !box) return null;
+      return {
+        left: pr.left + box.x * currentScale,
+        top: pr.top + box.y * currentScale,
+        width: box.w * currentScale,
+        height: box.h * currentScale,
+      };
+    }
+
+    function nnScreenToBoxCoords(clientX, clientY) {
+      var pr = nnGetPageWrapperRect();
+      if (!pr) return { x: 0, y: 0 };
+      return { x: (clientX - pr.left) / currentScale, y: (clientY - pr.top) / currentScale };
+    }
+
+    function nnHitTextGripZone(pt, box) {
+      if (!box) return false;
+      var gh = NN_TEXT_GRIP_H;
+      return pt.x >= box.x && pt.x <= box.x + box.w && pt.y >= box.y - gh - 4 && pt.y < box.y;
+    }
+
+    function nnHitTextResizeSE(pt, box) {
+      if (!box) return false;
+      var hs = 16 / currentScale;
+      return pt.x >= box.x + box.w - hs && pt.x <= box.x + box.w + hs && pt.y >= box.y + box.h - hs && pt.y <= box.y + box.h + hs;
+    }
+
+    function nnClearTextSelection() {
+      nnHideTextInspector();
+      nnCloseTextEditOverlay(false);
+      nnSelectedTextRef = null;
+      nnTextMove = null;
+      nnTextResize = null;
+      nnSyncTextBoxChrome();
+      redraw();
+    }
+
+    function nnSelectTextBox(hit) {
+      if (!hit || !hit.box) return;
+      nnSelectedTextRef = { box: hit.box, layer: hit.layer, id: hit.box.id };
+      nnInspectorPinned = false;
+      nnInspectorManualPos = null;
+      nnShowTextInspector();
+      nnSyncTextBoxChrome();
+      redraw();
+    }
+
+    function nnToggleTextPlacementMode() {
+      nnTextPlacementMode = !nnTextPlacementMode;
+      var btn = document.getElementById('nn-btn-place-textbox');
+      if (btn) btn.classList.toggle('nn-place-active', nnTextPlacementMode);
+    }
+
+    function nnLoadInspectorFromBox(box) {
+      if (!box) return;
+      var b = document.getElementById('nn-ts-border');
+      var bo = document.getElementById('nn-ts-border-op');
+      var bw = document.getElementById('nn-ts-border-w');
+      var f = document.getElementById('nn-ts-fill');
+      var fo = document.getElementById('nn-ts-fill-op');
+      var fg = document.getElementById('nn-ts-fg');
+      var fs = document.getElementById('nn-ts-fs');
+      var ff = document.getElementById('nn-ts-font');
+      if (b) b.value = box.borderColor || nnTextStyleDefaults.borderColor;
+      if (bo) bo.value = String(box.borderOpacity != null ? box.borderOpacity : 1);
+      if (bw) bw.value = String(box.borderWidth != null ? box.borderWidth : 2);
+      if (f) f.value = box.fillColor || nnTextStyleDefaults.fillColor;
+      if (fo) fo.value = String(box.fillOpacity != null ? box.fillOpacity : 0.4);
+      if (fg) fg.value = box.color || nnTextStyleDefaults.color;
+      if (fs) fs.value = String(box.fontSize != null ? box.fontSize : 15);
+      if (ff) ff.value = box.fontFamily || nnTextStyleDefaults.fontFamily;
+    }
+
+    function nnApplyInspectorToBox(box) {
+      if (!box) return;
+      var b = document.getElementById('nn-ts-border');
+      var bo = document.getElementById('nn-ts-border-op');
+      var bw = document.getElementById('nn-ts-border-w');
+      var f = document.getElementById('nn-ts-fill');
+      var fo = document.getElementById('nn-ts-fill-op');
+      var fg = document.getElementById('nn-ts-fg');
+      var fs = document.getElementById('nn-ts-fs');
+      var ff = document.getElementById('nn-ts-font');
+      if (b) box.borderColor = b.value;
+      if (bo) box.borderOpacity = parseFloat(bo.value) || 1;
+      if (bw) box.borderWidth = parseFloat(bw.value) || 2;
+      if (f) box.fillColor = f.value;
+      if (fo) box.fillOpacity = parseFloat(fo.value) || 0;
+      if (fg) box.color = fg.value;
+      if (fs) box.fontSize = Math.max(8, Math.min(48, parseInt(fs.value, 10) || 15));
+      if (ff) box.fontFamily = ff.value;
+    }
+
+    function nnOnInspectorInput() {
+      if (!nnSelectedTextRef || !nnSelectedTextRef.box) return;
+      nnApplyInspectorToBox(nnSelectedTextRef.box);
+      redraw();
+      nnSyncTextBoxChrome();
+      if (nnTextEditActive) nnSyncTextEditOverlayGeometry();
+    }
+
+    function nnHideTextInspector() {
+      var ins = document.getElementById('nn-text-inspector');
+      if (ins) ins.classList.remove('nn-show');
+    }
+
+    function nnShowTextInspector() {
+      var ins = document.getElementById('nn-text-inspector');
+      if (!ins || !nnSelectedTextRef || !nnSelectedTextRef.box) return;
+      if (!nnCanEditTextHit({ layer: nnSelectedTextRef.layer, box: nnSelectedTextRef.box })) {
+        nnHideTextInspector();
+        return;
+      }
+      nnLoadInspectorFromBox(nnSelectedTextRef.box);
+      ins.classList.add('nn-show');
+      nnPositionTextInspector(nnSelectedTextRef.box);
+    }
+
+    function nnClampInspectorInShell(ins, left, top) {
+      var shell = document.getElementById('viewer-shell');
+      if (!shell || !ins) return { left: left, top: top };
+      var pad = 8;
+      var maxL = Math.max(pad, shell.clientWidth - ins.offsetWidth - pad);
+      var maxT = Math.max(pad, shell.clientHeight - ins.offsetHeight - pad);
+      return { left: Math.min(Math.max(pad, left), maxL), top: Math.min(Math.max(pad, top), maxT) };
+    }
+
+    function nnPositionTextInspector(box) {
+      var ins = document.getElementById('nn-text-inspector');
+      var shell = document.getElementById('viewer-shell');
+      if (!ins || !shell || !box) return;
+      if (nnInspectorPinned && nnInspectorManualPos) {
+        var c = nnClampInspectorInShell(ins, nnInspectorManualPos.left, nnInspectorManualPos.top);
+        ins.style.left = c.left + 'px';
+        ins.style.top = c.top + 'px';
+        return;
+      }
+      var sr = nnBoxToScreenRect(box);
+      var shellR = shell.getBoundingClientRect();
+      if (!sr) return;
+      var margin = 8;
+      var bw = ins.offsetWidth || 220;
+      var bh = ins.offsetHeight || 200;
+      var relL = sr.left - shellR.left;
+      var relT = sr.top - shellR.top;
+      var candidates = [
+        { left: relL, top: relT + sr.height + margin },
+        { left: relL + sr.width + margin, top: relT },
+        { left: relL, top: relT - bh - margin },
+        { left: relL - bw - margin, top: relT },
+      ];
+      var pick = candidates[0];
+      for (var i = 0; i < candidates.length; i++) {
+        var c = candidates[i];
+        if (c.left >= margin && c.top >= margin && c.left + bw <= shell.clientWidth - margin && c.top + bh <= shell.clientHeight - margin) {
+          pick = c;
+          break;
+        }
+      }
+      var cl = nnClampInspectorInShell(ins, pick.left, pick.top);
+      ins.style.position = 'absolute';
+      ins.style.left = cl.left + 'px';
+      ins.style.top = cl.top + 'px';
+    }
+
+    function nnSyncTextBoxChrome() {
+      var chrome = document.getElementById('nn-text-box-chrome');
+      var pw = document.getElementById('page-wrapper');
+      if (!chrome || !pw) return;
+      if (!nnSelectedTextRef || !nnSelectedTextRef.box || !nnCanEditTextHit(nnSelectedTextRef)) {
+        chrome.classList.remove('nn-show');
+        return;
+      }
+      var box = nnSelectedTextRef.box;
+      var sr = nnBoxToScreenRect(box);
+      var pr = pw.getBoundingClientRect();
+      if (!sr) return;
+      chrome.classList.add('nn-show');
+      chrome.style.left = sr.left - pr.left + 'px';
+      chrome.style.top = sr.top - pr.top - NN_TEXT_GRIP_H - 2 + 'px';
+      chrome.style.width = sr.width + 'px';
+      chrome.style.height = sr.height + NN_TEXT_GRIP_H + 2 + 'px';
+      var grip = chrome.querySelector('.nn-tb-grip');
+      var res = chrome.querySelector('.nn-tb-resize');
+      if (grip) {
+        grip.style.width = sr.width + 'px';
+        grip.style.top = '0';
+      }
+      if (res) {
+        res.style.left = sr.width - 10 + 'px';
+        res.style.top = NN_TEXT_GRIP_H + sr.height - 10 + 'px';
+      }
+    }
+
+    function nnSyncTextEditOverlayGeometry() {
+      var ov = document.getElementById('nn-text-edit-overlay');
+      var field = document.getElementById('nn-text-edit-field');
+      if (!ov || !field || !nnSelectedTextRef || !nnSelectedTextRef.box) return;
+      var box = nnSelectedTextRef.box;
+      var pw = document.getElementById('page-wrapper');
+      var sr = nnBoxToScreenRect(box);
+      var pr = pw.getBoundingClientRect();
+      if (!sr || !pw) return;
+      ov.style.left = sr.left - pr.left + 'px';
+      ov.style.top = sr.top - pr.top + 'px';
+      ov.style.width = sr.width + 'px';
+      ov.style.height = sr.height + 'px';
+    }
+
+    function nnOpenTextEditOverlay() {
+      if (!nnSelectedTextRef || !nnSelectedTextRef.box) return;
+      var ov = document.getElementById('nn-text-edit-overlay');
+      var field = document.getElementById('nn-text-edit-field');
+      if (!ov || !field) return;
+      nnTextEditActive = true;
+      field.value = nnSelectedTextRef.box.text != null ? String(nnSelectedTextRef.box.text) : '';
+      ov.classList.add('nn-show');
+      nnSyncTextEditOverlayGeometry();
+      field.focus();
+    }
+
+    function nnCloseTextEditOverlay(save) {
+      var ov = document.getElementById('nn-text-edit-overlay');
+      var field = document.getElementById('nn-text-edit-field');
+      if (!ov) return;
+      if (save && nnSelectedTextRef && nnSelectedTextRef.box && field) {
+        nnSelectedTextRef.box.text = String(field.value);
+        nnBumpStrokeTime();
+        autoSaveCurrent(true);
+      }
+      nnTextEditActive = false;
+      ov.classList.remove('nn-show');
+      redraw();
+    }
+
+    function nnFinishTextCreate(tr) {
+      if (!tr) return;
+      var w = tr.w >= 20 ? tr.w : NN_TEXT_DEFAULT_W;
+      var h = tr.h >= 14 ? tr.h : NN_TEXT_DEFAULT_H;
+      var x = tr.w >= 20 ? tr.x : tr.x - w / 2;
+      var y = tr.h >= 14 ? tr.y : tr.y - h / 2;
+      nnReadTextStyleFromPanel();
+      var tb = Object.assign({ id: nnNewTextBoxId(), x: x, y: y, w: w, h: h, text: '' }, nnCloneTextStyleFromDefaults());
+      var arr = getTargetTextBoxesArray();
+      arr.push(tb);
+      var sk = nnLpCurrentStrokeKey();
+      var layer = currentUserRole === 'presenter' && nnPresenterTextToShared ? 'shared' : 'local';
+      nnSelectTextBox({ box: tb, layer: layer, index: arr.length - 1, sk: sk });
+      nnBumpStrokeTime();
+      autoSaveCurrent(true);
+      nnOpenTextEditOverlay();
+    }
+
+    function nnDeleteSelectedTextBox() {
+      if (!nnSelectedTextRef) return;
+      var sk = nnLpCurrentStrokeKey();
+      var map = nnSelectedTextRef.layer === 'shared' ? sharedTextByPage : localTextByPage;
+      var arr = map[sk];
+      if (!arr) return;
+      var idx = arr.indexOf(nnSelectedTextRef.box);
+      if (idx < 0) return;
+      arr.splice(idx, 1);
+      nnClearTextSelection();
+      nnBumpStrokeTime();
+      autoSaveCurrent(true);
+    }
+
+    function nnInitTextInspectorUi() {
+      var body = document.getElementById('nn-text-inspector-body');
+      var panel = document.getElementById('nn-text-style-panel');
+      if (body && panel && !body.contains(panel)) {
+        panel.style.marginTop = '0';
+        panel.style.border = 'none';
+        panel.style.background = 'transparent';
+        body.appendChild(panel);
+      }
+      var ids = ['nn-ts-border', 'nn-ts-border-op', 'nn-ts-border-w', 'nn-ts-fill', 'nn-ts-fill-op', 'nn-ts-fg', 'nn-ts-fs', 'nn-ts-font'];
+      ids.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el || el.dataset.nnTiWired === '1') return;
+        el.dataset.nnTiWired = '1';
+        el.addEventListener('input', nnOnInspectorInput);
+        el.addEventListener('change', nnOnInspectorInput);
+      });
+      var btnEdit = document.getElementById('nn-ti-edit-text');
+      var btnDel = document.getElementById('nn-ti-delete');
+      if (btnEdit) btnEdit.addEventListener('click', function () { nnOpenTextEditOverlay(); });
+      if (btnDel) btnDel.addEventListener('click', function () { nnDeleteSelectedTextBox(); });
+      var placeBtn = document.getElementById('nn-btn-place-textbox');
+      if (placeBtn) placeBtn.addEventListener('click', function () { nnToggleTextPlacementMode(); });
+    }
+
+    function nnInitTextChromeDrag() {
+      var chrome = document.getElementById('nn-text-box-chrome');
+      if (!chrome || chrome.dataset.wired === '1') return;
+      chrome.dataset.wired = '1';
+      var grip = chrome.querySelector('.nn-tb-grip');
+      var res = chrome.querySelector('.nn-tb-resize');
+      if (grip) {
+        grip.addEventListener('pointerdown', function (e) {
+          if (!nnSelectedTextRef || !nnCanEditTextHit(nnSelectedTextRef)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
+          nnTextMove = {
+            hit: nnSelectedTextRef,
+            px: pt.x,
+            py: pt.y,
+            ox: nnSelectedTextRef.box.x,
+            oy: nnSelectedTextRef.box.y,
+            pointerId: e.pointerId,
+          };
+          grip.setPointerCapture(e.pointerId);
+        });
+      }
+      if (res) {
+        res.addEventListener('pointerdown', function (e) {
+          if (!nnSelectedTextRef || !nnCanEditTextHit(nnSelectedTextRef)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
+          var box = nnSelectedTextRef.box;
+          nnTextResize = {
+            box: box,
+            px: pt.x,
+            py: pt.y,
+            ox: box.x,
+            oy: box.y,
+            ow: box.w,
+            oh: box.h,
+            pointerId: e.pointerId,
+          };
+          res.setPointerCapture(e.pointerId);
+        });
+      }
+    }
+
+    function nnInitInspectorGripDrag() {
+      var ins = document.getElementById('nn-text-inspector');
+      var grip = ins && ins.querySelector('.nn-inspector-grip');
+      var shell = document.getElementById('viewer-shell');
+      if (!grip || !ins || !shell || grip.dataset.wired === '1') return;
+      grip.dataset.wired = '1';
+      var drag = null;
+      grip.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        var r = ins.getBoundingClientRect();
+        var sr = shell.getBoundingClientRect();
+        drag = { pid: e.pointerId, ox: e.clientX, oy: e.clientY, sl: r.left - sr.left, st: r.top - sr.top };
+        grip.setPointerCapture(e.pointerId);
+      });
+      grip.addEventListener('pointermove', function (e) {
+        if (!drag || e.pointerId !== drag.pid) return;
+        var left = drag.sl + (e.clientX - drag.ox);
+        var top = drag.st + (e.clientY - drag.oy);
+        var c = nnClampInspectorInShell(ins, left, top);
+        ins.style.left = c.left + 'px';
+        ins.style.top = c.top + 'px';
+        nnInspectorPinned = true;
+        nnInspectorManualPos = { left: c.left, top: c.top };
+      });
+      function end(e) {
+        if (!drag || e.pointerId !== drag.pid) return;
+        drag = null;
+        try { grip.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+      grip.addEventListener('pointerup', end);
+      grip.addEventListener('pointercancel', end);
+    }
+
+    function nnInitTextUxV2() {
+      nnInitTextInspectorUi();
+      nnInitTextChromeDrag();
+      nnInitInspectorGripDrag();
+      var field = document.getElementById('nn-text-edit-field');
+      if (field) {
+        field.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') { e.preventDefault(); nnCloseTextEditOverlay(false); }
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); nnCloseTextEditOverlay(true); }
+        });
+      }
+    }
+
+    function nnTryHandleTextPointerDown(e, pt) {
+      var hit = nnHitTextBoxesAt(pt, true);
+      if (hit && nnCanEditTextHit(hit)) {
+        nnTextTouchBoxOp = e.pointerType === 'touch';
+        if (e.pointerType === 'touch') isPanning = false;
+        if (nnHitTextResizeSE(pt, hit.box)) {
+          nnSelectTextBox(hit);
+          nnTextResize = {
+            box: hit.box,
+            px: pt.x,
+            py: pt.y,
+            ox: hit.box.x,
+            oy: hit.box.y,
+            ow: hit.box.w,
+            oh: hit.box.h,
+            pointerId: e.pointerId,
+          };
+          isDrawing = true;
+          return true;
+        }
+        if (nnHitTextGripZone(pt, hit.box)) {
+          nnSelectTextBox(hit);
+          nnTextMove = {
+            hit: hit,
+            px: pt.x,
+            py: pt.y,
+            ox: hit.box.x,
+            oy: hit.box.y,
+            pointerId: e.pointerId,
+          };
+          isDrawing = true;
+          return true;
+        }
+        nnSelectTextBox(hit);
+        nnTextMove = {
+          hit: hit,
+          px: pt.x,
+          py: pt.y,
+          ox: hit.box.x,
+          oy: hit.box.y,
+          pointerId: e.pointerId,
+        };
+        isDrawing = true;
+        return true;
+      }
+      if (hit && !nnCanEditTextHit(hit)) {
+        if (e.pointerType === 'touch') {
+          isPanning = false;
+          return true;
+        }
+        return false;
+      }
+      if (!hit) {
+        if (nnSelectedTextRef) nnClearTextSelection();
+        if (nnTextPlacementMode) {
+          nnTextCreateDrag = { x1: pt.x, y1: pt.y, pointerId: e.pointerId };
+          nnTempTextRect = null;
+          isDrawing = true;
+          if (e.pointerType === 'touch') isPanning = false;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function nnTryHandleTextPointerMove(e, pt) {
+      if (nnTextResize && nnTextResize.pointerId === e.pointerId) {
+        var dx = pt.x - nnTextResize.px;
+        var dy = pt.y - nnTextResize.py;
+        nnTextResize.box.w = Math.max(40, nnTextResize.ow + dx);
+        nnTextResize.box.h = Math.max(24, nnTextResize.oh + dy);
+        redraw();
+        nnSyncTextBoxChrome();
+        nnPositionTextInspector(nnTextResize.box);
+        if (nnTextEditActive) nnSyncTextEditOverlayGeometry();
+        return true;
+      }
+      if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
+        var dx = pt.x - nnTextMove.px;
+        var dy = pt.y - nnTextMove.py;
+        nnTextMove.hit.box.x = nnTextMove.ox + dx;
+        nnTextMove.hit.box.y = nnTextMove.oy + dy;
+        redraw();
+        nnSyncTextBoxChrome();
+        if (nnSelectedTextRef && nnSelectedTextRef.box) nnPositionTextInspector(nnSelectedTextRef.box);
+        if (nnTextEditActive) nnSyncTextEditOverlayGeometry();
+        return true;
+      }
+      if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
+        nnTempTextRect = nnNormalizeRect(nnTextCreateDrag.x1, nnTextCreateDrag.y1, pt.x, pt.y);
+        redraw();
+        return true;
+      }
+      return false;
+    }
+
+    function nnTryHandleTextPointerEnd(e) {
+      if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
+        var tr = nnTempTextRect;
+        nnFinishTextCreate(tr);
+        nnTextCreateDrag = null;
+        nnTempTextRect = null;
+        return true;
+      }
+      if (nnTextResize && nnTextResize.pointerId === e.pointerId) {
+        nnTextResize = null;
+        nnBumpStrokeTime();
+        autoSaveCurrent(true);
+        return true;
+      }
+      if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
+        nnTextMove = null;
+        nnBumpStrokeTime();
+        autoSaveCurrent(true);
+        nnTextTouchBoxOp = false;
+        return true;
+      }
+      return false;
+    }
+/* NN_TEXTBOX_V2_END */
+
     function nnLoadPenPalette() {
       try {
         var s = localStorage.getItem('nn_pen_palette');
@@ -1366,23 +2003,13 @@
 
     function nnOnKeyDownTextSelect(ev) {
       if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
-      if (currentTool !== 'select' || !nnSelectedTextRef) return;
-      var sk = nnLpCurrentStrokeKey();
-      var map = nnSelectedTextRef.layer === 'shared' ? sharedTextByPage : localTextByPage;
-      var arr = map[sk];
-      if (!arr) return;
-      var idx = arr.indexOf(nnSelectedTextRef.box);
-      if (idx < 0) return;
-      arr.splice(idx, 1);
-      nnSelectedTextRef = null;
-      nnBumpStrokeTime();
-      autoSaveCurrent(true);
-      redraw();
+      if (!nnSelectedTextRef || nnTextEditActive) return;
+      nnDeleteSelectedTextBox();
       ev.preventDefault();
     }
 
     function nnWireTextStylePanelInputs() {
-      ['nn-ts-border', 'nn-ts-border-op', 'nn-ts-fill', 'nn-ts-fill-op', 'nn-ts-fg', 'nn-ts-fs', 'nn-ts-font'].forEach(function (id) {
+      ['nn-ts-border', 'nn-ts-border-op', 'nn-ts-border-w', 'nn-ts-fill', 'nn-ts-fill-op', 'nn-ts-fg', 'nn-ts-fs', 'nn-ts-font'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) {
           el.addEventListener('change', function () {
@@ -1672,11 +2299,17 @@
 
       var toolsSec = section();
       toolsSec.appendChild(label('描画ツール'));
-      ['btn-pen', 'btn-eraser', 'btn-laser', 'btn-textbox', 'btn-select'].forEach(function (id) {
+      ['btn-pen', 'btn-eraser', 'btn-laser'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) toolsSec.appendChild(el);
       });
       body.appendChild(toolsSec);
+
+      var textSec = section();
+      textSec.appendChild(label('テキスト'));
+      var placeBtn = document.getElementById('nn-btn-place-textbox');
+      if (placeBtn) textSec.appendChild(placeBtn);
+      body.appendChild(textSec);
 
       var penSrc = document.getElementById('nn-toolbar-pen-source');
       if (penSrc) {
@@ -1690,20 +2323,8 @@
       var pres = document.getElementById('nn-presenter-layer-target');
       if (pres) body.appendChild(pres);
 
-      var panel = document.getElementById('nn-text-style-panel');
-      if (panel) {
-        var textBlock = section('nn-palette-section-col');
-        textBlock.appendChild(label('テキスト框の既定スタイル'));
-        panel.style.marginTop = '0';
-        panel.style.padding = '6px';
-        panel.style.border = '1px solid #e8eaed';
-        panel.style.borderRadius = '6px';
-        panel.style.background = '#fafafa';
-        textBlock.appendChild(panel);
-        body.appendChild(textBlock);
-      }
       var details = document.getElementById('nn-text-style-details');
-      if (details && !details.querySelector('#nn-text-style-panel')) details.remove();
+      if (details) details.remove();
 
       var toolsSrc = document.getElementById('nn-toolbar-tools-source');
       if (toolsSrc) toolsSrc.remove();
@@ -1898,7 +2519,7 @@
         return min < 80 ? edge : null;
       }
 
-      var handle = pal.querySelector('.nn-float-handle');
+      var handle = pal.querySelector('.nn-panel-grip.nn-float-grip') || pal.querySelector('.nn-float-handle');
       var minBtn = document.getElementById('nn-palette-min-btn');
       var fab = document.getElementById('nn-palette-fab');
       if (minBtn) {
@@ -2755,6 +3376,7 @@
       nnSyncTextStylePanelFromDefaults();
       nnWireTextStylePanelInputs();
       nnBuildFloatingPalettes();
+      nnInitTextUxV2();
       nnInitFloatingPaletteDock();
       window.addEventListener('keydown', nnOnKeyDownTextSelect);
       applyRoleMeet();
@@ -3797,10 +4419,9 @@
     async function renderPage(pageNum) {
       statusDiv.textContent = 'レンダリング中...';
       var lid = nnLpGetLogicalIdAt(pageNum);
-      nnSelectedTextRef = null;
+      nnClearTextSelection();
       nnTextCreateDrag = null;
       nnTempTextRect = null;
-      nnTextMove = null;
       if (!sharedStrokesByPage[lid]) sharedStrokesByPage[lid] = [];
       if (!localStrokesByPage[lid]) localStrokesByPage[lid] = [];
       if (!sharedTextByPage[lid]) sharedTextByPage[lid] = [];
@@ -3919,7 +4540,6 @@
       if (bt) bt.classList.toggle('active-tool', tool === 'textbox');
       if (bs) bs.classList.toggle('active-tool', tool === 'select');
       if (tool !== 'laser') myLaserDot.style.display = 'none';
-      if (tool !== 'select') nnSelectedTextRef = null;
     }
 
     function getScaledCoords(e) {
@@ -3944,56 +4564,35 @@
 
     drawCanvas.addEventListener('pointerdown', (e) => {
       activePointers.set(e.pointerId, e);
+      const pt = getScaledCoords(e);
       if (e.pointerType === 'touch') {
-        if (activePointers.size === 1) { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; } 
-        else if (activePointers.size === 2) {
-          isPanning = false; const pts = Array.from(activePointers.values());
+        if (activePointers.size === 1) {
+          if (nnTryHandleTextPointerDown(e, pt)) return;
+          isPanning = true;
+          lastPanX = e.clientX;
+          lastPanY = e.clientY;
+        } else if (activePointers.size === 2) {
+          isPanning = false;
+          nnTextTouchBoxOp = false;
+          const pts = Array.from(activePointers.values());
           initialPinchDist = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);
-          initialScale = currentScale; const rect = viewerContainer.getBoundingClientRect();
-          const midX = (pts[0].clientX + pts[1].clientX) / 2; const midY = (pts[0].clientY + pts[1].clientY) / 2;
+          initialScale = currentScale;
+          const rect = viewerContainer.getBoundingClientRect();
+          const midX = (pts[0].clientX + pts[1].clientX) / 2;
+          const midY = (pts[0].clientY + pts[1].clientY) / 2;
           pinchFocusX = (viewerContainer.scrollLeft + midX - rect.left) / currentScale;
           pinchFocusY = (viewerContainer.scrollTop + midY - rect.top) / currentScale;
         }
         return;
       }
       if (e.buttons === 0) return;
-      const pt = getScaledCoords(e);
       const isHardwareEraser = (e.buttons === 32 || e.button === 5);
       const activeTool = isHardwareEraser ? 'eraser' : currentTool;
-      if ((currentTool === 'textbox' || currentTool === 'select') && e.pointerType === 'touch') {
-        return;
-      }
+      if (nnTryHandleTextPointerDown(e, pt)) return;
       if (activeTool === 'laser') {
         myLaserDot.style.display = 'block';
         myLaserDot.style.left = pt.x + 'px';
         myLaserDot.style.top = pt.y + 'px';
-        return;
-      }
-      if (activeTool === 'select') {
-        nnReadTextStyleFromPanel();
-        var hitSel = nnHitTextBoxesAt(pt, true);
-        if (hitSel) {
-          nnSelectedTextRef = { box: hitSel.box, layer: hitSel.layer, id: hitSel.box.id };
-          nnTextMove = {
-            hit: hitSel,
-            px: pt.x,
-            py: pt.y,
-            ox: hitSel.box.x,
-            oy: hitSel.box.y,
-            pointerId: e.pointerId,
-          };
-          isDrawing = true;
-          return;
-        }
-        nnSelectedTextRef = null;
-        redraw();
-        return;
-      }
-      if (activeTool === 'textbox') {
-        nnReadTextStyleFromPanel();
-        nnTextCreateDrag = { x1: pt.x, y1: pt.y, pointerId: e.pointerId };
-        nnTempTextRect = null;
-        isDrawing = true;
         return;
       }
       isDrawing = true;
@@ -4005,7 +4604,7 @@
           points: [pt],
         };
         getTargetStrokesArray().push(currentStroke);
-      } else {
+      } else if (activeTool === 'eraser') {
         eraseStroke(pt);
       }
     });
@@ -4013,38 +4612,34 @@
     drawCanvas.addEventListener('pointermove', (e) => {
       if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, e);
       if (e.pointerType === 'touch') {
-        if (activePointers.size === 1 && isPanning) {
-          viewerContainer.scrollLeft -= (e.clientX - lastPanX); viewerContainer.scrollTop -= (e.clientY - lastPanY);
-          lastPanX = e.clientX; lastPanY = e.clientY;
+        const ptTouch = getScaledCoords(e);
+        if (nnTryHandleTextPointerMove(e, ptTouch)) {
+          /* handled */
+        } else if (activePointers.size === 1 && isPanning && !nnTextTouchBoxOp) {
+          viewerContainer.scrollLeft -= (e.clientX - lastPanX);
+          viewerContainer.scrollTop -= (e.clientY - lastPanY);
+          lastPanX = e.clientX;
+          lastPanY = e.clientY;
         } else if (activePointers.size === 2) {
           const pts = Array.from(activePointers.values());
           const currentDist = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);
           currentScale = Math.min(Math.max(0.5, initialScale * (currentDist / initialPinchDist)), 4.0);
-          scrollSpacer.style.width = (baseWidth * currentScale) + "px"; scrollSpacer.style.height = (baseHeight * currentScale) + "px";
+          scrollSpacer.style.width = (baseWidth * currentScale) + 'px';
+          scrollSpacer.style.height = (baseHeight * currentScale) + 'px';
           pageWrapper.style.transform = `scale(${currentScale})`;
           const rect = viewerContainer.getBoundingClientRect();
           viewerContainer.scrollLeft = (pinchFocusX * currentScale) - ((pts[0].clientX + pts[1].clientX) / 2 - rect.left);
           viewerContainer.scrollTop = (pinchFocusY * currentScale) - ((pts[0].clientY + pts[1].clientY) / 2 - rect.top);
+          nnSyncTextBoxChrome();
+          if (nnSelectedTextRef && nnSelectedTextRef.box) nnPositionTextInspector(nnSelectedTextRef.box);
         }
         return;
       }
       if (e.pointerType !== 'pen' && e.pointerType !== 'mouse') return;
       const pt = getScaledCoords(e);
+      if (nnTryHandleTextPointerMove(e, pt)) return;
       const isHardwareEraser = (e.buttons === 32 || e.button === 5);
       const activeTool = isHardwareEraser ? 'eraser' : currentTool;
-      if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
-        var dx = pt.x - nnTextMove.px;
-        var dy = pt.y - nnTextMove.py;
-        nnTextMove.hit.box.x = nnTextMove.ox + dx;
-        nnTextMove.hit.box.y = nnTextMove.oy + dy;
-        redraw();
-        return;
-      }
-      if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
-        nnTempTextRect = nnNormalizeRect(nnTextCreateDrag.x1, nnTextCreateDrag.y1, pt.x, pt.y);
-        redraw();
-        return;
-      }
       if (activeTool === 'laser') {
         myLaserDot.style.display = 'block';
         myLaserDot.style.left = pt.x + 'px';
@@ -4055,7 +4650,7 @@
       if (activeTool === 'pen') {
         currentStroke.points.push(pt);
         redraw();
-      } else {
+      } else if (activeTool === 'eraser') {
         eraseStroke(pt);
       }
     });
@@ -4063,42 +4658,23 @@
     function handlePointerEnd(e) {
       activePointers.delete(e.pointerId);
       if (currentTool === 'laser') myLaserDot.style.display = 'none';
+      var skipPenAutosave = nnTryHandleTextPointerEnd(e);
       if (activePointers.size === 0) {
-        var skipPenAutosave = false;
-        if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
-          var tr = nnTempTextRect;
-          if (tr && tr.w >= 20 && tr.h >= 14) {
-            nnReadTextStyleFromPanel();
-            var tb = Object.assign({ id: nnNewTextBoxId(), x: tr.x, y: tr.y, w: tr.w, h: tr.h, text: '' }, nnCloneTextStyleFromDefaults());
-            var txt = window.prompt('テキスト框の内容（空欄可）', '');
-            if (txt != null) tb.text = String(txt);
-            getTargetTextBoxesArray().push(tb);
-            nnBumpStrokeTime();
-            autoSaveCurrent(true);
-          }
-          nnTextCreateDrag = null;
-          nnTempTextRect = null;
-          redraw();
-          skipPenAutosave = true;
-        }
-        if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
-          nnTextMove = null;
-          nnBumpStrokeTime();
-          autoSaveCurrent(true);
-          skipPenAutosave = true;
-        }
         if (isDrawing && !skipPenAutosave) {
           lastStrokeTime = Date.now();
           autoSaveCurrent(true);
         }
         isPanning = false;
         isDrawing = false;
+        nnTextTouchBoxOp = false;
       } else if (activePointers.size === 1 && e.pointerType === 'touch') {
         const remaining = Array.from(activePointers.values())[0];
-        lastPanX = remaining.clientX; lastPanY = remaining.clientY; isPanning = true;
+        lastPanX = remaining.clientX;
+        lastPanY = remaining.clientY;
+        isPanning = !nnTextTouchBoxOp;
       }
     }
-    ['pointerup', 'pointercancel', 'pointerleave', 'pointerout'].forEach(evt => drawCanvas.addEventListener(evt, handlePointerEnd));
+        ['pointerup', 'pointercancel', 'pointerleave', 'pointerout'].forEach(evt => drawCanvas.addEventListener(evt, handlePointerEnd));
     window.addEventListener('pointerup', handlePointerEnd);
 
     function eraseStroke(point) {
@@ -4146,18 +4722,16 @@
         drawCtx.strokeRect(nnTempTextRect.x, nnTempTextRect.y, nnTempTextRect.w, nnTempTextRect.h);
         drawCtx.restore();
       }
+      nnSyncTextBoxChrome();
+      if (nnSelectedTextRef && nnSelectedTextRef.box) nnPositionTextInspector(nnSelectedTextRef.box);
     }
 
     drawCanvas.addEventListener('dblclick', function (ev) {
       var pt = getScaledCoords(ev);
       var hit = nnHitTextBoxesAt(pt, true);
-      if (!hit) return;
-      var nv = window.prompt('テキストを編集', hit.box.text != null ? String(hit.box.text) : '');
-      if (nv == null) return;
-      hit.box.text = String(nv);
-      nnBumpStrokeTime();
-      autoSaveCurrent(true);
-      redraw();
+      if (!hit || !nnCanEditTextHit(hit)) return;
+      nnSelectTextBox(hit);
+      nnOpenTextEditOverlay();
     });
 
     function saveToServer() {
