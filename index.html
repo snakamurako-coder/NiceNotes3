@@ -291,6 +291,8 @@
       margin-bottom: 6px;
     }
     #nn-text-style-panel .nn-ts-row label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+    #nn-text-style-panel .nn-ts-row.nn-ts-row-inline { flex-direction: row; flex-wrap: wrap; gap: 10px; align-items: center; }
+    #nn-text-style-panel .nn-ts-row.nn-ts-row-inline label { flex-direction: row; align-items: center; gap: 4px; }
     #nn-text-style-panel input[type="number"] { width: 100%; max-width: 80px; }
     #nn-text-style-panel input[type="range"] { width: 100%; max-width: 160px; }
     #nn-text-style-panel select { width: 100%; max-width: 200px; }
@@ -921,6 +923,22 @@
           <div class="nn-ts-row"><label>枠太さ <input type="number" id="nn-ts-border-w" min="0" max="12" step="1" value="2" /></label></div>
           <div class="nn-ts-row"><label>背景 <input type="color" id="nn-ts-fill" /></label><label>背景α <input type="range" id="nn-ts-fill-op" min="0" max="1" step="0.05" value="0.4" style="width:90px" /></label></div>
           <div class="nn-ts-row"><label>文字色 <input type="color" id="nn-ts-fg" /></label><label>サイズ <input type="number" id="nn-ts-fs" min="8" max="48" step="1" value="15" /></label></div>
+          <div class="nn-ts-row"><label>方向
+            <select id="nn-ts-writing-mode">
+              <option value="horizontal">横書き</option>
+              <option value="vertical">縦書き</option>
+            </select>
+          </label><label>揃え
+            <select id="nn-ts-align">
+              <option value="left">左</option>
+              <option value="center">中央</option>
+              <option value="right">右</option>
+            </select>
+          </label></div>
+          <div class="nn-ts-row nn-ts-row-inline">
+            <label><input type="checkbox" id="nn-ts-bold" /> 太字</label>
+            <label><input type="checkbox" id="nn-ts-underline" /> 下線</label>
+          </div>
           <div class="nn-ts-row"><label>フォント
             <select id="nn-ts-font">
               <option value='system-ui,-apple-system,"Segoe UI","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif'>システム</option>
@@ -1141,6 +1159,10 @@
       fontFamily: 'system-ui,-apple-system,"Segoe UI","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif',
       fontSize: 15,
       color: '#202124',
+      writingMode: 'horizontal',
+      textAlign: 'left',
+      bold: false,
+      underline: false,
     };
     var NN_DEFAULT_PEN_PALETTE = ['#212121', '#1a73e8', '#d93025', '#0f9d58', '#f4511e', '#6a1b9a'];
     var nnPenPalette = NN_DEFAULT_PEN_PALETTE.slice();
@@ -1313,6 +1335,23 @@
       return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + al + ')';
     }
 
+    function nnParseOpacity(val, fallback) {
+      var n = parseFloat(val);
+      if (isNaN(n)) return fallback != null ? fallback : 1;
+      return Math.max(0, Math.min(1, n));
+    }
+
+    function nnIsTextBoxInteractionPointer(e) {
+      return e && (e.pointerType === 'touch' || e.pointerType === 'mouse');
+    }
+
+    function nnBuildTextFontString(tb) {
+      var size = tb.fontSize || 14;
+      var family = tb.fontFamily || 'sans-serif';
+      var weight = tb.bold ? 'bold ' : '';
+      return weight + size + 'px ' + family;
+    }
+
     function nnReadTextStyleFromPanel() {
       var b = document.getElementById('nn-ts-border');
       var bo = document.getElementById('nn-ts-border-op');
@@ -1322,14 +1361,23 @@
       var fs = document.getElementById('nn-ts-fs');
       var bw = document.getElementById('nn-ts-border-w');
       var ff = document.getElementById('nn-ts-font');
-      if (bw) nnTextStyleDefaults.borderWidth = parseFloat(bw.value) || 2;
+      if (bw) nnTextStyleDefaults.borderWidth = parseFloat(bw.value) || 0;
       nnTextStyleDefaults.borderColor = b && b.value ? b.value : nnTextStyleDefaults.borderColor;
-      nnTextStyleDefaults.borderOpacity = bo ? parseFloat(bo.value) || 1 : 1;
+      nnTextStyleDefaults.borderOpacity = bo ? nnParseOpacity(bo.value, 1) : 1;
       nnTextStyleDefaults.fillColor = f && f.value ? f.value : nnTextStyleDefaults.fillColor;
-      nnTextStyleDefaults.fillOpacity = fo ? parseFloat(fo.value) || 0 : 0;
+      nnTextStyleDefaults.fillOpacity = fo ? nnParseOpacity(fo.value, 0) : 0;
       nnTextStyleDefaults.color = fg && fg.value ? fg.value : nnTextStyleDefaults.color;
       nnTextStyleDefaults.fontSize = fs ? Math.max(8, Math.min(48, parseInt(fs.value, 10) || 15)) : 15;
       nnTextStyleDefaults.fontFamily = ff && ff.value ? ff.value : nnTextStyleDefaults.fontFamily;
+      var wm = document.getElementById('nn-ts-writing-mode');
+      var al = document.getElementById('nn-ts-align');
+      var bd = document.getElementById('nn-ts-bold');
+      var ul = document.getElementById('nn-ts-underline');
+      nnTextStyleDefaults.writingMode = wm && wm.value === 'vertical' ? 'vertical' : 'horizontal';
+      nnTextStyleDefaults.textAlign =
+        al && (al.value === 'center' || al.value === 'right') ? al.value : 'left';
+      nnTextStyleDefaults.bold = !!(bd && bd.checked);
+      nnTextStyleDefaults.underline = !!(ul && ul.checked);
     }
 
     function nnSyncTextStylePanelFromDefaults() {
@@ -1349,6 +1397,14 @@
       var bw = document.getElementById('nn-ts-border-w');
       if (bw) bw.value = String(nnTextStyleDefaults.borderWidth != null ? nnTextStyleDefaults.borderWidth : 2);
       if (ff) ff.value = nnTextStyleDefaults.fontFamily;
+      var wm = document.getElementById('nn-ts-writing-mode');
+      var al = document.getElementById('nn-ts-align');
+      var bd = document.getElementById('nn-ts-bold');
+      var ul = document.getElementById('nn-ts-underline');
+      if (wm) wm.value = nnTextStyleDefaults.writingMode === 'vertical' ? 'vertical' : 'horizontal';
+      if (al) al.value = nnTextStyleDefaults.textAlign || 'left';
+      if (bd) bd.checked = !!nnTextStyleDefaults.bold;
+      if (ul) ul.checked = !!nnTextStyleDefaults.underline;
     }
 
     function nnNewTextBoxId() {
@@ -1370,6 +1426,10 @@
         fontFamily: nnTextStyleDefaults.fontFamily,
         fontSize: nnTextStyleDefaults.fontSize,
         color: nnTextStyleDefaults.color,
+        writingMode: nnTextStyleDefaults.writingMode,
+        textAlign: nnTextStyleDefaults.textAlign,
+        bold: nnTextStyleDefaults.bold,
+        underline: nnTextStyleDefaults.underline,
       };
     }
 
@@ -1382,8 +1442,6 @@
         var fo = tb.fillOpacity != null ? tb.fillOpacity : 0.35;
         ctx.save();
         ctx.fillStyle = nnRgba(tb.fillColor || '#ffffff', fo);
-        ctx.strokeStyle = nnRgba(tb.borderColor || '#1a73e8', bo);
-        ctx.lineWidth = bw;
         var r = 6;
         var x = tb.x,
           y = tb.y,
@@ -1397,17 +1455,15 @@
         ctx.arcTo(x, y, x + w, y, r);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = tb.color || '#202124';
+        if (bo > 0 && bw > 0) {
+          ctx.strokeStyle = nnRgba(tb.borderColor || '#1a73e8', bo);
+          ctx.lineWidth = bw;
+          ctx.stroke();
+        }
         ctx.globalAlpha = 1;
-        ctx.font = (tb.fontSize || 14) + 'px ' + (tb.fontFamily || 'sans-serif');
-        ctx.textBaseline = 'top';
         var pad = 6;
-        var tx = x + pad;
-        var ty = y + pad;
-        var maxW = Math.max(8, w - pad * 2);
         var text = String(tb.text != null ? tb.text : '');
-        nnDrawWrappedText(ctx, text, tx, ty, maxW, tb.fontSize || 14, tb.fontFamily || 'sans-serif');
+        nnDrawTextInBox(ctx, tb, text, x + pad, y + pad, Math.max(8, w - pad * 2), Math.max(8, h - pad * 2));
         if (nnSelectedTextRef && nnSelectedTextRef.box === tb) {
           ctx.save();
           ctx.setLineDash([5, 4]);
@@ -1421,10 +1477,9 @@
       });
     }
 
-    function nnDrawWrappedText(ctx, text, x, y, maxWidth, fontSize, fontFamily) {
-      if (!text) return;
-      ctx.font = fontSize + 'px ' + fontFamily;
+    function nnWrapTextLines(ctx, text, maxWidth) {
       var lines = [];
+      if (!text) return lines;
       var paragraphs = text.split('\n');
       for (var pi = 0; pi < paragraphs.length; pi++) {
         var words = paragraphs[pi].split('');
@@ -1441,9 +1496,78 @@
         if (line) lines.push(line);
         if (pi < paragraphs.length - 1) lines.push('');
       }
-      var lh = (fontSize || 14) * 1.25;
+      return lines;
+    }
+
+    function nnDrawTextUnderline(ctx, x, y, w, fontSize) {
+      var uy = y + fontSize + 1;
+      ctx.fillRect(x, uy, w, Math.max(1, Math.round(fontSize / 14)));
+    }
+
+    function nnDrawWrappedTextAligned(ctx, text, x, y, maxWidth, tb) {
+      if (!text) return;
+      var fontSize = tb.fontSize || 14;
+      ctx.font = nnBuildTextFontString(tb);
+      ctx.fillStyle = tb.color || '#202124';
+      ctx.textBaseline = 'top';
+      var align = tb.textAlign || 'left';
+      var lines = nnWrapTextLines(ctx, text, maxWidth);
+      var lh = fontSize * 1.25;
       for (var j = 0; j < lines.length; j++) {
-        ctx.fillText(lines[j], x, y + j * lh);
+        var line = lines[j];
+        if (!line) continue;
+        var lineW = ctx.measureText(line).width;
+        var drawX = x;
+        if (align === 'center') drawX = x + (maxWidth - lineW) / 2;
+        else if (align === 'right') drawX = x + maxWidth - lineW;
+        var drawY = y + j * lh;
+        ctx.fillText(line, drawX, drawY);
+        if (tb.underline) nnDrawTextUnderline(ctx, drawX, drawY, lineW, fontSize);
+      }
+    }
+
+    function nnDrawVerticalTextInBox(ctx, text, x, y, boxW, boxH, tb) {
+      if (!text) return;
+      var fontSize = tb.fontSize || 14;
+      ctx.font = nnBuildTextFontString(tb);
+      ctx.fillStyle = tb.color || '#202124';
+      ctx.textBaseline = 'top';
+      var colStep = fontSize * 1.35;
+      var charStep = fontSize * 1.25;
+      var columns = text.split('\n').map(function (line) {
+        return line.split('');
+      });
+      var colCount = columns.length;
+      if (!colCount) return;
+      var blockW = colCount * colStep;
+      var blockStartX = x;
+      var align = tb.textAlign || 'left';
+      if (align === 'center') blockStartX = x + (boxW - blockW) / 2;
+      else if (align === 'right') blockStartX = x + boxW - blockW;
+      for (var ci = 0; ci < colCount; ci++) {
+        var col = columns[ci];
+        var colH = col.length * charStep;
+        var colY = y;
+        if (align === 'center') colY = y + (boxH - colH) / 2;
+        else if (align === 'right') colY = y + boxH - colH;
+        var colX = blockStartX + (colCount - 1 - ci) * colStep;
+        for (var j = 0; j < col.length; j++) {
+          var drawY = colY + j * charStep;
+          ctx.fillText(col[j], colX, drawY);
+          if (tb.underline) {
+            var cw = ctx.measureText(col[j]).width;
+            nnDrawTextUnderline(ctx, colX, drawY, cw, fontSize);
+          }
+        }
+      }
+    }
+
+    function nnDrawTextInBox(ctx, tb, text, x, y, maxW, maxH) {
+      if (!text) return;
+      if ((tb.writingMode || 'horizontal') === 'vertical') {
+        nnDrawVerticalTextInBox(ctx, text, x, y, maxW, maxH, tb);
+      } else {
+        nnDrawWrappedTextAligned(ctx, text, x, y, maxW, tb);
       }
     }
 
@@ -1619,6 +1743,14 @@
       if (fg) fg.value = box.color || nnTextStyleDefaults.color;
       if (fs) fs.value = String(box.fontSize != null ? box.fontSize : 15);
       if (ff) ff.value = box.fontFamily || nnTextStyleDefaults.fontFamily;
+      var wm = document.getElementById('nn-ts-writing-mode');
+      var al = document.getElementById('nn-ts-align');
+      var bd = document.getElementById('nn-ts-bold');
+      var ul = document.getElementById('nn-ts-underline');
+      if (wm) wm.value = box.writingMode === 'vertical' ? 'vertical' : 'horizontal';
+      if (al) al.value = box.textAlign || 'left';
+      if (bd) bd.checked = !!box.bold;
+      if (ul) ul.checked = !!box.underline;
     }
 
     function nnApplyInspectorToBox(box) {
@@ -1632,13 +1764,22 @@
       var fs = document.getElementById('nn-ts-fs');
       var ff = document.getElementById('nn-ts-font');
       if (b) box.borderColor = b.value;
-      if (bo) box.borderOpacity = parseFloat(bo.value) || 1;
-      if (bw) box.borderWidth = parseFloat(bw.value) || 2;
+      if (bo) box.borderOpacity = nnParseOpacity(bo.value, 1);
+      if (bw) box.borderWidth = parseFloat(bw.value);
+      if (isNaN(box.borderWidth)) box.borderWidth = 2;
       if (f) box.fillColor = f.value;
-      if (fo) box.fillOpacity = parseFloat(fo.value) || 0;
+      if (fo) box.fillOpacity = nnParseOpacity(fo.value, 0);
       if (fg) box.color = fg.value;
       if (fs) box.fontSize = Math.max(8, Math.min(48, parseInt(fs.value, 10) || 15));
       if (ff) box.fontFamily = ff.value;
+      var wm = document.getElementById('nn-ts-writing-mode');
+      var al = document.getElementById('nn-ts-align');
+      var bd = document.getElementById('nn-ts-bold');
+      var ul = document.getElementById('nn-ts-underline');
+      box.writingMode = wm && wm.value === 'vertical' ? 'vertical' : 'horizontal';
+      box.textAlign = al && (al.value === 'center' || al.value === 'right') ? al.value : 'left';
+      box.bold = !!(bd && bd.checked);
+      box.underline = !!(ul && ul.checked);
     }
 
     function nnOnInspectorInput() {
@@ -1742,6 +1883,24 @@
       }
     }
 
+    function nnApplyTextEditFieldStyle(box) {
+      var field = document.getElementById('nn-text-edit-field');
+      if (!field || !box) return;
+      field.style.fontFamily = box.fontFamily || nnTextStyleDefaults.fontFamily;
+      field.style.fontSize = (box.fontSize || 15) + 'px';
+      field.style.color = box.color || '#202124';
+      field.style.fontWeight = box.bold ? 'bold' : 'normal';
+      field.style.textDecoration = box.underline ? 'underline' : 'none';
+      field.style.textAlign = box.textAlign || 'left';
+      if (box.writingMode === 'vertical') {
+        field.style.writingMode = 'vertical-rl';
+        field.style.textOrientation = 'mixed';
+      } else {
+        field.style.writingMode = 'horizontal-tb';
+        field.style.textOrientation = 'mixed';
+      }
+    }
+
     function nnSyncTextEditOverlayGeometry() {
       var ov = document.getElementById('nn-text-edit-overlay');
       var field = document.getElementById('nn-text-edit-field');
@@ -1755,6 +1914,7 @@
       ov.style.top = sr.top - pr.top + 'px';
       ov.style.width = sr.width + 'px';
       ov.style.height = sr.height + 'px';
+      nnApplyTextEditFieldStyle(box);
     }
 
     function nnOpenTextEditOverlay() {
@@ -1817,7 +1977,20 @@
 
     function nnInitTextInspectorUi() {
       nnMoveTextStylePanelToInspector();
-      var ids = ['nn-ts-border', 'nn-ts-border-op', 'nn-ts-border-w', 'nn-ts-fill', 'nn-ts-fill-op', 'nn-ts-fg', 'nn-ts-fs', 'nn-ts-font'];
+      var ids = [
+        'nn-ts-border',
+        'nn-ts-border-op',
+        'nn-ts-border-w',
+        'nn-ts-fill',
+        'nn-ts-fill-op',
+        'nn-ts-fg',
+        'nn-ts-fs',
+        'nn-ts-font',
+        'nn-ts-writing-mode',
+        'nn-ts-align',
+        'nn-ts-bold',
+        'nn-ts-underline',
+      ];
       ids.forEach(function (id) {
         var el = document.getElementById(id);
         if (!el || el.dataset.nnTiWired === '1') return;
@@ -1835,6 +2008,7 @@
 
     function nnWireChromeTransformPointer(el, mode) {
       function onDown(e) {
+        if (!nnIsTextBoxInteractionPointer(e)) return;
         if (!nnSelectedTextRef || !nnCanEditTextHit(nnSelectedTextRef)) return;
         e.preventDefault();
         e.stopPropagation();
@@ -1859,12 +2033,14 @@
             ox: box.x,
             oy: box.y,
             pointerId: e.pointerId,
+            kind: 'grip',
           };
         }
         nnBeginGripDrag();
         el.setPointerCapture(e.pointerId);
       }
       function onMove(e) {
+        if (!nnIsTextBoxInteractionPointer(e)) return;
         if (e.pointerId !== (nnTextResize && nnTextResize.pointerId) && e.pointerId !== (nnTextMove && nnTextMove.pointerId)) return;
         var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
         if (nnTextResize && nnTextResize.pointerId === e.pointerId) nnApplyTextResizeFromPt(pt);
@@ -1960,6 +2136,7 @@
     }
 
     function nnTryHandleTextPointerDown(e, pt) {
+      if (!nnIsTextBoxInteractionPointer(e)) return false;
       var hit = nnHitTextBoxesAt(pt, true);
       if (hit && nnCanEditTextHit(hit)) {
         nnTextTouchBoxOp = e.pointerType === 'touch';
@@ -1988,6 +2165,7 @@
             ox: hit.box.x,
             oy: hit.box.y,
             pointerId: e.pointerId,
+            kind: 'grip',
           };
           isDrawing = true;
           return true;
@@ -2000,6 +2178,7 @@
           ox: hit.box.x,
           oy: hit.box.y,
           pointerId: e.pointerId,
+          kind: 'body',
         };
         isDrawing = true;
         return true;
@@ -2056,6 +2235,16 @@
         return true;
       }
       if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
+        var moved =
+          Math.hypot(nnTextMove.hit.box.x - nnTextMove.ox, nnTextMove.hit.box.y - nnTextMove.oy) < 4;
+        if (
+          moved &&
+          nnTextMove.kind === 'body' &&
+          nnIsTextBoxInteractionPointer(e) &&
+          nnSelectedTextRef
+        ) {
+          nnOpenTextEditOverlay();
+        }
         nnTextMove = null;
         nnBumpStrokeTime();
         autoSaveCurrent(true);
@@ -2140,7 +2329,20 @@
     }
 
     function nnWireTextStylePanelInputs() {
-      ['nn-ts-border', 'nn-ts-border-op', 'nn-ts-border-w', 'nn-ts-fill', 'nn-ts-fill-op', 'nn-ts-fg', 'nn-ts-fs', 'nn-ts-font'].forEach(function (id) {
+      [
+        'nn-ts-border',
+        'nn-ts-border-op',
+        'nn-ts-border-w',
+        'nn-ts-fill',
+        'nn-ts-fill-op',
+        'nn-ts-fg',
+        'nn-ts-fs',
+        'nn-ts-font',
+        'nn-ts-writing-mode',
+        'nn-ts-align',
+        'nn-ts-bold',
+        'nn-ts-underline',
+      ].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) {
           el.addEventListener('change', function () {
@@ -5027,6 +5229,7 @@
     }
 
     drawCanvas.addEventListener('dblclick', function (ev) {
+      if (!nnIsTextBoxInteractionPointer(ev)) return;
       var pt = getScaledCoords(ev);
       var hit = nnHitTextBoxesAt(pt, true);
       if (!hit || !nnCanEditTextHit(hit)) return;
