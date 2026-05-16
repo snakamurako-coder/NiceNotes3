@@ -28,7 +28,7 @@
     #page-indicator { min-width: 60px; text-align: center; }
 
     #status { margin-left: auto; font-size: 12px; color: #888; text-align: right; flex-shrink: 0; padding-left: 10px; }
-    #viewer-container { position: relative; margin-top: var(--ui-height); width: 100vw; height: calc(100vh - var(--ui-height)); overflow: auto; background: #555; overscroll-behavior: none; padding: 20px; box-sizing: border-box; display: none; }
+    /* viewer-container: 表示は #viewer-shell 経由（PDF注釈モード） */
     .nn-pdf-edge-swipe { display: none !important; }
     #nn-swipe-left-zone { left: 20px; }
     #nn-swipe-right-zone { right: 20px; }
@@ -283,6 +283,86 @@
     #nn-text-style-panel { font-size: 11px; color: #3c4043; max-width: 320px; }
     #nn-text-style-panel .nn-ts-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: 4px; }
     #nn-text-style-panel input[type="number"] { width: 52px; }
+
+    #viewer-shell {
+      display: none;
+      position: fixed;
+      top: var(--ui-height);
+      left: 0;
+      width: 100vw;
+      height: calc(100vh - var(--ui-height));
+      z-index: 10;
+      flex-direction: column;
+      background: #555;
+    }
+    #viewer-shell.nn-show { display: flex; }
+    .nn-viewer-middle {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      min-width: 0;
+      position: relative;
+    }
+    #viewer-container {
+      position: relative;
+      flex: 1;
+      margin-top: 0;
+      width: auto;
+      height: auto;
+      overflow: auto;
+      overscroll-behavior: none;
+      padding: 20px;
+      box-sizing: border-box;
+      display: block;
+    }
+
+    .nn-dock-slot { display: none; align-items: stretch; justify-content: flex-start; gap: 8px; background: #f1f3f4; box-sizing: border-box; }
+    .nn-dock-slot.nn-dock-active { display: flex; }
+    .nn-dock-slot[data-edge="top"],
+    .nn-dock-slot[data-edge="bottom"] { flex-direction: row; flex-wrap: wrap; padding: 6px 10px; border: 1px solid #dadce0; }
+    .nn-dock-slot[data-edge="top"] { border-bottom-width: 2px; }
+    .nn-dock-slot[data-edge="bottom"] { border-top-width: 2px; }
+    .nn-dock-slot[data-edge="left"],
+    .nn-dock-slot[data-edge="right"] { flex-direction: column; flex-wrap: nowrap; padding: 8px 6px; max-width: 240px; border: 1px solid #dadce0; }
+    .nn-dock-slot[data-edge="left"] { border-right-width: 2px; }
+    .nn-dock-slot[data-edge="right"] { border-left-width: 2px; }
+    .nn-dock-slot.nn-dock-drag-over { outline: 2px dashed #1a73e8; outline-offset: -2px; background: #e8f0fe; }
+
+    .nn-float-palette {
+      position: absolute;
+      z-index: 1300;
+      background: #fff;
+      border: 1px solid #dadce0;
+      border-radius: 10px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+      max-width: min(96vw, 520px);
+      touch-action: none;
+    }
+    .nn-float-palette.nn-palette-docked { position: static; box-shadow: none; border: none; border-radius: 8px; max-width: none; width: 100%; }
+    .nn-float-handle {
+      cursor: grab;
+      user-select: none;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #3c4043;
+      background: #e8eaed;
+      border-radius: 8px 8px 0 0;
+      border-bottom: 1px solid #dadce0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nn-float-palette.nn-palette-docked .nn-float-handle { border-radius: 6px; cursor: grab; }
+    .nn-float-handle:active { cursor: grabbing; }
+    .nn-float-body { padding: 8px 10px 10px; font-size: 12px; }
+    .nn-float-palette.nn-orient-h .nn-float-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+    .nn-float-palette.nn-orient-v .nn-float-body { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+    .nn-float-palette .nn-palette-section { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+    .nn-float-palette.nn-orient-v .nn-palette-section { flex-direction: column; align-items: stretch; }
+    #nn-layer-shared-wrap { display: none; flex-wrap: wrap; gap: 8px; align-items: center; }
+    #nn-layer-shared-wrap.nn-show { display: flex; }
+    #nn-realtime-toolbar.nn-hidden-shared { display: none !important; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -548,7 +628,7 @@
       <button type="button" class="file-btn-meet" id="nn-btn-dup-current-pdf-page" onclick="nnOpenDuplicateCurrentPdfPageModal()" title="今開いているPDFの現在ページを複製">今開いているPDFの現在ページを複製</button>
     </div>
 
-    <div class="tool-group" style="flex-wrap:wrap;max-width:420px;">
+    <div id="nn-toolbar-pen-source" class="tool-group" style="display:none !important;flex-wrap:wrap;max-width:420px;">
       <div style="display:flex;flex-direction:column;gap:4px;">
         <span style="font-size:11px;color:#5f6368;font-weight:600;">ペン色（6色・「色を変更」で編集）</span>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -567,10 +647,12 @@
       <div><label>ペン透明度</label><input type="range" id="pen-opacity" min="0.1" max="1.0" step="0.1" value="1.0"></div>
     </div>
 
-    <div class="tool-group" id="nn-layer-row" style="flex-wrap:wrap;align-items:center;gap:8px;max-width:520px;">
-      <span style="font-size:11px;color:#5f6368;font-weight:600;">レイヤー表示</span>
-      <label><input type="checkbox" id="nn-lay-sp" checked onchange="nnOnLayerVisChange()" />共有ペン</label>
-      <label><input type="checkbox" id="nn-lay-st" checked onchange="nnOnLayerVisChange()" />共有テキスト</label>
+    <div class="tool-group" id="nn-layer-row" style="flex-wrap:wrap;align-items:center;gap:8px;max-width:360px;">
+      <span style="font-size:11px;color:#5f6368;font-weight:600;">レイヤー</span>
+      <div id="nn-layer-shared-wrap">
+        <label><input type="checkbox" id="nn-lay-sp" checked onchange="nnOnLayerVisChange()" />共有レイヤー</label>
+        <label><input type="checkbox" id="nn-lay-st" checked onchange="nnOnLayerVisChange()" />共有テキスト</label>
+      </div>
       <label><input type="checkbox" id="nn-lay-lp" checked onchange="nnOnLayerVisChange()" />自分のペン</label>
       <label><input type="checkbox" id="nn-lay-lt" checked onchange="nnOnLayerVisChange()" />自分のテキスト</label>
     </div>
@@ -581,7 +663,7 @@
       <label><input type="checkbox" id="nn-pres-txt-shared" checked onchange="nnOnPresenterTargetChange()" />テキスト框→共有レイヤー（オフ＝自分だけ）</label>
     </div>
 
-    <div class="tool-group" style="flex-wrap:wrap;align-items:flex-start;gap:8px;">
+    <div id="nn-toolbar-tools-source" class="tool-group" style="display:none !important;flex-wrap:wrap;align-items:flex-start;gap:8px;">
       <button id="btn-pen" class="active-tool" onclick="setTool('pen')">ペン</button>
       <button id="btn-eraser" onclick="setTool('eraser')">消しゴム</button>
       <button id="btn-laser" onclick="setTool('laser')">レーザー</button>
@@ -613,7 +695,11 @@
     <div id="status">初期化中...</div>
   </div>
 
-  <div id="viewer-container">
+  <div id="viewer-shell" aria-label="PDF表示エリア">
+    <div id="nn-dock-top" class="nn-dock-slot" data-edge="top"></div>
+    <div class="nn-viewer-middle">
+      <div id="nn-dock-left" class="nn-dock-slot" data-edge="left"></div>
+      <div id="viewer-container">
     <div id="nn-swipe-left-zone" class="nn-pdf-edge-swipe" aria-hidden="true"></div>
     <div id="nn-swipe-right-zone" class="nn-pdf-edge-swipe" aria-hidden="true"></div>
     <div id="scroll-spacer">
@@ -623,6 +709,18 @@
         <div id="my-laser" class="laser-dot"></div>
         <div id="host-frame"></div>
       </div>
+    </div>
+      </div>
+      <div id="nn-dock-right" class="nn-dock-slot" data-edge="right"></div>
+    </div>
+    <div id="nn-dock-bottom" class="nn-dock-slot" data-edge="bottom"></div>
+    <div id="nn-float-pen" class="nn-float-palette nn-orient-h" data-palette-id="pen">
+      <div class="nn-float-handle" title="ドラッグして画面の辺（上下左右）にドック">⋮⋮ ペン・描画</div>
+      <div class="nn-float-body" id="nn-float-pen-body"></div>
+    </div>
+    <div id="nn-float-text" class="nn-float-palette nn-orient-v" data-palette-id="text">
+      <div class="nn-float-handle" title="ドラッグして画面の辺（上下左右）にドック">⋮⋮ テキスト框</div>
+      <div class="nn-float-body" id="nn-float-text-body"></div>
     </div>
   </div>
 
@@ -875,7 +973,7 @@
       var row = document.getElementById('nn-presenter-layer-target');
       var p = document.getElementById('nn-pres-pen-shared');
       var t = document.getElementById('nn-pres-txt-shared');
-      var show = nnRealtimeShareEnabled() && currentUserRole === 'presenter';
+      var show = nnIsSharedFolderFile() && nnRealtimeShareEnabled() && currentUserRole === 'presenter';
       if (row) row.style.display = show ? 'flex' : 'none';
       if (p) p.checked = !!nnPresenterPenToShared;
       if (t) t.checked = !!nnPresenterTextToShared;
@@ -1420,6 +1518,247 @@
       return nnGetFolderKindForFolderId(nnFindFolderIdForFile(currentFileId));
     }
 
+    function nnIsSharedFolderFile() {
+      return nnGetFolderKindForCurrentFile() === 'org';
+    }
+
+    function nnShowPdfViewer() {
+      var shell = document.getElementById('viewer-shell');
+      if (shell) shell.classList.add('nn-show');
+      else if (viewerContainer) viewerContainer.style.display = 'block';
+    }
+
+    function nnHidePdfViewer() {
+      var shell = document.getElementById('viewer-shell');
+      if (shell) shell.classList.remove('nn-show');
+      else if (viewerContainer) viewerContainer.style.display = 'none';
+    }
+
+    function nnSyncSharedFolderUi() {
+      var isOrg = nnIsSharedFolderFile();
+      var rt = document.getElementById('nn-realtime-toolbar');
+      if (rt) rt.classList.toggle('nn-hidden-shared', !isOrg);
+      var sharedWrap = document.getElementById('nn-layer-shared-wrap');
+      if (sharedWrap) sharedWrap.classList.toggle('nn-show', isOrg);
+      if (!isOrg) {
+        nnLayerVis.sharedPen = false;
+        nnLayerVis.sharedText = false;
+        var sp = document.getElementById('nn-lay-sp');
+        var st = document.getElementById('nn-lay-st');
+        if (sp) sp.checked = false;
+        if (st) st.checked = false;
+        redraw();
+      } else {
+        nnSyncLayerVisCheckboxes();
+      }
+      var rs = document.getElementById('role-select');
+      if (rs) rs.style.display = isOrg && nnRealtimeShareEnabled() ? '' : 'none';
+      nnSyncPresenterTargetUi();
+    }
+
+    function nnBuildFloatingPalettes() {
+      var penBody = document.getElementById('nn-float-pen-body');
+      var textBody = document.getElementById('nn-float-text-body');
+      if (!penBody || penBody.dataset.built === '1') return;
+
+      function section() {
+        var d = document.createElement('div');
+        d.className = 'nn-palette-section';
+        return d;
+      }
+
+      var penTools = section();
+      ['btn-pen', 'btn-eraser', 'btn-laser'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) penTools.appendChild(el);
+      });
+      if (penTools.childNodes.length) penBody.appendChild(penTools);
+
+      var penSrc = document.getElementById('nn-toolbar-pen-source');
+      if (penSrc) {
+        var penBlock = section();
+        while (penSrc.firstChild) penBlock.appendChild(penSrc.firstChild);
+        penBody.appendChild(penBlock);
+        penSrc.remove();
+      }
+
+      var pres = document.getElementById('nn-presenter-layer-target');
+      if (pres) penBody.appendChild(pres);
+
+      var textTools = section();
+      ['btn-textbox', 'btn-select'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) textTools.appendChild(el);
+      });
+      if (textTools.childNodes.length) textBody.appendChild(textTools);
+
+      var panel = document.getElementById('nn-text-style-panel');
+      if (panel) textBody.appendChild(panel);
+      var details = document.getElementById('nn-text-style-details');
+      if (details && !details.querySelector('#nn-text-style-panel')) details.remove();
+
+      var toolsSrc = document.getElementById('nn-toolbar-tools-source');
+      if (toolsSrc) toolsSrc.remove();
+
+      penBody.dataset.built = '1';
+      textBody.dataset.built = '1';
+      nnRenderPenPaletteUI();
+    }
+
+    var NN_PALETTE_DOCK_KEY = 'nn_palette_dock_v1';
+
+    function nnInitFloatingPaletteDock() {
+      var shell = document.getElementById('viewer-shell');
+      if (!shell || shell.dataset.dockInit === '1') return;
+      shell.dataset.dockInit = '1';
+      var slots = {
+        top: document.getElementById('nn-dock-top'),
+        bottom: document.getElementById('nn-dock-bottom'),
+        left: document.getElementById('nn-dock-left'),
+        right: document.getElementById('nn-dock-right'),
+      };
+
+      function updateSlots() {
+        Object.keys(slots).forEach(function (k) {
+          var s = slots[k];
+          if (s) s.classList.toggle('nn-dock-active', s.children.length > 0);
+        });
+      }
+
+      function setOrient(pal, edge) {
+        pal.classList.toggle('nn-orient-h', edge === 'top' || edge === 'bottom');
+        pal.classList.toggle('nn-orient-v', edge === 'left' || edge === 'right');
+      }
+
+      function dockTo(pal, edge) {
+        var slot = slots[edge];
+        if (!pal || !slot) return;
+        pal.classList.add('nn-palette-docked');
+        pal.style.left = '';
+        pal.style.top = '';
+        setOrient(pal, edge);
+        slot.appendChild(pal);
+        updateSlots();
+      }
+
+      function undock(pal) {
+        if (!pal) return;
+        pal.classList.remove('nn-palette-docked');
+        shell.appendChild(pal);
+        updateSlots();
+      }
+
+      function nearestEdge(cx, cy) {
+        var r = shell.getBoundingClientRect();
+        var dist = {
+          top: cy - r.top,
+          bottom: r.bottom - cy,
+          left: cx - r.left,
+          right: r.right - cx,
+        };
+        var edge = 'bottom';
+        var min = dist.bottom;
+        Object.keys(dist).forEach(function (k) {
+          if (dist[k] < min) {
+            min = dist[k];
+            edge = k;
+          }
+        });
+        return min < 80 ? edge : null;
+      }
+
+      function saveDockState() {
+        var state = {};
+        ['pen', 'text'].forEach(function (id) {
+          var pal = document.querySelector('.nn-float-palette[data-palette-id="' + id + '"]');
+          if (!pal) return;
+          if (pal.classList.contains('nn-palette-docked')) {
+            var slot = pal.parentElement;
+            var edge = slot && slot.dataset ? slot.dataset.edge : null;
+            if (edge) state[id] = { edge: edge };
+          } else {
+            state[id] = {
+              float: true,
+              left: pal.style.left || '12px',
+              top: pal.style.top || '12px',
+            };
+          }
+        });
+        try {
+          localStorage.setItem(NN_PALETTE_DOCK_KEY, JSON.stringify(state));
+        } catch (e) {}
+      }
+
+      function wirePalette(pal) {
+        var handle = pal.querySelector('.nn-float-handle');
+        if (!handle) return;
+        var drag = null;
+        handle.addEventListener('pointerdown', function (e) {
+          if (e.button !== 0) return;
+          undock(pal);
+          var rect = pal.getBoundingClientRect();
+          var shellRect = shell.getBoundingClientRect();
+          drag = {
+            pid: e.pointerId,
+            ox: e.clientX,
+            oy: e.clientY,
+            sl: rect.left - shellRect.left + shell.scrollLeft,
+            st: rect.top - shellRect.top + shell.scrollTop,
+          };
+          pal.style.position = 'absolute';
+          pal.style.left = drag.sl + 'px';
+          pal.style.top = drag.st + 'px';
+          handle.setPointerCapture(e.pointerId);
+          e.preventDefault();
+        });
+        handle.addEventListener('pointermove', function (e) {
+          if (!drag || e.pointerId !== drag.pid) return;
+          pal.style.left = drag.sl + (e.clientX - drag.ox) + 'px';
+          pal.style.top = drag.st + (e.clientY - drag.oy) + 'px';
+          var edge = nearestEdge(e.clientX, e.clientY);
+          Object.keys(slots).forEach(function (k) {
+            if (slots[k]) slots[k].classList.toggle('nn-dock-drag-over', edge === k);
+          });
+        });
+        function endDrag(e) {
+          if (!drag || e.pointerId !== drag.pid) return;
+          var edge = nearestEdge(e.clientX, e.clientY);
+          Object.keys(slots).forEach(function (k) {
+            if (slots[k]) slots[k].classList.remove('nn-dock-drag-over');
+          });
+          if (edge) dockTo(pal, edge);
+          saveDockState();
+          drag = null;
+          try {
+            handle.releasePointerCapture(e.pointerId);
+          } catch (err) {}
+        }
+        handle.addEventListener('pointerup', endDrag);
+        handle.addEventListener('pointercancel', endDrag);
+      }
+
+      document.querySelectorAll('.nn-float-palette').forEach(wirePalette);
+
+      var saved = null;
+      try {
+        saved = JSON.parse(localStorage.getItem(NN_PALETTE_DOCK_KEY) || 'null');
+      } catch (e) {}
+      var defaults = { pen: { edge: 'bottom' }, text: { edge: 'right' } };
+      var cfg = saved && typeof saved === 'object' ? saved : defaults;
+      ['pen', 'text'].forEach(function (id) {
+        var pal = document.querySelector('.nn-float-palette[data-palette-id="' + id + '"]');
+        if (!pal) return;
+        var c = cfg[id] || defaults[id];
+        if (c && c.edge) dockTo(pal, c.edge);
+        else if (c && c.float) {
+          pal.style.position = 'absolute';
+          pal.style.left = c.left || '12px';
+          pal.style.top = c.top || '12px';
+        }
+      });
+      updateSlots();
+    }
+
     function nnLoadRealtimeSharePref() {
       try {
         var v = localStorage.getItem('NN_REALTIME_SHARE');
@@ -1438,8 +1777,9 @@
     }
 
     function nnRealtimeShareEnabled() {
+      if (!nnIsSharedFolderFile()) return false;
       var el = document.getElementById('nn-realtime-share');
-      if (!el) return true;
+      if (!el) return false;
       return !!el.checked;
     }
 
@@ -1755,7 +2095,7 @@
       } catch (e1) {}
       updateFavoriteButtonStatus();
       homeScreen.style.display = 'none';
-      viewerContainer.style.display = 'block';
+      nnShowPdfViewer();
       var st = document.getElementById('pdf-slot-tabs');
       if (st) st.classList.add('nn-show');
       var nnPanel = document.getElementById('nn-panel');
@@ -2145,7 +2485,7 @@
       savePdfSlotFromGlobals();
       pdfActiveSlot = nextIdx;
       if (homeScreen) homeScreen.style.display = 'none';
-      if (viewerContainer) viewerContainer.style.display = 'block';
+      if (viewerContainer) nnShowPdfViewer();
       var st = document.getElementById('pdf-slot-tabs');
       if (st) st.classList.add('nn-show');
       await restorePdfSlotToGlobals(pdfActiveSlot);
@@ -2180,6 +2520,8 @@
       nnSyncLayerVisCheckboxes();
       nnSyncTextStylePanelFromDefaults();
       nnWireTextStylePanelInputs();
+      nnBuildFloatingPalettes();
+      nnInitFloatingPaletteDock();
       window.addEventListener('keydown', nnOnKeyDownTextSelect);
       applyRoleMeet();
       showLoader('システムを初期設定中...');
@@ -2295,7 +2637,7 @@
       stopMeetSync();
       if (btnCloseHome) btnCloseHome.style.display = currentFileId ? 'block' : 'none';
       homeScreen.style.display = 'flex';
-      viewerContainer.style.display = 'none';
+      nnHidePdfViewer();
       var nnPanel = document.getElementById('nn-panel');
       if (nnPanel) nnPanel.style.display = 'none';
       var pdfBtn = document.getElementById('btn-mode-pdf');
@@ -2310,7 +2652,7 @@
     function closeHome() {
       if (!currentFileId) return;
       homeScreen.style.display = 'none';
-      viewerContainer.style.display = 'block';
+      nnShowPdfViewer();
       var st = document.getElementById('pdf-slot-tabs');
       if (st) st.classList.add('nn-show');
       applyRoleMeet();
@@ -2685,7 +3027,7 @@
       } catch (e) {}
       updateFavoriteButtonStatus();
       homeScreen.style.display = 'none';
-      viewerContainer.style.display = 'block';
+      nnShowPdfViewer();
       var st = document.getElementById('pdf-slot-tabs');
       if (st) st.classList.add('nn-show');
       var nnPanel = document.getElementById('nn-panel');
@@ -2709,6 +3051,7 @@
     }
 
     function applyRoleMeet() {
+      nnSyncSharedFolderUi();
       stopMeetSync();
       var rs = document.getElementById('role-select');
       if (!nnRealtimeShareEnabled()) {
@@ -2940,7 +3283,7 @@
                   viewerContainer.scrollTop = 0;
                 }
                 homeScreen.style.display = 'none';
-                viewerContainer.style.display = 'block';
+                nnShowPdfViewer();
                 var stLoad = document.getElementById('pdf-slot-tabs');
                 if (stLoad) stLoad.classList.add('nn-show');
                 await renderPage(currentPageNum);
@@ -3078,7 +3421,7 @@
               viewerContainer.scrollLeft = 0;
               viewerContainer.scrollTop = 0;
               homeScreen.style.display = 'none';
-              viewerContainer.style.display = 'block';
+              nnShowPdfViewer();
               var st2 = document.getElementById('pdf-slot-tabs');
               if (st2) st2.classList.add('nn-show');
               var nnPanel = document.getElementById('nn-panel');
@@ -3154,7 +3497,7 @@
     function startupChooseTaskHome() {
       hideStartupGate();
       homeScreen.style.display = 'none';
-      viewerContainer.style.display = 'none';
+      nnHidePdfViewer();
       setAppMode('tasks');
     }
 
@@ -3167,7 +3510,7 @@
     function meetGoPdfFromHome() {
       hideStartupGate();
       if (homeScreen) homeScreen.style.display = 'none';
-      if (viewerContainer) viewerContainer.style.display = 'block';
+      if (viewerContainer) nnShowPdfViewer();
       setAppMode('pdf');
       if (window.nnPdfPreload && window.nnPdfPreload.base64) {
         loadPdfFromBase64(window.nnPdfPreload.base64, window.nnPdfPreload.id, window.nnPdfPreload.name, false);
@@ -3772,10 +4115,9 @@
     function setAppMode(mode) {
       const pdfBtn = document.getElementById('btn-mode-pdf');
       const taskBtn = document.getElementById('btn-mode-tasks');
-      const viewer = document.getElementById('viewer-container');
       const nnPanel = document.getElementById('nn-panel');
       const slotTabs = document.getElementById('pdf-slot-tabs');
-      if (!pdfBtn || !taskBtn || !viewer || !nnPanel) return;
+      if (!pdfBtn || !taskBtn || !nnPanel) return;
       if (mode === 'tasks') {
         if (currentFileId) autoSaveCurrent(true);
         savePdfSlotFromGlobals();
@@ -3784,7 +4126,7 @@
         stopMeetSync();
         pdfBtn.classList.remove('active-mode');
         taskBtn.classList.add('active-mode');
-        viewer.style.display = 'none';
+        nnHidePdfViewer();
         nnPanel.style.display = 'flex';
         if (homeScreen) homeScreen.style.display = 'none';
         if (slotTabs) slotTabs.classList.remove('nn-show');
@@ -3794,7 +4136,7 @@
         pdfBtn.classList.add('active-mode');
         nnPanel.style.display = 'none';
         if (homeScreen) homeScreen.style.display = 'none';
-        viewer.style.display = 'block';
+        nnShowPdfViewer();
         if (slotTabs) slotTabs.classList.add('nn-show');
         nnSyncLegacyToolsVisibility();
         if (currentFileId) applyRoleMeet();
