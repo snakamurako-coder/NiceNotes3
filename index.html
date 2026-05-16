@@ -7,6 +7,8 @@
     :root { --ui-height: 60px; --primary: #1a73e8; }
     body { margin: 0; background-color: #333; overflow: hidden; font-family: sans-serif; }
     #toolbar { position: fixed; top: 0; left: 0; width: 100%; height: var(--ui-height); background: #ffffff; border-bottom: 1px solid #ddd; z-index: 100; display: flex; align-items: center; padding: 0 10px; gap: 10px; box-sizing: border-box; overflow-x: auto; white-space: nowrap; }
+    .nn-toolbar-home-btn { background: #e8eaed; border: none; font-weight: 600; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; color: #202124; }
+    .nn-toolbar-home-btn:hover { background: #dadce0; }
     .tool-group { display: flex; align-items: center; gap: 8px; border-right: 1px solid #eee; padding-right: 10px; flex-shrink: 0; }
     label { font-size: 11px; color: #666; display: block; margin-bottom: 2px;}
     input[type="range"] { width: 90px; cursor: pointer; } 
@@ -26,7 +28,10 @@
     #page-indicator { min-width: 60px; text-align: center; }
 
     #status { margin-left: auto; font-size: 12px; color: #888; text-align: right; flex-shrink: 0; padding-left: 10px; }
-    #viewer-container { margin-top: var(--ui-height); width: 100vw; height: calc(100vh - var(--ui-height)); overflow: auto; background: #555; overscroll-behavior: none; padding: 20px; box-sizing: border-box; display: none; }
+    #viewer-container { position: relative; margin-top: var(--ui-height); width: 100vw; height: calc(100vh - var(--ui-height)); overflow: auto; background: #555; overscroll-behavior: none; padding: 20px; box-sizing: border-box; display: none; }
+    .nn-pdf-edge-swipe { display: none !important; }
+    #nn-swipe-left-zone { left: 20px; }
+    #nn-swipe-right-zone { right: 20px; }
     #scroll-spacer { position: relative; }
     #page-wrapper { position: absolute; top: 0; left: 0; background: #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); transform-origin: 0 0; }
     canvas { position: absolute; top: 0; left: 0; }
@@ -37,8 +42,11 @@
     #host-frame::after { content: "現在の発表箇所"; position: absolute; top: -22px; left: -3px; background: #ff0000; color: #fff; font-size: 12px; padding: 3px 8px; font-weight: bold; border-radius: 4px 4px 0 0; }
 
     #home-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #f0f2f5; z-index: 500; display: flex; flex-direction: column; }
-    .home-header { background: #fff; padding: 15px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-    .home-header h2 { margin: 0; font-size: 20px; color: #333; }
+    .home-header { background: #fff; padding: 15px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .home-header h2 { margin: 0; font-size: 20px; color: #333; flex: 1; min-width: 0; }
+    .home-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .home-nav-btn { background: #1a73e8; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; }
+    .home-nav-btn:hover { background: #1557b0; }
     .home-content { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 20px; overflow: hidden; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box;}
     .quick-access { display: flex; gap: 20px; flex-shrink: 0; }
     .meeting-card { background: #fff; padding: 15px; border-radius: 8px; flex: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; }
@@ -58,8 +66,15 @@
     .palette-color { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #aaa; cursor: pointer; transition: transform 0.1s; }
     .palette-color:hover { transform: scale(1.15); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
     .file-list { flex: 1; overflow-y: auto; padding: 10px; }
-    .file-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #f1f3f4; cursor: pointer; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .file-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px; border-bottom: 1px solid #f1f3f4; cursor: pointer; }
     .file-item:hover { background: #f8f9fa; }
+    .file-item .meet-drag-grip { cursor: grab; color: #9aa0a6; font-size: 14px; user-select: none; flex-shrink: 0; }
+    .file-item.meet-drag-over { background: #e8f0fe; outline: 1px dashed #1a73e8; }
+    .folder-item.meet-f-drag-over { outline: 2px dashed #1a73e8; background: #f8fbff; }
+    .folder-item .meet-folder-indent { display: inline-block; }
+    #meet-folder-mode { display: none; padding: 10px 14px; background: #fafafa; border-bottom: 1px solid #e0e0e0; font-size: 13px; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #meet-folder-mode.nn-show { display: flex; }
+    #meet-folder-mode label { display: inline-flex; align-items: center; gap: 6px; margin: 0 12px 0 0; cursor: pointer; }
     .file-name { font-weight: bold; color: #1a73e8; font-size: 14px; display: flex; align-items: center; gap: 8px;}
     .file-meta { font-size: 12px; color: #888; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
     .btn-meeting-action { padding: 8px 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
@@ -113,9 +128,12 @@
     #nn-task-list { flex: 1; overflow: auto; padding: 12px 14px 24px; }
     .nn-group-title { font-size: 12px; font-weight: 700; color: #5f6368; text-transform: uppercase; letter-spacing: 0.03em; margin: 16px 0 8px; }
     .nn-task-card {
-      background: #fff; border: 1px solid #dadce0; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+      background: #fff; border: 1px solid #dadce0; border-radius: 10px; padding: 10px 12px; margin-bottom: 0;
       display: flex; align-items: flex-start; gap: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
+    .nn-task-card .nn-task-grip { cursor: grab; flex-shrink: 0; user-select: none; margin-top: 2px; }
+    .nn-task-card.nn-task-drag-over { outline: 2px dashed #1a73e8; background: #f8fbff; }
+    .nn-task-sg-wrap { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
     .nn-task-card.done { opacity: 0.72; }
     .nn-task-card input[type="checkbox"] { margin-top: 4px; width: 18px; height: 18px; cursor: pointer; }
     .nn-task-body { flex: 1; min-width: 0; }
@@ -133,8 +151,10 @@
     .nn-checklist-preview {
       list-style: none; margin: 6px 0 0; padding: 0; font-size: 13px; color: #3c4043;
     }
-    .nn-checklist-preview li { margin-bottom: 4px; }
-    .nn-checklist-preview label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 13px; margin: 0; color: inherit; }
+    .nn-checklist-preview li.nn-check-preview-row { margin-bottom: 4px; display: flex; align-items: flex-start; gap: 4px; }
+    .nn-checklist-preview li.nn-check-preview-row.nn-ci-drag-over { background: #e8f0fe; outline: 1px dashed #1a73e8; border-radius: 4px; }
+    .nn-checklist-preview .nn-ci-grip { cursor: grab; user-select: none; flex-shrink: 0; margin-top: 2px; }
+    .nn-checklist-preview label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 13px; margin: 0; color: inherit; flex: 1; min-width: 0; }
     .nn-checklist-preview input { margin-top: 2px; flex-shrink: 0; }
     .nn-ci-text.done { text-decoration: line-through; color: #5f6368; }
     #nn-checklist-rows { margin-top: 4px; }
@@ -152,6 +172,25 @@
     .nn-check-row button { flex-shrink: 0; padding: 6px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
     .nn-start-shortcuts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
     .nn-start-shortcuts button { padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
+
+    #pdf-slot-tabs { display: none; align-items: center; gap: 6px; flex-shrink: 0; }
+    #pdf-slot-tabs.nn-show { display: flex; }
+    .pdf-slot-btn { padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #f8f9fa; cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pdf-slot-btn.active-slot { background: #e8f0fe; border-color: #1a73e8; font-weight: 600; }
+
+    .nn-editor-toggle-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+    .nn-editor-toggle-hint { font-size: 12px; color: #5f6368; }
+    .nn-editor-ico-btn { font-size: 20px; line-height: 1; padding: 6px 10px; border-radius: 8px; border: 1px solid #dadce0; background: #fff; cursor: pointer; }
+    .nn-editor-ico-btn.nn-on { background: #e8f0fe; border-color: #1a73e8; }
+    .nn-editor-hgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 520px; }
+    @media (max-width: 560px) { .nn-editor-hgrid { grid-template-columns: 1fr; } }
+    .nn-repeat-block { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #dadce0; }
+    .nn-repeat-sub { margin-top: 8px; padding: 8px; background: #fff; border-radius: 8px; border: 1px solid #dadce0; }
+    .nn-small-label { font-size: 11px; color: #5f6368; display: block; margin-bottom: 6px; }
+    .nn-wd-row { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+    .nn-wd-chk { font-size: 13px; margin: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+    .nn-lead-row { margin-top: 10px; }
+    .nn-repeat-preview { font-size: 12px; color: #174ea6; margin: 8px 0 0; line-height: 1.45; }
 
     #nn-startup-overlay {
       display: none; position: fixed; inset: 0; z-index: 10000;
@@ -234,6 +273,16 @@
     .nn-dest-row { margin-bottom: 12px; }
     .nn-dest-row label { display: block; font-size: 12px; color: #5f6368; margin-bottom: 4px; }
     .nn-dest-row input[type="text"], .nn-dest-row select { width: 100%; padding: 8px; box-sizing: border-box; border-radius: 6px; border: 1px solid #dadce0; }
+    #nn-pen-palette { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+    .nn-pen-swatch {
+      width: 22px; height: 22px; border-radius: 50%; border: 2px solid #dadce0; cursor: pointer;
+      box-sizing: border-box; padding: 0; flex-shrink: 0;
+    }
+    .nn-pen-swatch.nn-pen-swatch-active { border-color: #174ea6; box-shadow: 0 0 0 2px #e8f0fe; }
+    #nn-layer-row label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+    #nn-text-style-panel { font-size: 11px; color: #3c4043; max-width: 320px; }
+    #nn-text-style-panel .nn-ts-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: 4px; }
+    #nn-text-style-panel input[type="number"] { width: 52px; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -246,7 +295,7 @@
   <div id="nn-startup-overlay" aria-label="起動メニュー">
     <div class="nn-startup-inner">
       <div id="nn-startup-main">
-        <h2>NiceNotes</h2>
+        <h2>NiceNotes3</h2>
         <p class="nn-startup-lead">起動時の操作を選んでください</p>
         <div class="nn-startup-grid">
           <button type="button" class="nn-su-card" id="nn-su-quick-task">
@@ -337,7 +386,7 @@
     <div class="nn-quick-dest-box">
       <h3>タスクの宛先</h3>
       <div class="nn-dest-row">
-        <label><input type="radio" name="nn-dest-mode" value="inbox" checked> インボックス（プロジェクト未分類・見出し「インボックス」）</label>
+        <label><input type="radio" name="nn-dest-mode" value="inbox" checked> インボックス（プロジェクト「インボックス」・見出しなし）</label>
       </div>
       <div class="nn-dest-row">
         <label><input type="radio" name="nn-dest-mode" value="project"> プロジェクトを指定</label>
@@ -365,6 +414,19 @@
 
   <div id="color-palette-popover"></div>
 
+  <div id="nn-dup-pdf-page-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseDuplicateCurrentPdfPageModal()">
+    <div role="dialog" aria-modal="true" aria-labelledby="nn-dup-pdf-page-modal-title" style="background:#fff;padding:20px;border-radius:12px;max-width:400px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+      <div id="nn-dup-pdf-page-modal-title" style="font-weight:600;margin-bottom:12px;font-size:15px;color:#202124;">現在ページの複製</div>
+      <p style="font-size:13px;color:#5f6368;margin:0 0 14px 0;">付け方を選んでください。</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button type="button" class="btn-meeting-action" style="width:100%;justify-content:center;" onclick="nnDuplicateCurrentPdfPagePick('after')">① 次のページに追加</button>
+        <button type="button" class="btn-meeting-action" style="width:100%;justify-content:center;background:#188038;" onclick="nnDuplicateCurrentPdfPagePick('before')">② 前のページに追加</button>
+        <button type="button" class="btn-meeting-action" style="width:100%;justify-content:center;background:#9334e6;" onclick="nnDuplicateCurrentPdfPagePick('drive')">③ 別のPDFデータとして複製（Driveに書き出し）</button>
+        <button type="button" class="file-btn-meet" style="margin-top:6px;" onclick="nnCloseDuplicateCurrentPdfPageModal()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
   <div id="add-modal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-tabs">
@@ -385,7 +447,7 @@
       </div>
       <div id="panel-pdf" class="modal-panel">
         <div class="notice-meet">
-          ℹ️ オリジナルのPDFは編集されません。<br>指定したPDFは自動的に管理フォルダへ複製され、そちらを安全に編集・共有する仕様となっています。
+          ℹ️ オリジナルのPDFは編集されません。<br>指定したPDFは自動的に MyNiceNotes 管理フォルダへ複製され、そちらを安全に編集・共有する仕様となっています。
         </div>
         <p style="font-size:14px; color:#555;">Google Drive上のPDFのURL（またはID）を入力してください。</p>
         <input type="text" id="input-pdf-id" class="input-field-meet" placeholder="PDFのURL または ID" autocomplete="off">
@@ -399,8 +461,12 @@
 
   <div id="home-screen">
     <div class="home-header">
-      <h2>📁 会議資料ワークスペース</h2>
-      <button type="button" onclick="closeHome()" id="btn-close-home" style="display:none; background:#e8eaed; border:none; padding:8px 15px; cursor:pointer;">✕ ビューアに戻る</button>
+      <h2>📁 NiceNotes3 · 会議資料ワークスペース</h2>
+      <div class="home-header-actions">
+        <button type="button" class="home-nav-btn" onclick="meetGoPdfFromHome()">PDF 注釈</button>
+        <button type="button" class="home-nav-btn" onclick="meetGoTaskFromHome()">タスク</button>
+        <button type="button" onclick="closeHome()" id="btn-close-home" style="display:none; background:#e8eaed; border:none; padding:8px 15px; cursor:pointer; border-radius:6px;">✕ ビューアに戻る</button>
+      </div>
     </div>
     <div class="home-content">
       <div class="quick-access">
@@ -420,12 +486,20 @@
           <button type="button" class="file-btn-meet" onclick="loadFolderTree(true)">🔄 ツリーを最新に更新</button>
           <label style="margin:0 0 0 10px; display:inline;">並び替え:</label>
           <select id="sort-type-meet" onchange="renderFilesMeet()">
-            <option value="updated">更新日時 (新しい順)</option>
-            <option value="created">作成日時 (新しい順)</option>
-            <option value="name">ファイル名 (A-Z)</option>
+            <option value="manual">通し番号（手動・ドラッグ）</option>
+            <option value="updated">更新日時</option>
+            <option value="created">作成日時</option>
+            <option value="name">ファイル名</option>
+            <option value="due">期限・メモ欄の日付で並べ替え</option>
           </select>
           <button type="button" onclick="toggleSortOrderMeet()" id="btn-sort-order-meet">🔽</button>
           <span id="tree-status" style="margin-left: auto; font-size: 12px; color: #888;"></span>
+        </div>
+        <div id="meet-folder-mode" aria-label="フォルダのPDF閲覧モード">
+          <strong style="margin-right:8px;">このフォルダ:</strong>
+          <label><input type="radio" name="meet-fp-mode" value="individual" checked onchange="nnSetFolderPdfMode('individual')"> 個別ビューア（1ファイルずつ）</label>
+          <label><input type="radio" name="meet-fp-mode" value="seamless" onchange="nnSetFolderPdfMode('seamless')"> シームレス（フォルダ内を1冊のように連続）</label>
+          <span style="font-size:12px;color:#5f6368;">※ 書き込み画面のプルダウンは廃止。ここで切り替えます。</span>
         </div>
         <div class="explorer-body">
           <div class="folder-tree" id="folder-tree-container"></div>
@@ -442,29 +516,47 @@
       <button type="button" class="nn-mode-btn" id="btn-mode-tasks" onclick="setAppMode('tasks')">タスク</button>
     </div>
     <div class="tool-group">
-      <button type="button" style="background:#e8eaed; border:none; font-weight:bold;" onclick="showHomeMeet()">🏠 ホーム</button>
-      <button type="button" id="btn-favorite" onclick="toggleFavoriteMeet()" style="background:transparent; border:none; font-size:18px;" title="お気に入り登録">☆</button>
+      <button type="button" class="nn-toolbar-home-btn" onclick="showHomeMeet()" title="ワークスペースのホームへ戻る">🏠 ホーム</button>
+    </div>
+    <div class="tool-group" id="nn-realtime-toolbar" style="align-items:center;gap:6px;">
+      <label style="font-size:12px;color:#3c4043;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+        <input type="checkbox" id="nn-realtime-share" checked onchange="nnOnRealtimeShareToggle()">
+        リアルタイム共有
+      </label>
       <select id="role-select" onchange="applyRoleMeet()">
         <option value="participant">📝 個人メモ（自分だけに見える）</option>
         <option value="presenter">📢 発表者（全員に共有される）</option>
       </select>
     </div>
-    <div class="tool-group" id="pdf-legacy-tools">
-      <select id="folder-select" onchange="fetchFileList()">
-        <option value="seamless">シームレス管理</option>
-        <option value="single">個別ビューア</option>
-      </select>
-      <select id="file-select" onchange="onFileDropdownChanged()"></select>
+    <div class="tool-group" id="pdf-legacy-tools" style="display:none;">
+      <label style="font-size:11px;color:#5f6368;margin:0;">シームレス内</label>
+      <select id="file-select" onchange="onFileDropdownChanged()" style="max-width:220px;"></select>
     </div>
-    
+    <div class="tool-group" id="pdf-slot-tabs" aria-label="PDFスロット">
+      <span style="font-size:11px;color:#5f6368;">PDF</span>
+      <button type="button" class="pdf-slot-btn active-slot" id="pdf-slot-btn-0" onclick="switchPdfSlotIndex(0)" title="スロット1">①</button>
+      <button type="button" class="pdf-slot-btn" id="pdf-slot-btn-1" onclick="switchPdfSlotIndex(1)" title="スロット2">②</button>
+      <button type="button" class="pdf-slot-btn" id="pdf-slot-btn-2" onclick="switchPdfSlotIndex(2)" title="スロット3">③</button>
+    </div>
+
     <div class="tool-group page-nav">
       <button onclick="changePage(-1)">＜</button>
       <span id="page-indicator">0/0</span>
       <button onclick="changePage(1)">＞</button>
     </div>
+    <div class="tool-group" id="nn-dup-pdf-page-btn-wrap" style="display:none;max-width:280px;">
+      <button type="button" class="file-btn-meet" id="nn-btn-dup-current-pdf-page" onclick="nnOpenDuplicateCurrentPdfPageModal()" title="今開いているPDFの現在ページを複製">今開いているPDFの現在ページを複製</button>
+    </div>
 
-    <div class="tool-group">
-      <div><label>色</label><input type="color" id="pen-color" value="#000000"></div>
+    <div class="tool-group" style="flex-wrap:wrap;max-width:420px;">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <span style="font-size:11px;color:#5f6368;font-weight:600;">ペン色（6色・「色を変更」で編集）</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div id="nn-pen-palette" aria-label="6色パレット"></div>
+          <input type="color" id="pen-color-edit" value="#000000" title="選択中スウォッチの色" style="width:1px;height:1px;opacity:0;position:absolute;pointer-events:none;" tabindex="-1" />
+          <button type="button" class="file-btn-meet" id="nn-pen-palette-edit-btn" onclick="nnOpenPenColorEditor()">色を変更</button>
+        </div>
+      </div>
       <div>
         <label>太さ</label>
         <div style="display: flex; align-items: center; gap: 4px;">
@@ -472,13 +564,44 @@
           <input type="number" id="pen-width-input" min="0.5" max="30" step="0.1" value="5.0" oninput="updateWidthFromInput()">
         </div>
       </div>
-      <div><label>透明度</label><input type="range" id="pen-opacity" min="0.1" max="1.0" step="0.1" value="1.0"></div>
+      <div><label>ペン透明度</label><input type="range" id="pen-opacity" min="0.1" max="1.0" step="0.1" value="1.0"></div>
     </div>
 
-    <div class="tool-group">
+    <div class="tool-group" id="nn-layer-row" style="flex-wrap:wrap;align-items:center;gap:8px;max-width:520px;">
+      <span style="font-size:11px;color:#5f6368;font-weight:600;">レイヤー表示</span>
+      <label><input type="checkbox" id="nn-lay-sp" checked onchange="nnOnLayerVisChange()" />共有ペン</label>
+      <label><input type="checkbox" id="nn-lay-st" checked onchange="nnOnLayerVisChange()" />共有テキスト</label>
+      <label><input type="checkbox" id="nn-lay-lp" checked onchange="nnOnLayerVisChange()" />自分のペン</label>
+      <label><input type="checkbox" id="nn-lay-lt" checked onchange="nnOnLayerVisChange()" />自分のテキスト</label>
+    </div>
+
+    <div class="tool-group" id="nn-presenter-layer-target" style="display:none;flex-wrap:wrap;gap:10px;max-width:520px;font-size:11px;color:#5f6368;">
+      <span style="font-weight:600;">発表者の書き込み先</span>
+      <label><input type="checkbox" id="nn-pres-pen-shared" checked onchange="nnOnPresenterTargetChange()" />ペン→共有レイヤー（オフ＝自分だけ）</label>
+      <label><input type="checkbox" id="nn-pres-txt-shared" checked onchange="nnOnPresenterTargetChange()" />テキスト框→共有レイヤー（オフ＝自分だけ）</label>
+    </div>
+
+    <div class="tool-group" style="flex-wrap:wrap;align-items:flex-start;gap:8px;">
       <button id="btn-pen" class="active-tool" onclick="setTool('pen')">ペン</button>
       <button id="btn-eraser" onclick="setTool('eraser')">消しゴム</button>
       <button id="btn-laser" onclick="setTool('laser')">レーザー</button>
+      <button id="btn-textbox" onclick="setTool('textbox')">テキスト框</button>
+      <button id="btn-select" onclick="setTool('select')">選択</button>
+      <details id="nn-text-style-details" style="font-size:11px;max-width:280px;">
+        <summary style="cursor:pointer;color:#1a73e8;">新規テキスト框の既定スタイル</summary>
+        <div id="nn-text-style-panel" style="margin-top:6px;padding:6px;border:1px solid #dadce0;border-radius:8px;background:#fafafa;">
+          <div class="nn-ts-row"><label>枠色 <input type="color" id="nn-ts-border" /></label><label>枠α <input type="range" id="nn-ts-border-op" min="0" max="1" step="0.05" value="1" style="width:90px" /></label></div>
+          <div class="nn-ts-row"><label>背景 <input type="color" id="nn-ts-fill" /></label><label>背景α <input type="range" id="nn-ts-fill-op" min="0" max="1" step="0.05" value="0.4" style="width:90px" /></label></div>
+          <div class="nn-ts-row"><label>文字色 <input type="color" id="nn-ts-fg" /></label><label>サイズ <input type="number" id="nn-ts-fs" min="8" max="48" step="1" value="15" /></label></div>
+          <div class="nn-ts-row"><label>フォント
+            <select id="nn-ts-font">
+              <option value='system-ui,-apple-system,"Segoe UI","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif'>システム</option>
+              <option value="Georgia,serif">明朝系</option>
+              <option value="Consolas,monospace">等幅</option>
+            </select>
+          </label></div>
+        </div>
+      </details>
     </div>
 
     <div class="tool-group">
@@ -491,6 +614,8 @@
   </div>
 
   <div id="viewer-container">
+    <div id="nn-swipe-left-zone" class="nn-pdf-edge-swipe" aria-hidden="true"></div>
+    <div id="nn-swipe-right-zone" class="nn-pdf-edge-swipe" aria-hidden="true"></div>
     <div id="scroll-spacer">
       <div id="page-wrapper">
         <canvas id="bg-canvas"></canvas>
@@ -501,7 +626,7 @@
     </div>
   </div>
 
-  <div id="nn-panel" aria-label="NiceNotes tasks">
+  <div id="nn-panel" aria-label="NiceNotes3 tasks">
     <div id="nn-banner" role="status">
       <span id="nn-banner-text">サーバー側のデータが更新されています。</span>
       <button type="button" onclick="nnPullServerOverwrite()">サーバーを取り込む</button>
@@ -515,31 +640,93 @@
     </div>
     <div id="nn-editor" style="display:none">
       <div><label for="nn-f-title">タイトル</label><input type="text" id="nn-f-title" autocomplete="off"></div>
-      <div><label for="nn-f-project">プロジェクト</label><input type="text" id="nn-f-project" autocomplete="off"></div>
-      <div><label for="nn-f-heading">見出し</label><input type="text" id="nn-f-heading" autocomplete="off"></div>
-      <div>
-        <label for="nn-f-start">開始（When / YYYY-MM-DD・空で「いつでも」）</label>
-        <input type="text" id="nn-f-start" placeholder="空欄 or 2026-05-12" autocomplete="off">
-        <div class="nn-start-shortcuts">
-          <button type="button" onclick="nnSetStartToday()">今日</button>
-          <button type="button" onclick="nnClearStart()">いつでもにする</button>
-        </div>
+      <div class="nn-editor-toggle-bar">
+        <span class="nn-editor-toggle-hint">追加項目</span>
+        <button type="button" class="nn-editor-ico-btn" id="nn-tog-check" title="チェックリスト">☑️</button>
+        <button type="button" class="nn-editor-ico-btn" id="nn-tog-tag" title="プロジェクト・見出し">🏷️</button>
+        <button type="button" class="nn-editor-ico-btn" id="nn-tog-flag" title="開始・期限・繰り返し">🚩</button>
       </div>
-      <div><label for="nn-f-due">期限（YYYY-MM-DD）</label><input type="text" id="nn-f-due" placeholder="2026-05-20" autocomplete="off"></div>
-      <div>
-        <label for="nn-f-repeat">繰り返し（ルーティーン）</label>
-        <select id="nn-f-repeat">
-          <option value="">なし</option>
-          <option value="daily">毎日</option>
-          <option value="weekly">毎週</option>
-          <option value="monthly">毎月</option>
-          <option value="yearly">毎年</option>
-        </select>
-      </div>
-      <div>
+      <div id="nn-sec-check" class="nn-editor-sec" style="display:none">
         <label>チェックリスト</label>
         <div id="nn-checklist-rows"></div>
         <button type="button" onclick="nnAddChecklistRow()">＋ 項目を追加</button>
+      </div>
+      <div id="nn-sec-tag" class="nn-editor-sec" style="display:none">
+        <div class="nn-editor-hgrid">
+          <div>
+            <label for="nn-f-project-select">プロジェクト</label>
+            <select id="nn-f-project-select"></select>
+            <input type="text" id="nn-f-project-new" placeholder="新しいプロジェクト名" style="display:none;margin-top:6px;" autocomplete="off">
+          </div>
+          <div>
+            <label for="nn-f-heading-select">見出し</label>
+            <select id="nn-f-heading-select"></select>
+            <input type="text" id="nn-f-heading-new" placeholder="新しい見出し" style="display:none;margin-top:6px;" autocomplete="off">
+          </div>
+        </div>
+      </div>
+      <div id="nn-sec-flag" class="nn-editor-sec" style="display:none">
+        <div>
+          <label for="nn-f-start">開始（When / YYYY-MM-DD・空で「いつでも」）</label>
+          <input type="text" id="nn-f-start" placeholder="空欄 or 2026-05-12" autocomplete="off">
+          <div class="nn-start-shortcuts">
+            <button type="button" onclick="nnSetStartToday()">今日</button>
+            <button type="button" onclick="nnClearStart()">いつでもにする</button>
+          </div>
+        </div>
+        <div><label for="nn-f-due">期限（YYYY-MM-DD）</label><input type="text" id="nn-f-due" placeholder="2026-05-20" autocomplete="off"></div>
+        <div class="nn-repeat-block">
+          <label for="nn-f-repeat-base">繰り返し</label>
+          <select id="nn-f-repeat-base">
+            <option value="">なし</option>
+            <option value="daily">毎日</option>
+            <option value="weekly">毎週（曜日・複数可）</option>
+            <option value="monthly">毎月</option>
+            <option value="yearly">毎年</option>
+          </select>
+          <div id="nn-repeat-weekly" class="nn-repeat-sub" style="display:none">
+            <span class="nn-small-label">対象曜日（複数可）</span>
+            <div class="nn-wd-row">
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="0">日</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="1">月</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="2">火</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="3">水</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="4">木</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="5">金</label>
+              <label class="nn-wd-chk"><input type="checkbox" data-nn-wd="6">土</label>
+            </div>
+          </div>
+          <div id="nn-repeat-monthly" class="nn-repeat-sub" style="display:none">
+            <label><input type="radio" name="nn-mm" value="dom" checked> 日付ベース（毎月○日）</label>
+            <div id="nn-mm-dom-wrap" style="margin:6px 0 10px;">毎月 <input type="number" id="nn-mm-dom-input" min="1" max="31" value="1" style="width:52px;padding:6px;border:1px solid #dadce0;border-radius:6px;"> 日</div>
+            <label><input type="radio" name="nn-mm" value="nth"> 第○の曜日</label>
+            <div id="nn-mm-nth-wrap" style="display:none;margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap;">
+              第
+              <select id="nn-mm-nth-n" style="padding:6px;border-radius:6px;border:1px solid #dadce0;">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+              <select id="nn-mm-nth-wd" style="padding:6px;border-radius:6px;border:1px solid #dadce0;">
+                <option value="1">月</option>
+                <option value="2">火</option>
+                <option value="3">水</option>
+                <option value="4">木</option>
+                <option value="5">金</option>
+                <option value="6">土</option>
+                <option value="0">日</option>
+              </select>
+              曜日
+            </div>
+          </div>
+        </div>
+        <div class="nn-lead-row">
+          <label for="nn-f-lead">一覧表示</label>
+          <div>期限の <input type="number" id="nn-f-lead" min="0" max="365" value="0" style="width:56px;padding:6px;border:1px solid #dadce0;border-radius:6px;"> 日前からこのタスクを通常ビューに表示（0＝制限なし）</div>
+        </div>
+        <p id="nn-repeat-preview" class="nn-repeat-preview"></p>
       </div>
       <div><label for="nn-f-notes">メモ</label><textarea id="nn-f-notes"></textarea></div>
       <div id="nn-editor-actions">
@@ -563,7 +750,6 @@
     const pageIndicator = document.getElementById('page-indicator');
     const myLaserDot = document.getElementById('my-laser');
     
-    const folderSelect = document.getElementById('folder-select');
     const fileSelect = document.getElementById('file-select');
     const loader = document.getElementById('loader');
     const loaderText = document.getElementById('loader-text');
@@ -582,6 +768,28 @@
 
     let sharedStrokesByPage = {};
     let localStrokesByPage = {};
+    let localTextByPage = {};
+    let sharedTextByPage = {};
+    var nnLayerVis = { sharedPen: true, sharedText: true, localPen: true, localText: true };
+    var nnTempTextRect = null;
+    var nnTextCreateDrag = null;
+    var nnTextMove = null;
+    var nnSelectedTextRef = null;
+    var nnTextStyleDefaults = {
+      borderColor: '#1a73e8',
+      borderWidth: 2,
+      borderOpacity: 1,
+      fillColor: '#fff9c4',
+      fillOpacity: 0.4,
+      fontFamily: 'system-ui,-apple-system,"Segoe UI","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif',
+      fontSize: 15,
+      color: '#202124',
+    };
+    var NN_DEFAULT_PEN_PALETTE = ['#212121', '#1a73e8', '#d93025', '#0f9d58', '#f4511e', '#6a1b9a'];
+    var nnPenPalette = NN_DEFAULT_PEN_PALETTE.slice();
+    var nnPenColorIndex = 0;
+    var nnPresenterPenToShared = true;
+    var nnPresenterTextToShared = true;
     let currentUserRole = 'participant';
     let syncIntervalTimer = null;
     let lastStrokeTime = Date.now();
@@ -591,6 +799,1063 @@
     let sortOrderMeet = -1;
     let legacyFolderNavActive = false;
     let currentStroke = null;
+
+    function nnBumpStrokeTime() {
+      lastStrokeTime = Date.now();
+    }
+
+    function nnLoadLayerVisFromStorage() {
+      try {
+        var s = localStorage.getItem('nn_layer_vis');
+        if (!s) return;
+        var o = JSON.parse(s);
+        if (o && typeof o === 'object') {
+          if (typeof o.sharedPen === 'boolean') nnLayerVis.sharedPen = o.sharedPen;
+          if (typeof o.sharedText === 'boolean') nnLayerVis.sharedText = o.sharedText;
+          if (typeof o.localPen === 'boolean') nnLayerVis.localPen = o.localPen;
+          if (typeof o.localText === 'boolean') nnLayerVis.localText = o.localText;
+        }
+      } catch (e) {}
+    }
+
+    function nnSaveLayerVisToStorage() {
+      try {
+        localStorage.setItem('nn_layer_vis', JSON.stringify(nnLayerVis));
+      } catch (e) {}
+    }
+
+    function nnSyncLayerVisCheckboxes() {
+      var sp = document.getElementById('nn-lay-sp');
+      var st = document.getElementById('nn-lay-st');
+      var lp = document.getElementById('nn-lay-lp');
+      var lt = document.getElementById('nn-lay-lt');
+      if (sp) sp.checked = !!nnLayerVis.sharedPen;
+      if (st) st.checked = !!nnLayerVis.sharedText;
+      if (lp) lp.checked = !!nnLayerVis.localPen;
+      if (lt) lt.checked = !!nnLayerVis.localText;
+    }
+
+    function nnOnLayerVisChange() {
+      var sp = document.getElementById('nn-lay-sp');
+      var st = document.getElementById('nn-lay-st');
+      var lp = document.getElementById('nn-lay-lp');
+      var lt = document.getElementById('nn-lay-lt');
+      nnLayerVis.sharedPen = sp ? !!sp.checked : true;
+      nnLayerVis.sharedText = st ? !!st.checked : true;
+      nnLayerVis.localPen = lp ? !!lp.checked : true;
+      nnLayerVis.localText = lt ? !!lt.checked : true;
+      nnSaveLayerVisToStorage();
+      redraw();
+    }
+
+    function nnOnPresenterTargetChange() {
+      var p = document.getElementById('nn-pres-pen-shared');
+      var t = document.getElementById('nn-pres-txt-shared');
+      nnPresenterPenToShared = p ? !!p.checked : true;
+      nnPresenterTextToShared = t ? !!t.checked : true;
+      try {
+        localStorage.setItem(
+          'nn_presenter_targets',
+          JSON.stringify({ pen: nnPresenterPenToShared, text: nnPresenterTextToShared })
+        );
+      } catch (e) {}
+    }
+
+    function nnLoadPresenterTargets() {
+      try {
+        var s = localStorage.getItem('nn_presenter_targets');
+        if (!s) return;
+        var o = JSON.parse(s);
+        if (typeof o.pen === 'boolean') nnPresenterPenToShared = o.pen;
+        if (typeof o.text === 'boolean') nnPresenterTextToShared = o.text;
+      } catch (e) {}
+    }
+
+    function nnSyncPresenterTargetUi() {
+      var row = document.getElementById('nn-presenter-layer-target');
+      var p = document.getElementById('nn-pres-pen-shared');
+      var t = document.getElementById('nn-pres-txt-shared');
+      var show = nnRealtimeShareEnabled() && currentUserRole === 'presenter';
+      if (row) row.style.display = show ? 'flex' : 'none';
+      if (p) p.checked = !!nnPresenterPenToShared;
+      if (t) t.checked = !!nnPresenterTextToShared;
+    }
+
+    function nnApplyLocalMemoPayload(str) {
+      localStrokesByPage = {};
+      localTextByPage = {};
+      if (!str || !String(str).trim()) return;
+      var d;
+      try {
+        d = JSON.parse(str);
+      } catch (e) {
+        return;
+      }
+      if (d && d.v === 2 && d.pen && typeof d.pen === 'object') {
+        localStrokesByPage = d.pen;
+        localTextByPage = d.text && typeof d.text === 'object' ? d.text : {};
+        return;
+      }
+      if (d && typeof d === 'object') {
+        localStrokesByPage = d;
+      }
+    }
+
+    function nnSerializeLocalMemo() {
+      return JSON.stringify({ v: 2, pen: localStrokesByPage, text: localTextByPage });
+    }
+
+    function nnApplySharedAnnotationData(dataStr) {
+      sharedStrokesByPage = {};
+      sharedTextByPage = {};
+      if (!dataStr || !String(dataStr).trim()) return;
+      var d;
+      try {
+        d = JSON.parse(dataStr);
+      } catch (e) {
+        return;
+      }
+      if (d && d.v === 2 && d.pen && typeof d.pen === 'object') {
+        sharedStrokesByPage = d.pen;
+        sharedTextByPage = d.text && typeof d.text === 'object' ? d.text : {};
+        return;
+      }
+      if (d && typeof d === 'object') {
+        sharedStrokesByPage = d;
+      }
+    }
+
+    function nnSerializeSharedAnnotation() {
+      return JSON.stringify({ v: 2, pen: sharedStrokesByPage, text: sharedTextByPage });
+    }
+
+    function nnTextMapNonEmpty(map) {
+      if (!map || typeof map !== 'object') return false;
+      return Object.keys(map).some(function (k) {
+        return Array.isArray(map[k]) && map[k].length > 0;
+      });
+    }
+
+    function nnHasSharedContentToSave() {
+      return nnHasAnyStrokes(sharedStrokesByPage) || nnTextMapNonEmpty(sharedTextByPage);
+    }
+
+    function nnHasLocalContentToSave() {
+      return nnHasAnyStrokes(localStrokesByPage) || nnTextMapNonEmpty(localTextByPage);
+    }
+
+    function nnHexToRgb(hex) {
+      var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || '').trim());
+      if (!m) return { r: 0, g: 0, b: 0 };
+      return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+    }
+
+    function nnRgba(hex, a) {
+      var c = nnHexToRgb(hex);
+      var al = Math.max(0, Math.min(1, a == null ? 1 : a));
+      return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + al + ')';
+    }
+
+    function nnReadTextStyleFromPanel() {
+      var b = document.getElementById('nn-ts-border');
+      var bo = document.getElementById('nn-ts-border-op');
+      var f = document.getElementById('nn-ts-fill');
+      var fo = document.getElementById('nn-ts-fill-op');
+      var fg = document.getElementById('nn-ts-fg');
+      var fs = document.getElementById('nn-ts-fs');
+      var ff = document.getElementById('nn-ts-font');
+      nnTextStyleDefaults.borderColor = b && b.value ? b.value : nnTextStyleDefaults.borderColor;
+      nnTextStyleDefaults.borderOpacity = bo ? parseFloat(bo.value) || 1 : 1;
+      nnTextStyleDefaults.fillColor = f && f.value ? f.value : nnTextStyleDefaults.fillColor;
+      nnTextStyleDefaults.fillOpacity = fo ? parseFloat(fo.value) || 0 : 0;
+      nnTextStyleDefaults.color = fg && fg.value ? fg.value : nnTextStyleDefaults.color;
+      nnTextStyleDefaults.fontSize = fs ? Math.max(8, Math.min(48, parseInt(fs.value, 10) || 15)) : 15;
+      nnTextStyleDefaults.fontFamily = ff && ff.value ? ff.value : nnTextStyleDefaults.fontFamily;
+    }
+
+    function nnSyncTextStylePanelFromDefaults() {
+      var b = document.getElementById('nn-ts-border');
+      var bo = document.getElementById('nn-ts-border-op');
+      var f = document.getElementById('nn-ts-fill');
+      var fo = document.getElementById('nn-ts-fill-op');
+      var fg = document.getElementById('nn-ts-fg');
+      var fs = document.getElementById('nn-ts-fs');
+      var ff = document.getElementById('nn-ts-font');
+      if (b) b.value = nnTextStyleDefaults.borderColor;
+      if (bo) bo.value = String(nnTextStyleDefaults.borderOpacity != null ? nnTextStyleDefaults.borderOpacity : 1);
+      if (f) f.value = nnTextStyleDefaults.fillColor;
+      if (fo) fo.value = String(nnTextStyleDefaults.fillOpacity != null ? nnTextStyleDefaults.fillOpacity : 0.4);
+      if (fg) fg.value = nnTextStyleDefaults.color;
+      if (fs) fs.value = String(nnTextStyleDefaults.fontSize);
+      if (ff) ff.value = nnTextStyleDefaults.fontFamily;
+    }
+
+    function nnNewTextBoxId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return 'tb-' + crypto.randomUUID();
+      return 'tb-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    }
+
+    function nnNormalizeRect(x1, y1, x2, y2) {
+      return { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) };
+    }
+
+    function nnCloneTextStyleFromDefaults() {
+      return {
+        borderColor: nnTextStyleDefaults.borderColor,
+        borderWidth: nnTextStyleDefaults.borderWidth,
+        borderOpacity: nnTextStyleDefaults.borderOpacity,
+        fillColor: nnTextStyleDefaults.fillColor,
+        fillOpacity: nnTextStyleDefaults.fillOpacity,
+        fontFamily: nnTextStyleDefaults.fontFamily,
+        fontSize: nnTextStyleDefaults.fontSize,
+        color: nnTextStyleDefaults.color,
+      };
+    }
+
+    function nnDrawTextBoxesToContext(ctx, boxes) {
+      if (!boxes || !boxes.length) return;
+      boxes.forEach(function (tb) {
+        if (!tb || tb.w < 4 || tb.h < 4) return;
+        var bw = tb.borderWidth != null ? tb.borderWidth : 2;
+        var bo = tb.borderOpacity != null ? tb.borderOpacity : 1;
+        var fo = tb.fillOpacity != null ? tb.fillOpacity : 0.35;
+        ctx.save();
+        ctx.fillStyle = nnRgba(tb.fillColor || '#ffffff', fo);
+        ctx.strokeStyle = nnRgba(tb.borderColor || '#1a73e8', bo);
+        ctx.lineWidth = bw;
+        var r = 6;
+        var x = tb.x,
+          y = tb.y,
+          w = tb.w,
+          h = tb.h;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = tb.color || '#202124';
+        ctx.globalAlpha = 1;
+        ctx.font = (tb.fontSize || 14) + 'px ' + (tb.fontFamily || 'sans-serif');
+        ctx.textBaseline = 'top';
+        var pad = 6;
+        var tx = x + pad;
+        var ty = y + pad;
+        var maxW = Math.max(8, w - pad * 2);
+        var text = String(tb.text != null ? tb.text : '');
+        nnDrawWrappedText(ctx, text, tx, ty, maxW, tb.fontSize || 14, tb.fontFamily || 'sans-serif');
+        if (nnSelectedTextRef && nnSelectedTextRef.box === tb) {
+          ctx.save();
+          ctx.setLineDash([5, 4]);
+          ctx.strokeStyle = 'rgba(26,115,232,0.95)';
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = 1;
+          ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+          ctx.restore();
+        }
+        ctx.restore();
+      });
+    }
+
+    function nnDrawWrappedText(ctx, text, x, y, maxWidth, fontSize, fontFamily) {
+      if (!text) return;
+      ctx.font = fontSize + 'px ' + fontFamily;
+      var lines = [];
+      var paragraphs = text.split('\n');
+      for (var pi = 0; pi < paragraphs.length; pi++) {
+        var words = paragraphs[pi].split('');
+        var line = '';
+        for (var i = 0; i < words.length; i++) {
+          var test = line + words[i];
+          if (ctx.measureText(test).width > maxWidth && line.length > 0) {
+            lines.push(line);
+            line = words[i];
+          } else {
+            line = test;
+          }
+        }
+        if (line) lines.push(line);
+        if (pi < paragraphs.length - 1) lines.push('');
+      }
+      var lh = (fontSize || 14) * 1.25;
+      for (var j = 0; j < lines.length; j++) {
+        ctx.fillText(lines[j], x, y + j * lh);
+      }
+    }
+
+    function nnHitTextBoxesAt(pt, topFirst) {
+      var sk = nnLpCurrentStrokeKey();
+      var order = [];
+      if (topFirst) {
+        if (nnLayerVis.localText) order.push({ layer: 'local', map: localTextByPage });
+        if (nnLayerVis.sharedText) order.push({ layer: 'shared', map: sharedTextByPage });
+      } else {
+        if (nnLayerVis.sharedText) order.push({ layer: 'shared', map: sharedTextByPage });
+        if (nnLayerVis.localText) order.push({ layer: 'local', map: localTextByPage });
+      }
+      for (var oi = 0; oi < order.length; oi++) {
+        var arr = order[oi].map[sk];
+        if (!arr || !arr.length) continue;
+        for (var i = arr.length - 1; i >= 0; i--) {
+          var tb = arr[i];
+          if (pt.x >= tb.x && pt.x <= tb.x + tb.w && pt.y >= tb.y && pt.y <= tb.y + tb.h) {
+            return { box: tb, layer: order[oi].layer, index: i, sk: sk };
+          }
+        }
+      }
+      return null;
+    }
+
+    function nnRemoveTextBox(hit) {
+      if (!hit) return;
+      var map = hit.layer === 'shared' ? sharedTextByPage : localTextByPage;
+      var arr = map[hit.sk];
+      if (!arr) return;
+      arr.splice(hit.index, 1);
+      if (nnSelectedTextRef && nnSelectedTextRef.id === hit.box.id) nnSelectedTextRef = null;
+    }
+
+    function nnLoadPenPalette() {
+      try {
+        var s = localStorage.getItem('nn_pen_palette');
+        if (!s) return;
+        var a = JSON.parse(s);
+        if (Array.isArray(a) && a.length === 6) {
+          nnPenPalette = a.map(function (x) {
+            return String(x);
+          });
+        }
+      } catch (e) {}
+    }
+
+    function nnSavePenPalette() {
+      try {
+        localStorage.setItem('nn_pen_palette', JSON.stringify(nnPenPalette));
+      } catch (e) {}
+    }
+
+    function nnRenderPenPaletteUI() {
+      var host = document.getElementById('nn-pen-palette');
+      if (!host) return;
+      host.innerHTML = '';
+      for (var i = 0; i < 6; i++) {
+        (function (idx) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'nn-pen-swatch' + (idx === nnPenColorIndex ? ' nn-pen-swatch-active' : '');
+          b.style.backgroundColor = nnPenPalette[idx] || '#333';
+          b.title = 'クリックでこの色を使用（長押し不要）';
+          b.addEventListener('click', function () {
+            nnPenColorIndex = idx;
+            nnRenderPenPaletteUI();
+          });
+          host.appendChild(b);
+        })(i);
+      }
+    }
+
+    window.nnOpenPenColorEditor = function () {
+      var inp = document.getElementById('pen-color-edit');
+      if (!inp) return;
+      inp.value = nnPenPalette[nnPenColorIndex] || '#000000';
+      inp.onchange = function () {
+        nnPenPalette[nnPenColorIndex] = inp.value;
+        nnSavePenPalette();
+        nnRenderPenPaletteUI();
+        inp.onchange = null;
+      };
+      inp.click();
+    };
+
+    function nnGetActivePenColor() {
+      return nnPenPalette[nnPenColorIndex] || '#000000';
+    }
+
+    function getTargetTextBoxesArray() {
+      var sk = nnLpCurrentStrokeKey();
+      if (currentUserRole === 'presenter' && nnPresenterTextToShared) {
+        if (!sharedTextByPage[sk]) sharedTextByPage[sk] = [];
+        return sharedTextByPage[sk];
+      }
+      if (!localTextByPage[sk]) localTextByPage[sk] = [];
+      return localTextByPage[sk];
+    }
+
+    function nnOnKeyDownTextSelect(ev) {
+      if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
+      if (currentTool !== 'select' || !nnSelectedTextRef) return;
+      var sk = nnLpCurrentStrokeKey();
+      var map = nnSelectedTextRef.layer === 'shared' ? sharedTextByPage : localTextByPage;
+      var arr = map[sk];
+      if (!arr) return;
+      var idx = arr.indexOf(nnSelectedTextRef.box);
+      if (idx < 0) return;
+      arr.splice(idx, 1);
+      nnSelectedTextRef = null;
+      nnBumpStrokeTime();
+      autoSaveCurrent(true);
+      redraw();
+      ev.preventDefault();
+    }
+
+    function nnWireTextStylePanelInputs() {
+      ['nn-ts-border', 'nn-ts-border-op', 'nn-ts-fill', 'nn-ts-fill-op', 'nn-ts-fg', 'nn-ts-fs', 'nn-ts-font'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('change', function () {
+            nnReadTextStyleFromPanel();
+          });
+          el.addEventListener('input', function () {
+            nnReadTextStyleFromPanel();
+          });
+        }
+      });
+    }
+
+    function nnEnsureWorkspaceMeta() {
+      if (!treeData.workspaceMeta) {
+        treeData.workspaceMeta = {
+          folderPdfMode: {},
+          folderKind: {},
+          fileLogicalPages: {},
+          layout: { childrenOrder: {}, fileOrder: {}, fileDue: {} },
+        };
+      }
+      if (!treeData.workspaceMeta.layout) treeData.workspaceMeta.layout = {};
+      if (!treeData.workspaceMeta.layout.childrenOrder) treeData.workspaceMeta.layout.childrenOrder = {};
+      if (!treeData.workspaceMeta.layout.fileOrder) treeData.workspaceMeta.layout.fileOrder = {};
+      if (!treeData.workspaceMeta.layout.fileDue) treeData.workspaceMeta.layout.fileDue = {};
+      if (!treeData.workspaceMeta.folderPdfMode) treeData.workspaceMeta.folderPdfMode = {};
+      if (!treeData.workspaceMeta.folderKind) treeData.workspaceMeta.folderKind = {};
+      if (!treeData.workspaceMeta.fileLogicalPages) treeData.workspaceMeta.fileLogicalPages = {};
+    }
+
+    function nnSaveWorkspaceMetaToServer() {
+      nnEnsureWorkspaceMeta();
+      if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+      google.script.run
+        .withFailureHandler(function (e) {
+          alert('レイアウト保存エラー: ' + (e && e.message ? e.message : String(e)));
+        })
+        .saveWorkspaceMeta(JSON.stringify(treeData.workspaceMeta));
+    }
+
+    function nnParentKeyFromPid(pid) {
+      return pid == null || pid === '' ? '__root__' : pid;
+    }
+
+    function nnMergeIdOrder(preferred, allIds) {
+      var have = {};
+      for (var i = 0; i < allIds.length; i++) have[allIds[i]] = true;
+      var out = [];
+      (preferred || []).forEach(function (id) {
+        if (have[id]) {
+          out.push(id);
+          delete have[id];
+        }
+      });
+      Object.keys(have).forEach(function (id) {
+        out.push(id);
+      });
+      return out;
+    }
+
+    function nnGetChildFoldersByParentId(parentId) {
+      return (treeData.folders || []).filter(function (f) {
+        return (f.parentId || null) === parentId;
+      });
+    }
+
+    function nnOrderedFolderChildren(parentId) {
+      nnEnsureWorkspaceMeta();
+      var pkey = nnParentKeyFromPid(parentId);
+      var kids = nnGetChildFoldersByParentId(parentId);
+      kids.sort(function (a, b) {
+        return (a.name || '').localeCompare(b.name || '', 'ja');
+      });
+      var ids = kids.map(function (k) {
+        return k.id;
+      });
+      var ord = treeData.workspaceMeta.layout.childrenOrder[pkey];
+      return nnMergeIdOrder(ord, ids)
+        .map(function (id) {
+          for (var i = 0; i < kids.length; i++) {
+            if (kids[i].id === id) return kids[i];
+          }
+          return null;
+        })
+        .filter(Boolean);
+    }
+
+    function nnGetFilesInFolderRaw(folderId) {
+      return (treeData.files || []).filter(function (f) {
+        return f.folderId === folderId;
+      });
+    }
+
+    function nnSortFilesMeet(filesIn, folderIdForOrder, sortType) {
+      nnEnsureWorkspaceMeta();
+      var files = filesIn.slice();
+      var fo = treeData.workspaceMeta.layout.fileOrder[folderIdForOrder];
+      var dueMap = treeData.workspaceMeta.layout.fileDue;
+      if (sortType === 'manual') {
+        var m = {};
+        files.forEach(function (x) {
+          m[x.id] = x;
+        });
+        var ord = nnMergeIdOrder(fo || [], files.map(function (x) {
+          return x.id;
+        }));
+        return ord
+          .map(function (id) {
+            return m[id];
+          })
+          .filter(Boolean);
+      }
+      if (sortType === 'due') {
+        files.sort(function (a, b) {
+          var da = dueMap[a.id] || '9999-12-31';
+          var db = dueMap[b.id] || '9999-12-31';
+          if (da !== db) return da < db ? -1 * sortOrderMeet : da > db ? 1 * sortOrderMeet : 0;
+          return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrderMeet;
+        });
+        return files;
+      }
+      if (sortType === 'name') {
+        files.sort(function (a, b) {
+          return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrderMeet;
+        });
+        return files;
+      }
+      var key = sortType === 'created' ? 'created' : 'updated';
+      files.sort(function (a, b) {
+        var va = a[key] || 0;
+        var vb = b[key] || 0;
+        if (va < vb) return -1 * sortOrderMeet;
+        if (va > vb) return 1 * sortOrderMeet;
+        return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrderMeet;
+      });
+      return files;
+    }
+
+    window.nnSetFolderPdfMode = function (mode) {
+      if (!currentFolderId) return;
+      nnEnsureWorkspaceMeta();
+      treeData.workspaceMeta.folderPdfMode[currentFolderId] = mode === 'seamless' ? 'seamless' : 'individual';
+      nnSaveWorkspaceMetaToServer();
+    };
+
+    function nnGetFolderPdfModeForFolder(folderId) {
+      nnEnsureWorkspaceMeta();
+      var m = treeData.workspaceMeta.folderPdfMode[folderId];
+      return m === 'seamless' ? 'seamless' : 'individual';
+    }
+
+    function nnUpdateMeetFolderModeBar() {
+      var bar = document.getElementById('meet-folder-mode');
+      if (!bar) return;
+      if (!currentFolderId) {
+        bar.classList.remove('nn-show');
+        return;
+      }
+      bar.classList.add('nn-show');
+      var mode = nnGetFolderPdfModeForFolder(currentFolderId);
+      var ind = bar.querySelector('input[name="meet-fp-mode"][value="individual"]');
+      var sea = bar.querySelector('input[name="meet-fp-mode"][value="seamless"]');
+      if (ind) ind.checked = mode === 'individual';
+      if (sea) sea.checked = mode === 'seamless';
+    }
+
+    function nnSyncLegacyToolsVisibility() {
+      var el = document.getElementById('pdf-legacy-tools');
+      if (el) el.style.display = legacyFolderNavActive ? 'flex' : 'none';
+      nnSyncDupCurrentPdfPageButton();
+    }
+
+    function nnSyncDupCurrentPdfPageButton() {
+      var wrap = document.getElementById('nn-dup-pdf-page-btn-wrap');
+      var btn = document.getElementById('nn-btn-dup-current-pdf-page');
+      if (!wrap || !btn) return;
+      var pdfBtn = document.getElementById('btn-mode-pdf');
+      var pdfMode = pdfBtn && pdfBtn.classList.contains('active-mode');
+      var homeOpen = homeScreen && homeScreen.style.display === 'flex';
+      var show =
+        pdfMode &&
+        !homeOpen &&
+        !!currentFileId &&
+        fileType === 'pdf' &&
+        !legacyFolderNavActive;
+      wrap.style.display = show ? 'inline-flex' : 'none';
+      if (!show) return;
+      var org = nnGetFolderKindForCurrentFile() === 'org';
+      btn.disabled = org;
+      btn.style.opacity = org ? '0.45' : '1';
+      btn.title = org ? '組織フォルダのPDFでは利用できません' : '今開いているPDFの現在ページを複製';
+    }
+
+    function nnFindFolderIdForFile(fileId) {
+      var arr = treeData.files || [];
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i].id === fileId) return arr[i].folderId;
+      }
+      return currentFolderId;
+    }
+
+    function nnExtractDriveIdMeet(input) {
+      var m = String(input || '').match(/[-\w]{25,}/);
+      return m ? m[0] : String(input || '').trim();
+    }
+
+    function nnGetFolderKindForFolderId(folderId) {
+      if (!folderId) return 'personal';
+      nnEnsureWorkspaceMeta();
+      return treeData.workspaceMeta.folderKind[folderId] === 'org' ? 'org' : 'personal';
+    }
+
+    function nnGetFolderKindForCurrentFile() {
+      if (!currentFileId) return 'personal';
+      return nnGetFolderKindForFolderId(nnFindFolderIdForFile(currentFileId));
+    }
+
+    function nnLoadRealtimeSharePref() {
+      try {
+        var v = localStorage.getItem('NN_REALTIME_SHARE');
+        if (v === null) return true;
+        return v === '1';
+      } catch (e) {
+        return true;
+      }
+    }
+
+    function nnPersistRealtimeSharePref() {
+      try {
+        var el = document.getElementById('nn-realtime-share');
+        if (el) localStorage.setItem('NN_REALTIME_SHARE', el.checked ? '1' : '0');
+      } catch (e) {}
+    }
+
+    function nnRealtimeShareEnabled() {
+      var el = document.getElementById('nn-realtime-share');
+      if (!el) return true;
+      return !!el.checked;
+    }
+
+    function nnOnRealtimeShareToggle() {
+      nnPersistRealtimeSharePref();
+      autoSaveCurrent(true);
+      applyRoleMeet();
+    }
+
+    function nnLpNewId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return 'lp-' + crypto.randomUUID();
+      return 'lp-' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+    }
+
+    function nnLpGetLogicalIdAt(logical1Based) {
+      if (fileType !== 'pdf' || !currentFileId) return String(logical1Based);
+      nnEnsureWorkspaceMeta();
+      var plan = treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
+      if (!plan || !plan.order || plan.order.length === 0) return String(logical1Based);
+      var i = logical1Based - 1;
+      if (i < 0 || i >= plan.order.length) return plan.order[0];
+      return plan.order[i];
+    }
+
+    function nnLpCurrentStrokeKey() {
+      return nnLpGetLogicalIdAt(currentPageNum);
+    }
+
+    function nnLpMigrateNumericStrokeKeys(plan, physicalCount) {
+      function migrateOne(obj) {
+        var hasNum = Object.keys(obj).some(function (k) {
+          return /^\d+$/.test(k);
+        });
+        if (!hasNum) return false;
+        var out = {};
+        Object.keys(obj).forEach(function (k) {
+          if (!/^\d+$/.test(k)) out[k] = obj[k];
+        });
+        Object.keys(obj).forEach(function (k) {
+          var m = /^(\d+)$/.exec(k);
+          if (!m) return;
+          var p = parseInt(m[1], 10);
+          if (p < 1 || p > physicalCount || !plan.order[p - 1]) return;
+          var lid = plan.order[p - 1];
+          out[lid] = (out[lid] || []).concat(obj[k] || []);
+        });
+        Object.keys(obj).forEach(function (k) {
+          delete obj[k];
+        });
+        Object.keys(out).forEach(function (k) {
+          obj[k] = out[k];
+        });
+        return true;
+      }
+      var a = migrateOne(localStrokesByPage);
+      var b = migrateOne(sharedStrokesByPage);
+      var c = migrateOne(localTextByPage);
+      var d = migrateOne(sharedTextByPage);
+      return a || b || c || d;
+    }
+
+    function nnLpEnsurePlanForCurrentFile(physicalCount) {
+      if (!currentFileId || fileType !== 'pdf' || !physicalCount) return;
+      nnEnsureWorkspaceMeta();
+      var fid = currentFileId;
+      var plan = treeData.workspaceMeta.fileLogicalPages[fid];
+      var needSave = false;
+      if (!plan || !Array.isArray(plan.order) || plan.order.length === 0 || !plan.sources) {
+        plan = { order: [], sources: {} };
+        for (var i = 0; i < physicalCount; i++) {
+          var lid = nnLpNewId();
+          plan.order.push(lid);
+          plan.sources[lid] = { sourcePdfPage: i + 1 };
+        }
+        treeData.workspaceMeta.fileLogicalPages[fid] = plan;
+        needSave = true;
+      }
+      if (nnLpMigrateNumericStrokeKeys(plan, physicalCount)) needSave = true;
+      totalPages = plan.order.length;
+      if (needSave) nnSaveWorkspaceMetaToServer();
+    }
+
+    /**
+     * @param {'after'|'before'} where after=次のページに相当、before=前のページに相当
+     */
+    function nnLpDuplicateCurrentLogicalPage(where) {
+      return (async function () {
+        try {
+          if (!pdfDocJs || !currentFileId || fileType !== 'pdf') return;
+          if (legacyFolderNavActive) return;
+          if (nnGetFolderKindForCurrentFile() === 'org') return;
+          var physN = pdfDocJs.numPages;
+          nnLpEnsurePlanForCurrentFile(physN);
+          var plan = treeData.workspaceMeta.fileLogicalPages[currentFileId];
+          if (!plan || !plan.order || !plan.order.length) return;
+          var curId = plan.order[currentPageNum - 1];
+          if (!curId || !plan.sources[curId]) return;
+          var phys = plan.sources[curId].sourcePdfPage;
+          var newId = nnLpNewId();
+          plan.sources[newId] = { sourcePdfPage: phys };
+          if (where === 'before') {
+            plan.order.splice(currentPageNum - 1, 0, newId);
+            currentPageNum++;
+          } else {
+            plan.order.splice(currentPageNum, 0, newId);
+            currentPageNum++;
+          }
+          if (!localStrokesByPage[newId]) localStrokesByPage[newId] = [];
+          if (!sharedStrokesByPage[newId]) sharedStrokesByPage[newId] = [];
+          if (!localTextByPage[newId]) localTextByPage[newId] = [];
+          if (!sharedTextByPage[newId]) sharedTextByPage[newId] = [];
+          totalPages = plan.order.length;
+          nnSaveWorkspaceMetaToServer();
+          await renderPage(currentPageNum);
+          autoSaveCurrent(true);
+          savePdfSlotFromGlobals();
+        } catch (err) {
+          console.error(err);
+        }
+      })();
+    }
+
+    function nnOpenDuplicateCurrentPdfPageModal() {
+      if (!pdfDocJs || !currentFileId || fileType !== 'pdf') {
+        alert('PDFを開いていません。');
+        return;
+      }
+      if (legacyFolderNavActive) {
+        alert('シームレス表示内ではこの操作は利用できません。個別PDFモードで開いてください。');
+        return;
+      }
+      if (nnGetFolderKindForCurrentFile() === 'org') {
+        alert('組織フォルダの PDF はこの操作を利用できません。');
+        return;
+      }
+      var m = document.getElementById('nn-dup-pdf-page-modal');
+      if (m) m.style.display = 'flex';
+    }
+
+    function nnCloseDuplicateCurrentPdfPageModal() {
+      var m = document.getElementById('nn-dup-pdf-page-modal');
+      if (m) m.style.display = 'none';
+    }
+
+    function nnDuplicateCurrentPdfPagePick(mode) {
+      nnCloseDuplicateCurrentPdfPageModal();
+      if (mode === 'after') nnLpDuplicateCurrentLogicalPage('after');
+      else if (mode === 'before') nnLpDuplicateCurrentLogicalPage('before');
+      else if (mode === 'drive') nnDuplicateCurrentPdfPageSaveAsNewFile();
+    }
+
+    function nnUint8ToBase64Pdf(u8) {
+      var CHUNK = 0x8000;
+      var str = '';
+      for (var i = 0; i < u8.length; i += CHUNK) {
+        str += String.fromCharCode.apply(null, u8.subarray(i, Math.min(i + CHUNK, u8.length)));
+      }
+      return btoa(str);
+    }
+
+    async function nnBuildCurrentPageAnnotatedPdfUint8() {
+      if (!originalPdfBytes || !pdfDocJs || fileType !== 'pdf') return null;
+      const { PDFDocument } = PDFLib;
+      const rawBytes = nnBytesForPdfLibLoad(originalPdfBytes);
+      if (!rawBytes) return null;
+      const srcPdf = await PDFDocument.load(rawBytes);
+      const nSrcPages = srcPdf.getPageCount();
+      nnEnsureWorkspaceMeta();
+      var plan = currentFileId && treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
+      var order = plan && plan.order && plan.order.length ? plan.order : null;
+      const offCanvas = document.createElement('canvas');
+      const offCtx = offCanvas.getContext('2d');
+      const newPdf = await PDFDocument.create();
+
+      if (order && plan.sources) {
+        var li = currentPageNum - 1;
+        var lid = order[li];
+        if (!lid || !plan.sources[lid]) return null;
+        var physRaw = plan.sources[lid].sourcePdfPage ? plan.sources[lid].sourcePdfPage : 1;
+        var phys = Math.min(Math.max(1, parseInt(physRaw, 10) || 1), nSrcPages);
+        var copiedPages = await newPdf.copyPages(srcPdf, [phys - 1]);
+        newPdf.addPage(copiedPages[0]);
+        var pdfPage = newPdf.getPages()[newPdf.getPageCount() - 1];
+        var pageStrokes = (sharedStrokesByPage[lid] || []).concat(localStrokesByPage[lid] || []);
+        var pageTexts = (sharedTextByPage[lid] || []).concat(localTextByPage[lid] || []);
+        if (pageStrokes.length || pageTexts.length) {
+          var dim = await nnExportViewportSizeForPhysicalPage(phys);
+          offCanvas.width = dim.ew * dpr;
+          offCanvas.height = dim.eh * dpr;
+          offCtx.setTransform(1, 0, 0, 1, 0, 0);
+          offCtx.scale(dpr, dpr);
+          drawStrokesToContext(offCtx, pageStrokes, true);
+          nnDrawTextBoxesToContext(offCtx, pageTexts);
+          var pngImage = await newPdf.embedPng(offCanvas.toDataURL('image/png'));
+          var pw = pdfPage.getWidth();
+          var ph = pdfPage.getHeight();
+          pdfPage.drawImage(pngImage, { x: 0, y: 0, width: pw, height: ph });
+        }
+      } else {
+        var i = Math.min(Math.max(1, currentPageNum), nSrcPages);
+        var copied2 = await newPdf.copyPages(srcPdf, [i - 1]);
+        newPdf.addPage(copied2[0]);
+        var pdfPage2 = newPdf.getPages()[newPdf.getPageCount() - 1];
+        var pageStrokes2 = (sharedStrokesByPage[String(i)] || []).concat(localStrokesByPage[String(i)] || []);
+        var pageTexts2 = (sharedTextByPage[String(i)] || []).concat(localTextByPage[String(i)] || []);
+        if (pageStrokes2.length || pageTexts2.length) {
+          var dim2 = await nnExportViewportSizeForPhysicalPage(i);
+          offCanvas.width = dim2.ew * dpr;
+          offCanvas.height = dim2.eh * dpr;
+          offCtx.setTransform(1, 0, 0, 1, 0, 0);
+          offCtx.scale(dpr, dpr);
+          drawStrokesToContext(offCtx, pageStrokes2, true);
+          nnDrawTextBoxesToContext(offCtx, pageTexts2);
+          var pngImage2 = await newPdf.embedPng(offCanvas.toDataURL('image/png'));
+          var pw2 = pdfPage2.getWidth();
+          var ph2 = pdfPage2.getHeight();
+          pdfPage2.drawImage(pngImage2, { x: 0, y: 0, width: pw2, height: ph2 });
+        }
+      }
+      return await newPdf.save();
+    }
+
+    function nnDuplicateCurrentPdfPageSaveAsNewFile() {
+      (async function () {
+        if (!currentFileId || !fileName) {
+          alert('ファイル情報がありません。');
+          return;
+        }
+        if (!originalPdfBytes) {
+          alert('PDFバイナリがありません。ファイルを開き直してからお試しください。');
+          return;
+        }
+        showLoader('現在ページのPDFを作成・保存中...');
+        try {
+          var bytes = await nnBuildCurrentPageAnnotatedPdfUint8();
+          if (!bytes || !bytes.length) {
+            hideLoader();
+            alert('PDFの生成に失敗しました。');
+            return;
+          }
+          var b64 = nnUint8ToBase64Pdf(bytes);
+          var baseName = fileName.replace(/\.[^/.]+$/, '');
+          google.script.run
+            .withSuccessHandler(function (res) {
+              hideLoader();
+              if (res && res.success) {
+                alert('保存しました: ' + (res.fileName || '') + '\n（元PDFと同じフォルダにあります）');
+                loadFolderTree(true);
+              } else {
+                alert((res && res.error) ? res.error : 'Drive への保存に失敗しました。');
+              }
+            })
+            .withFailureHandler(function (err) {
+              hideLoader();
+              alert('サーバーとの通信エラー: ' + (err && err.message ? err.message : String(err)));
+            })
+            .nnSavePdfPageCopyBesideSource(currentFileId, b64, baseName);
+        } catch (e) {
+          console.error(e);
+          hideLoader();
+          alert('生成失敗: ' + (e && e.message ? e.message : String(e)));
+        }
+      })();
+    }
+
+    function openSeamlessViewerForFolder(folderId, startFileId, startFileName) {
+      nnEnsureWorkspaceMeta();
+      if (!folderId) {
+        alert('フォルダ情報がありません。ホームでツリーを更新し、一覧の「開く」から開いてください。');
+        return;
+      }
+      currentFolderId = folderId;
+      var sortEl = document.getElementById('sort-type-meet');
+      var sortType = sortEl ? sortEl.value : 'updated';
+      var raw = nnGetFilesInFolderRaw(folderId);
+      var files = nnSortFilesMeet(raw, folderId, sortType);
+      if (!files.length) {
+        alert('このフォルダに PDF/画像がありません。');
+        return;
+      }
+      var fs = document.getElementById('file-select');
+      if (!fs) {
+        alert('ツールバーのファイル一覧を表示できません。ページを再読み込みしてください。');
+        return;
+      }
+      fs.innerHTML = '';
+      for (var i = 0; i < files.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = files[i].id;
+        opt.text = files[i].name;
+        fs.appendChild(opt);
+      }
+      var idx = 0;
+      for (var j = 0; j < files.length; j++) {
+        if (files[j].id === startFileId) {
+          idx = j;
+          break;
+        }
+      }
+      fs.selectedIndex = idx;
+      autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
+      __pdfLoadGeneration++;
+      nnResetPdfViewerBinary_();
+      legacyFolderNavActive = true;
+      currentFileId = files[idx].id;
+      fileName = files[idx].name || startFileName || 'document.pdf';
+      try {
+        localStorage.setItem(
+          'last_opened_file',
+          JSON.stringify({ id: currentFileId, name: fileName, folderId: folderId, pdfMode: 'seamless' })
+        );
+      } catch (e1) {}
+      updateFavoriteButtonStatus();
+      homeScreen.style.display = 'none';
+      viewerContainer.style.display = 'block';
+      var st = document.getElementById('pdf-slot-tabs');
+      if (st) st.classList.add('nn-show');
+      var nnPanel = document.getElementById('nn-panel');
+      if (nnPanel) nnPanel.style.display = 'none';
+      var pdfBtn = document.getElementById('btn-mode-pdf');
+      var taskBtn = document.getElementById('btn-mode-tasks');
+      if (pdfBtn && taskBtn) {
+        taskBtn.classList.remove('active-mode');
+        pdfBtn.classList.add('active-mode');
+      }
+      nnSyncLegacyToolsVisibility();
+      loadSelectedFile(false, false, true);
+    }
+
+    var meetFolderDragId = null;
+    var meetFileDragId = null;
+    var nnTaskDragId = null;
+    var nnCheckDragTaskId = null;
+    var nnCheckDragCiId = null;
+
+    function nnFolderById(id) {
+      var arr = treeData.folders || [];
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i].id === id) return arr[i];
+      }
+      return null;
+    }
+
+    function nnReorderFolderSibling(dragId, targetId, parentKey) {
+      nnEnsureWorkspaceMeta();
+      var pid = parentKey === '__root__' ? null : parentKey;
+      var kids = nnGetChildFoldersByParentId(pid);
+      var ids = kids.map(function (k) {
+        return k.id;
+      });
+      var cur = treeData.workspaceMeta.layout.childrenOrder[parentKey] || [];
+      var ord = nnMergeIdOrder(cur, ids);
+      var di = ord.indexOf(dragId);
+      var ti = ord.indexOf(targetId);
+      if (di < 0 || ti < 0) return;
+      ord.splice(di, 1);
+      var newTi = ord.indexOf(targetId);
+      if (newTi < 0) ord.push(dragId);
+      else ord.splice(newTi, 0, dragId);
+      treeData.workspaceMeta.layout.childrenOrder[parentKey] = ord;
+      nnSaveWorkspaceMetaToServer();
+      renderFolders();
+      renderFilesMeet();
+    }
+
+    function nnApplyFolderDrop(dragId, targetId) {
+      var a = nnFolderById(dragId);
+      var b = nnFolderById(targetId);
+      if (!a || !b) return;
+      if ((a.parentId || null) === (b.parentId || null)) {
+        nnReorderFolderSibling(dragId, targetId, nnParentKeyFromPid(a.parentId));
+        return;
+      }
+      if (
+        !confirm(
+          'フォルダ「' +
+            (a.name || '') +
+            '」を「' +
+            (b.name || '') +
+            '」の直下へ移動しますか？（Google Drive 上の階層が変わります）'
+        )
+      ) {
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (res && res.success) loadFolderTree(true);
+          else alert((res && res.error) || '移動に失敗しました');
+        })
+        .withFailureHandler(function (err) {
+          alert(err.message || String(err));
+        })
+        .nn_moveFolderToParent(dragId, targetId);
+    }
+
+    function nnReorderFileRow(dragId, targetId) {
+      if (!currentFolderId || dragId === targetId) return;
+      nnEnsureWorkspaceMeta();
+      var sortEl = document.getElementById('sort-type-meet');
+      if (sortEl) sortEl.value = 'manual';
+      var raw = nnGetFilesInFolderRaw(currentFolderId);
+      var files = nnSortFilesMeet(raw, currentFolderId, 'manual');
+      var ids = files.map(function (x) {
+        return x.id;
+      });
+      var di = ids.indexOf(dragId);
+      var ti = ids.indexOf(targetId);
+      if (di < 0 || ti < 0) return;
+      ids.splice(di, 1);
+      var newTi = ids.indexOf(targetId);
+      ids.splice(newTi, 0, dragId);
+      treeData.workspaceMeta.layout.fileOrder[currentFolderId] = ids;
+      nnSaveWorkspaceMetaToServer();
+      renderFilesMeet();
+    }
 
     const PASTEL_PALETTE = [
       '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E8BAFF',
@@ -617,6 +1882,275 @@
     let currentScale = 1.0; let initialPinchDist = 0; let initialScale = 1.0;
     let pinchFocusX = 0; let pinchFocusY = 0;
 
+    const NN_PDF_SLOT_COUNT = 3;
+    let pdfActiveSlot = 0;
+    var __pdfSlotSwitchChain = Promise.resolve();
+    var __pdfFileOpenChain = Promise.resolve();
+    var __pdfLoadGeneration = 0;
+
+    function nnEmptyPdfSlot() {
+      return {
+        fileId: null,
+        fileName: 'document.pdf',
+        fileType: 'pdf',
+        originalPdfBytes: null,
+        imageDataUrl: '',
+        localStrokesByPage: {},
+        sharedStrokesByPage: {},
+        localTextByPage: {},
+        sharedTextByPage: {},
+        currentPageNum: 1,
+        currentScale: 1,
+        scrollLeft: 0,
+        scrollTop: 0,
+        legacyFolderNavActive: false
+      };
+    }
+    var pdfSlots = [nnEmptyPdfSlot(), nnEmptyPdfSlot(), nnEmptyPdfSlot()];
+
+    function nnClonePdfBytes(buf) {
+      if (!buf) return null;
+      try {
+        return buf.slice(0);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function nnDestroyPdfDocJs() {
+      if (!pdfDocJs) return;
+      try {
+        var d = pdfDocJs;
+        pdfDocJs = null;
+        var p = d.destroy && d.destroy();
+        if (p && typeof p.then === 'function') {
+          p.catch(function () {});
+        }
+      } catch (e) {
+        pdfDocJs = null;
+      }
+    }
+
+    function nnResetPdfViewerBinary_() {
+      nnDestroyPdfDocJs();
+      originalPdfBytes = null;
+      currentImageObj = null;
+    }
+
+    function nnSafeJsonClone(obj) {
+      try {
+        return JSON.parse(JSON.stringify(obj || {}));
+      } catch (e) {
+        console.warn('nnSafeJsonClone', e);
+        return {};
+      }
+    }
+
+    function nnPdfSlotLabel(name) {
+      var n = (name || '').trim();
+      if (!n) return '空';
+      return n.length > 10 ? n.slice(0, 9) + '…' : n;
+    }
+
+    function nnUpdatePdfSlotTabButtons() {
+      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) {
+        var b = document.getElementById('pdf-slot-btn-' + i);
+        if (!b) continue;
+        var s = pdfSlots[i];
+        var slotLabel = i === 0 ? '① ' : i === 1 ? '② ' : '③ ';
+        b.textContent = slotLabel + (s && s.fileId ? nnPdfSlotLabel(s.fileName) : '空');
+        b.classList.toggle('active-slot', i === pdfActiveSlot);
+      }
+    }
+
+    function savePdfSlotFromGlobals() {
+      var s = pdfSlots[pdfActiveSlot];
+      if (!s) return;
+      var prevSlotId = s.fileId;
+      var prevSlotBytes = s.originalPdfBytes;
+      s.fileId = currentFileId;
+      s.fileName = fileName;
+      s.fileType = fileType;
+      if (fileType === 'pdf') {
+        var clonedBytes = nnClonePdfBytes(originalPdfBytes);
+        if (!clonedBytes && currentFileId && currentFileId === prevSlotId && prevSlotBytes) {
+          clonedBytes = nnClonePdfBytes(prevSlotBytes);
+        }
+        if (clonedBytes) {
+          s.originalPdfBytes = clonedBytes;
+        } else if (!currentFileId || currentFileId !== prevSlotId) {
+          s.originalPdfBytes = null;
+        }
+        s.imageDataUrl = '';
+      } else {
+        s.originalPdfBytes = null;
+        s.imageDataUrl =
+          currentImageObj && currentImageObj.src && currentImageObj.src.indexOf('data:') === 0
+            ? currentImageObj.src
+            : '';
+      }
+      s.localStrokesByPage = nnSafeJsonClone(localStrokesByPage);
+      s.sharedStrokesByPage = nnSafeJsonClone(sharedStrokesByPage);
+      s.localTextByPage = nnSafeJsonClone(localTextByPage);
+      s.sharedTextByPage = nnSafeJsonClone(sharedTextByPage);
+      s.currentPageNum = currentPageNum;
+      s.currentScale = currentScale;
+      s.scrollLeft = viewerContainer ? viewerContainer.scrollLeft : 0;
+      s.scrollTop = viewerContainer ? viewerContainer.scrollTop : 0;
+      s.legacyFolderNavActive = !!legacyFolderNavActive;
+      nnUpdatePdfSlotTabButtons();
+    }
+
+    async function nnClearViewerForEmptySlot() {
+      stopMeetSync();
+      nnDestroyPdfDocJs();
+      originalPdfBytes = null;
+      currentImageObj = null;
+      totalPages = 0;
+      currentPageNum = 1;
+      currentFileId = null;
+      fileName = 'document.pdf';
+      fileType = 'pdf';
+      sharedStrokesByPage = {};
+      localStrokesByPage = {};
+      localTextByPage = {};
+      sharedTextByPage = {};
+      baseWidth = 0;
+      baseHeight = 0;
+      currentScale = 1;
+      if (viewerContainer) {
+        viewerContainer.scrollLeft = 0;
+        viewerContainer.scrollTop = 0;
+      }
+      if (pageIndicator) pageIndicator.textContent = '—';
+      if (statusDiv) statusDiv.textContent = 'このタブには PDF がありません（ホームから開いてください）';
+      if (drawCtx && drawCanvas) {
+        drawCtx.setTransform(1, 0, 0, 1, 0, 0);
+        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      }
+      if (bgCanvas) {
+        var bgCtx2 = bgCanvas.getContext('2d');
+        bgCtx2.setTransform(1, 0, 0, 1, 0, 0);
+        bgCtx2.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+      }
+      legacyFolderNavActive = false;
+      nnSyncLegacyToolsVisibility();
+    }
+
+    async function restorePdfSlotToGlobals(idx) {
+      var s = pdfSlots[idx];
+      if (!s || !s.fileId) {
+        await nnClearViewerForEmptySlot();
+        nnUpdatePdfSlotTabButtons();
+        return;
+      }
+      var restoreGen = ++__pdfLoadGeneration;
+      stopMeetSync();
+      nnResetPdfViewerBinary_();
+      currentFileId = s.fileId;
+      fileName = s.fileName || 'document.pdf';
+      fileType = s.fileType || 'pdf';
+      legacyFolderNavActive = !!s.legacyFolderNavActive;
+      localStrokesByPage = nnSafeJsonClone(s.localStrokesByPage);
+      sharedStrokesByPage = nnSafeJsonClone(s.sharedStrokesByPage);
+      localTextByPage = nnSafeJsonClone(s.localTextByPage);
+      sharedTextByPage = nnSafeJsonClone(s.sharedTextByPage);
+      currentPageNum = s.currentPageNum || 1;
+      currentScale = s.currentScale > 0 ? s.currentScale : 1;
+      originalPdfBytes = nnClonePdfBytes(s.originalPdfBytes);
+      currentImageObj = null;
+      var needFetch = fileType === 'pdf' && !originalPdfBytes && currentFileId;
+      if (needFetch) showLoader('PDFを読み込み中...');
+      try {
+        if (needFetch && typeof google !== 'undefined' && google.script && google.script.run) {
+          var b64re = await new Promise(function (resolve, reject) {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getFileData(currentFileId);
+          });
+          if (restoreGen !== __pdfLoadGeneration) return;
+          if (b64re && typeof b64re === 'object' && b64re.error) throw new Error(b64re.error);
+          if (typeof b64re !== 'string' || !b64re.length) {
+            throw new Error('ファイルデータが空です。');
+          }
+          var bstr = window.atob(b64re);
+          var uarr = new Uint8Array(bstr.length);
+          for (var ir = 0; ir < bstr.length; ir++) uarr[ir] = bstr.charCodeAt(ir);
+          originalPdfBytes = uarr.buffer;
+          var stored = nnClonePdfBytes(originalPdfBytes);
+          if (stored) s.originalPdfBytes = stored;
+        }
+        if (restoreGen !== __pdfLoadGeneration) return;
+        if (fileType === 'pdf' && originalPdfBytes) {
+          var u8 = new Uint8Array(originalPdfBytes.slice(0));
+          nnDestroyPdfDocJs();
+          pdfDocJs = await pdfjsLib.getDocument({ data: u8 }).promise;
+          if (restoreGen !== __pdfLoadGeneration) return;
+          var physPages3 = pdfDocJs.numPages;
+          nnLpEnsurePlanForCurrentFile(physPages3);
+          currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
+          await renderPage(currentPageNum);
+        } else if (s.imageDataUrl) {
+          currentImageObj = new Image();
+          await new Promise(function (resolve, reject) {
+            currentImageObj.onload = resolve;
+            currentImageObj.onerror = reject;
+            currentImageObj.src = s.imageDataUrl;
+          });
+          if (restoreGen !== __pdfLoadGeneration) return;
+          totalPages = 1;
+          currentPageNum = 1;
+          await renderPage(1);
+        } else if (fileType === 'pdf') {
+          throw new Error('PDFデータを取得できませんでした。');
+        } else {
+          await nnClearViewerForEmptySlot();
+          return;
+        }
+      } catch (err) {
+        console.error(err);
+        if (restoreGen === __pdfLoadGeneration) {
+          alert('タブの復元に失敗しました: ' + (err.message || String(err)));
+          await nnClearViewerForEmptySlot();
+        }
+        return;
+      } finally {
+        if (needFetch) hideLoader();
+      }
+      if (restoreGen !== __pdfLoadGeneration) return;
+      if (viewerContainer) {
+        viewerContainer.scrollLeft = s.scrollLeft || 0;
+        viewerContainer.scrollTop = s.scrollTop || 0;
+      }
+      updateFavoriteButtonStatus();
+      applyRoleMeet();
+      nnUpdatePdfSlotTabButtons();
+      nnSyncLegacyToolsVisibility();
+    }
+
+    window.switchPdfSlotIndex = function switchPdfSlotIndex(nextIdx) {
+      if (nextIdx < 0 || nextIdx >= NN_PDF_SLOT_COUNT || nextIdx === pdfActiveSlot) return;
+      __pdfSlotSwitchChain = __pdfSlotSwitchChain
+        .then(function () {
+          return switchPdfSlotIndexDo(nextIdx);
+        })
+        .catch(function (e) {
+          console.error('switchPdfSlotIndex', e);
+        });
+      return __pdfSlotSwitchChain;
+    };
+
+    async function switchPdfSlotIndexDo(nextIdx) {
+      if (nextIdx < 0 || nextIdx >= NN_PDF_SLOT_COUNT || nextIdx === pdfActiveSlot) return;
+      __pdfLoadGeneration++;
+      autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
+      pdfActiveSlot = nextIdx;
+      if (homeScreen) homeScreen.style.display = 'none';
+      if (viewerContainer) viewerContainer.style.display = 'block';
+      var st = document.getElementById('pdf-slot-tabs');
+      if (st) st.classList.add('nn-show');
+      await restorePdfSlotToGlobals(pdfActiveSlot);
+    }
+
     const MIN_WIDTH = 0.5; const MAX_WIDTH = 30.0;
     function updateWidthFromSlider() {
       const t = parseFloat(widthSlider.value) / 100;
@@ -637,6 +2171,16 @@
     }
 
     window.onload = function () {
+      var rt = document.getElementById('nn-realtime-share');
+      if (rt) rt.checked = nnLoadRealtimeSharePref();
+      nnLoadPenPalette();
+      nnLoadPresenterTargets();
+      nnRenderPenPaletteUI();
+      nnLoadLayerVisFromStorage();
+      nnSyncLayerVisCheckboxes();
+      nnSyncTextStylePanelFromDefaults();
+      nnWireTextStylePanelInputs();
+      window.addEventListener('keydown', nnOnKeyDownTextSelect);
       applyRoleMeet();
       showLoader('システムを初期設定中...');
       google.script.run
@@ -648,14 +2192,15 @@
             nnPreloadLastPdfInBackground();
             startupWireMainMenu();
             showStartupGate();
+            nnUpdatePdfSlotTabButtons();
           } else {
             alert((res && res.error) ? res.error : '初期化に失敗しました');
-            fetchFileList();
+            showHomeMeet();
           }
         })
         .withFailureHandler(function () {
           hideLoader();
-          fetchFileList();
+          showHomeMeet();
         })
         .initializeApp();
     };
@@ -676,11 +2221,16 @@
       var input = document.getElementById('input-folder-id').value;
       var isOrg = document.querySelector('input[name="folder-type"]:checked').value === 'org';
       if (!input) return alert('URLまたはIDを入力してください。');
+      var folderIdGuess = nnExtractDriveIdMeet(input);
       showLoader('フォルダを確認中...');
       google.script.run
         .withSuccessHandler(function (res) {
           hideLoader();
           if (res && res.success) {
+            nnEnsureWorkspaceMeta();
+            var fid = res.folderId || folderIdGuess;
+            if (fid) treeData.workspaceMeta.folderKind[fid] = isOrg ? 'org' : 'personal';
+            nnSaveWorkspaceMetaToServer();
             alert('✅ フォルダをワークスペースに追加しました！');
             closeAddModal();
             document.getElementById('input-folder-id').value = '';
@@ -738,8 +2288,11 @@
     }
 
     function showHomeMeet() {
-      stopMeetSync();
       if (currentFileId) autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
+      legacyFolderNavActive = false;
+      nnSyncLegacyToolsVisibility();
+      stopMeetSync();
       if (btnCloseHome) btnCloseHome.style.display = currentFileId ? 'block' : 'none';
       homeScreen.style.display = 'flex';
       viewerContainer.style.display = 'none';
@@ -758,7 +2311,10 @@
       if (!currentFileId) return;
       homeScreen.style.display = 'none';
       viewerContainer.style.display = 'block';
+      var st = document.getElementById('pdf-slot-tabs');
+      if (st) st.classList.add('nn-show');
       applyRoleMeet();
+      nnSyncDupCurrentPdfPageButton();
     }
 
     function loadFolderTree(forceRefresh) {
@@ -769,9 +2325,12 @@
         .withSuccessHandler(function (data) {
           if (forceRefresh) hideLoader();
           treeData = data || { folders: [], files: [], folderColors: {} };
+          if (data && data.workspaceMeta) treeData.workspaceMeta = data.workspaceMeta;
+          nnEnsureWorkspaceMeta();
           var lu = treeData.lastUpdated ? new Date(treeData.lastUpdated).toLocaleString() : '';
           if (ts) ts.textContent = lu ? '最終更新: ' + lu : '';
           renderFolders();
+          renderFilesMeet();
         })
         .getFolderTree(forceRefresh);
     }
@@ -780,31 +2339,77 @@
       var container = document.getElementById('folder-tree-container');
       if (!container) return;
       container.innerHTML = '';
+      nnEnsureWorkspaceMeta();
       var colors = treeData.folderColors || {};
-      (treeData.folders || []).forEach(function (f) {
+      function renderOneFolderRow(f, depth) {
         var div = document.createElement('div');
         div.className = 'folder-item' + (f.id === currentFolderId ? ' selected' : '');
+        div.dataset.folderId = f.id;
+        div.draggable = true;
+        div.style.paddingLeft = 6 + depth * 16 + 'px';
         var folderColor = colors[f.id] || '#ccc';
         var label = document.createElement('div');
         label.className = 'folder-label';
+        var grip = document.createElement('span');
+        grip.className = 'meet-drag-grip';
+        grip.textContent = '⋮⋮';
+        grip.title = 'ドラッグで並べ替え / 別フォルダへドロップで移動';
+        label.appendChild(grip);
         var dot = document.createElement('span');
         dot.className = 'color-dot';
         dot.style.backgroundColor = folderColor;
         label.appendChild(dot);
         label.appendChild(document.createTextNode(' 📁 ' + (f.name || '')));
-        label.addEventListener('click', function () { selectFolderMeet(f.id); });
+        label.addEventListener('click', function () {
+          selectFolderMeet(f.id);
+        });
+        div.addEventListener('dragstart', function (e) {
+          meetFolderDragId = f.id;
+          e.dataTransfer.setData('text/plain', 'folder:' + f.id);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        div.addEventListener('dragend', function () {
+          meetFolderDragId = null;
+          div.classList.remove('meet-f-drag-over');
+        });
+        div.addEventListener('dragover', function (e) {
+          e.preventDefault();
+          if (meetFolderDragId && meetFolderDragId !== f.id) div.classList.add('meet-f-drag-over');
+        });
+        div.addEventListener('dragleave', function () {
+          div.classList.remove('meet-f-drag-over');
+        });
+        div.addEventListener('drop', function (e) {
+          e.preventDefault();
+          div.classList.remove('meet-f-drag-over');
+          var raw = e.dataTransfer.getData('text/plain') || '';
+          var m = /^folder:(.+)$/.exec(raw);
+          var dragF = m ? m[1] : meetFolderDragId;
+          if (!dragF || dragF === f.id) return;
+          nnApplyFolderDrop(dragF, f.id);
+        });
         var palBtn = document.createElement('button');
         palBtn.type = 'button';
         palBtn.className = 'btn-palette';
         palBtn.title = '色を変更';
         palBtn.textContent = '🎨';
-        palBtn.addEventListener('click', function (ev) { openColorPalette(ev, f.id); });
+        palBtn.addEventListener('click', function (ev) {
+          openColorPalette(ev, f.id);
+        });
         div.appendChild(label);
         div.appendChild(palBtn);
         container.appendChild(div);
-      });
-      if (!currentFolderId && treeData.folders && treeData.folders.length > 0) {
-        currentFolderId = treeData.folders[0].id;
+        var kids = nnOrderedFolderChildren(f.id);
+        for (var i = 0; i < kids.length; i++) {
+          renderOneFolderRow(kids[i], depth + 1);
+        }
+      }
+      var roots = nnOrderedFolderChildren(null);
+      for (var r = 0; r < roots.length; r++) {
+        renderOneFolderRow(roots[r], 0);
+      }
+      if (!currentFolderId && roots.length > 0) {
+        currentFolderId = roots[0].id;
         renderFolders();
         renderFilesMeet();
       }
@@ -814,6 +2419,7 @@
       currentFolderId = id;
       renderFolders();
       renderFilesMeet();
+      nnUpdateMeetFolderModeBar();
     }
 
     function toggleSortOrderMeet() {
@@ -827,17 +2433,16 @@
       var container = document.getElementById('file-list-container');
       if (!container) return;
       container.innerHTML = '';
-      if (!currentFolderId) return;
+      nnUpdateMeetFolderModeBar();
+      if (!currentFolderId) {
+        container.innerHTML = '<div style="padding: 20px; color: #888;">← 左のフォルダを選択してください</div>';
+        return;
+      }
+      nnEnsureWorkspaceMeta();
       var sortEl = document.getElementById('sort-type-meet');
       var sortType = sortEl ? sortEl.value : 'updated';
-      var files = (treeData.files || []).filter(function (f) { return f.folderId === currentFolderId; });
-      files.sort(function (a, b) {
-        var valA = sortType === 'name' ? String(a.name || '').toLowerCase() : a[sortType];
-        var valB = sortType === 'name' ? String(b.name || '').toLowerCase() : b[sortType];
-        if (valA < valB) return -1 * sortOrderMeet;
-        if (valA > valB) return 1 * sortOrderMeet;
-        return 0;
-      });
+      var raw = nnGetFilesInFolderRaw(currentFolderId);
+      var files = nnSortFilesMeet(raw, currentFolderId, sortType);
       if (files.length === 0) {
         container.innerHTML = '<div style="padding:10px;color:#888;">ファイルがありません</div>';
         return;
@@ -845,6 +2450,12 @@
       files.forEach(function (f) {
         var div = document.createElement('div');
         div.className = 'file-item';
+        div.dataset.fileId = f.id;
+        div.draggable = true;
+        var grip = document.createElement('span');
+        grip.className = 'meet-drag-grip';
+        grip.textContent = '⋮⋮';
+        grip.title = 'ドラッグで順番変更（並び: 通し番号）';
         var nameEl = document.createElement('div');
         nameEl.className = 'file-name';
         nameEl.textContent = '📄 ' + (f.name || '');
@@ -852,15 +2463,78 @@
         meta.className = 'file-meta';
         var dateSpan = document.createElement('span');
         dateSpan.textContent = '更新: ' + new Date(f.updated).toLocaleDateString();
+        var dueLab = document.createElement('label');
+        dueLab.style.cssText = 'font-size:12px;color:#5f6368;display:flex;align-items:center;gap:4px;';
+        dueLab.title =
+          '会議日・配布期限・校了日など、資料ごとの目安日をメモする欄です（任意）。上部の並び替えで「期限・メモ」欄の日付を選ぶと、この日付で並べ替えられます。未入力のファイルは並び替え時に末尾扱いになります。';
+        dueLab.appendChild(document.createTextNode('期限・メモ'));
+        var dueIn = document.createElement('input');
+        dueIn.type = 'text';
+        dueIn.placeholder = '例: 2026-05-20';
+        dueIn.style.cssText = 'width:110px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;';
+        dueIn.value = (treeData.workspaceMeta.layout.fileDue[f.id] || '').trim();
+        dueIn.addEventListener('click', function (e) {
+          e.stopPropagation();
+        });
+        dueIn.addEventListener('change', function () {
+          nnEnsureWorkspaceMeta();
+          var v = dueIn.value.trim();
+          if (v) treeData.workspaceMeta.layout.fileDue[f.id] = v;
+          else delete treeData.workspaceMeta.layout.fileDue[f.id];
+          nnSaveWorkspaceMetaToServer();
+        });
+        dueLab.appendChild(dueIn);
         var openBtn = document.createElement('button');
         openBtn.type = 'button';
         openBtn.className = 'file-btn-meet';
         openBtn.textContent = '開く';
-        openBtn.onclick = function () { openFileFromHome(f.id, f.name); };
+        openBtn.onclick = function () {
+          openFileFromHome(f.id, f.name, f.folderId);
+        };
+        var driveLink = document.createElement('a');
+        driveLink.href = 'https://drive.google.com/file/d/' + encodeURIComponent(f.id) + '/view';
+        driveLink.target = '_blank';
+        driveLink.rel = 'noopener noreferrer';
+        driveLink.className = 'file-btn-meet';
+        driveLink.textContent = 'Driveで開く';
+        driveLink.title = 'ブラウザで Google Drive のプレビューを開きます（閲覧のみ）';
+        driveLink.style.textDecoration = 'none';
+        driveLink.style.color = '#1a73e8';
+        driveLink.addEventListener('click', function (e) {
+          e.stopPropagation();
+        });
         meta.appendChild(dateSpan);
+        meta.appendChild(dueLab);
         meta.appendChild(openBtn);
+        meta.appendChild(driveLink);
+        div.appendChild(grip);
         div.appendChild(nameEl);
         div.appendChild(meta);
+        div.addEventListener('dragstart', function (e) {
+          meetFileDragId = f.id;
+          e.dataTransfer.setData('text/plain', 'file:' + f.id);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        div.addEventListener('dragend', function () {
+          meetFileDragId = null;
+          div.classList.remove('meet-drag-over');
+        });
+        div.addEventListener('dragover', function (e) {
+          e.preventDefault();
+          if (meetFileDragId && meetFileDragId !== f.id) div.classList.add('meet-drag-over');
+        });
+        div.addEventListener('dragleave', function () {
+          div.classList.remove('meet-drag-over');
+        });
+        div.addEventListener('drop', function (e) {
+          e.preventDefault();
+          div.classList.remove('meet-drag-over');
+          var raw2 = e.dataTransfer.getData('text/plain') || '';
+          var mf = /^file:(.+)$/.exec(raw2);
+          var dragId = mf ? mf[1] : meetFileDragId;
+          if (!dragId || dragId === f.id) return;
+          nnReorderFileRow(dragId, f.id);
+        });
         container.appendChild(div);
       });
     }
@@ -872,14 +2546,26 @@
         if (lastStr) {
           try {
             var last = JSON.parse(lastStr);
+            var lastId =
+              last && last.id != null && String(last.id).trim() !== ''
+                ? String(last.id).trim()
+                : last && last.fileId != null && String(last.fileId).trim() !== ''
+                  ? String(last.fileId).trim()
+                  : '';
             lastContainer.innerHTML = '';
-            var b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'file-btn-meet';
-            b.style.cssText = 'background:#e8f0fe;color:#1a73e8;border-color:#1a73e8;';
-            b.textContent = '📄 ' + (last.name || '');
-            b.onclick = function () { openFileFromHome(last.id, last.name); };
-            lastContainer.appendChild(b);
+            if (!lastId) {
+              lastContainer.textContent = '（記録が無効です。ファイル一覧から開き直してください）';
+            } else {
+              var b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'file-btn-meet';
+              b.style.cssText = 'background:#e8f0fe;color:#1a73e8;border-color:#1a73e8;';
+              b.textContent = '📄 ' + (last.name || '');
+              b.onclick = function () {
+                openFileFromHome(lastId, last.name || 'document.pdf', last.folderId);
+              };
+              lastContainer.appendChild(b);
+            }
           } catch (err) {
             lastContainer.textContent = '（記録がありません）';
           }
@@ -900,7 +2586,9 @@
               btn.type = 'button';
               btn.className = 'file-btn-meet';
               btn.textContent = '⭐ ' + (f.name || '');
-              btn.onclick = function () { openFileFromHome(f.id, f.name); };
+              btn.onclick = function () {
+                openFileFromHome(f.id, f.name, f.folderId);
+              };
               favContainer.appendChild(btn);
             });
           } else {
@@ -923,7 +2611,11 @@
         btnFavorite.style.color = '#ccc';
         btnFavorite.innerHTML = '☆';
       } else {
-        favs.push({ id: currentFileId, name: fileName });
+        favs.push({
+          id: currentFileId,
+          name: fileName,
+          folderId: nnFindFolderIdForFile(currentFileId) || currentFolderId || null,
+        });
         btnFavorite.style.color = '#f4b400';
         btnFavorite.innerHTML = '⭐';
       }
@@ -937,16 +2629,65 @@
       btnFavorite.innerHTML = isFav ? '⭐' : '☆';
     }
 
-    function openFileFromHome(id, name) {
+    function openFileFromHome(id, name, storedFolderId) {
+      hideStartupGate();
+      setAppMode('pdf');
+      var fid =
+        id != null && String(id).trim() !== ''
+          ? String(id).trim()
+          : '';
+      if (!fid) {
+        alert('ファイル ID がありません。一覧の「開く」から開いてください。');
+        showHomeMeet();
+        return;
+      }
+      try {
+        if (currentFileId) autoSaveCurrent(true);
+      } catch (e0) {
+        console.warn(e0);
+      }
+      try {
+        savePdfSlotFromGlobals();
+      } catch (e1) {
+        console.warn('savePdfSlotFromGlobals', e1);
+      }
+      var folderForFile = nnFindFolderIdForFile(fid);
+      if (folderForFile) currentFolderId = folderForFile;
+      else if (storedFolderId != null && String(storedFolderId).trim() !== '') {
+        currentFolderId = String(storedFolderId).trim();
+      }
+      var mode = nnGetFolderPdfModeForFolder(currentFolderId);
+      if (mode === 'seamless') {
+        if (!currentFolderId) {
+          alert(
+            'シームレス表示のフォルダを特定できませんでした。ホームで「ツリーを最新に更新」してから、一覧の「開く」で開くか、前回の記録を開き直してください。'
+          );
+          showHomeMeet();
+          return;
+        }
+        openSeamlessViewerForFolder(currentFolderId, fid, name);
+        return;
+      }
       legacyFolderNavActive = false;
-      currentFileId = id;
+      nnSyncLegacyToolsVisibility();
+      currentFileId = fid;
       fileName = name || 'document.pdf';
       try {
-        localStorage.setItem('last_opened_file', JSON.stringify({ id: id, name: fileName }));
+        localStorage.setItem(
+          'last_opened_file',
+          JSON.stringify({
+            id: fid,
+            name: fileName,
+            folderId: currentFolderId,
+            pdfMode: 'individual',
+          })
+        );
       } catch (e) {}
       updateFavoriteButtonStatus();
       homeScreen.style.display = 'none';
       viewerContainer.style.display = 'block';
+      var st = document.getElementById('pdf-slot-tabs');
+      if (st) st.classList.add('nn-show');
       var nnPanel = document.getElementById('nn-panel');
       if (nnPanel) nnPanel.style.display = 'none';
       var pdfBtn = document.getElementById('btn-mode-pdf');
@@ -955,13 +2696,37 @@
         taskBtn.classList.remove('active-mode');
         pdfBtn.classList.add('active-mode');
       }
-      loadSelectedFile(false, false);
+      __pdfLoadGeneration++;
+      nnResetPdfViewerBinary_();
+      __pdfFileOpenChain = __pdfFileOpenChain
+        .then(function () {
+          return loadSelectedFile(false, false);
+        })
+        .catch(function (e) {
+          console.error('openFileFromHome load', e);
+          hideLoader();
+        });
     }
 
     function applyRoleMeet() {
       stopMeetSync();
-      currentUserRole = roleSelect.value;
-      roleSelect.className = 'role-' + currentUserRole;
+      var rs = document.getElementById('role-select');
+      if (!nnRealtimeShareEnabled()) {
+        if (rs) {
+          rs.style.display = 'none';
+          rs.value = 'participant';
+        }
+        currentUserRole = 'participant';
+        if (roleSelect) roleSelect.className = 'role-participant';
+        drawCanvas.style.pointerEvents = 'auto';
+        hostFrame.style.display = 'none';
+        statusDiv.textContent = '📝 メモ（リアルタイム共有オフ）';
+        nnSyncPresenterTargetUi();
+        return;
+      }
+      if (rs) rs.style.display = '';
+      currentUserRole = roleSelect ? roleSelect.value : 'participant';
+      if (roleSelect) roleSelect.className = 'role-' + currentUserRole;
       drawCanvas.style.pointerEvents = 'auto';
       hostFrame.style.display = 'none';
       if (currentUserRole === 'presenter') {
@@ -971,9 +2736,11 @@
         statusDiv.textContent = '📝 個人メモモード';
         syncIntervalTimer = setInterval(pullMeetingState, 2500);
       }
+      nnSyncPresenterTargetUi();
     }
 
     function pushMeetingState() {
+      if (!nnRealtimeShareEnabled()) return;
       if (!currentFileId) return;
       var state = {
         fileId: currentFileId,
@@ -994,7 +2761,7 @@
           if (!res) return;
           var state = JSON.parse(res);
           if (state.fileId && state.fileId !== currentFileId) {
-            openFileFromHome(state.fileId, state.fileName || 'document.pdf');
+            openFileFromHome(state.fileId, state.fileName || 'document.pdf', state.folderId);
             return;
           }
           if (state.pageNum && state.pageNum !== currentPageNum && currentFileId) {
@@ -1017,48 +2784,23 @@
     }
 
     function reloadStrokesSilently() {
-      if (!fileName) return;
+      if (!fileName || !currentFileId) return;
       var baseName = fileName.replace(/\.[^/.]+$/, '');
       google.script.run
         .withSuccessHandler(function (res) {
-          if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
+          if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
+          else {
+            sharedStrokesByPage = {};
+            sharedTextByPage = {};
+          }
           redraw();
         })
-        .loadAnnotation(baseName);
-    }
-
-    function fetchFileList() {
-      var mode = folderSelect.value;
-      showLoader('ファイル一覧を取得中...');
-      legacyFolderNavActive = true;
-      homeScreen.style.display = 'none';
-      viewerContainer.style.display = 'block';
-      google.script.run
-        .withSuccessHandler(function (list) {
-          if (list && list.error) {
-            alert('エラー: ' + list.error);
-            hideLoader();
-            return;
-          }
-          if (!list || list.length === 0) {
-            fileSelect.innerHTML = '<option>ファイルなし</option>';
-            hideLoader();
-            return;
-          }
-          fileSelect.innerHTML = '';
-          list.forEach(function (file) {
-            var option = document.createElement('option');
-            option.value = file.id;
-            option.text = file.name;
-            fileSelect.appendChild(option);
-          });
-          loadSelectedFile(false, false, true);
-        })
-        .getFileList(mode);
+        .loadAnnotation(currentFileId, baseName);
     }
 
     function onFileDropdownChanged() {
       autoSaveCurrent(true);
+      savePdfSlotFromGlobals();
       loadSelectedFile(false, false, true);
     }
 
@@ -1074,17 +2816,24 @@
       if (!currentFileId || !fileName) return;
       var baseName = fileName.replace(/\.[^/.]+$/, '');
       if (currentUserRole === 'presenter') {
-        if (!nnHasAnyStrokes(sharedStrokesByPage)) return;
-        var json = JSON.stringify(sharedStrokesByPage);
-        if (!silent) statusDiv.textContent = '保存中...';
-        google.script.run
-          .withSuccessHandler(function () {
-            if (!silent) statusDiv.textContent = '共有保存完了';
-          })
-          .saveAnnotation(baseName, json);
+        var hasS = nnHasSharedContentToSave();
+        var hasL = nnHasLocalContentToSave();
+        if (!hasS && !hasL) return;
+        if (hasS) {
+          if (!silent) statusDiv.textContent = '保存中...';
+          google.script.run
+            .withSuccessHandler(function () {
+              if (!silent) statusDiv.textContent = hasL ? '共有＋個人を保存' : '共有保存完了';
+            })
+            .saveAnnotation(currentFileId, nnSerializeSharedAnnotation());
+        }
+        if (hasL) {
+          localStorage.setItem('local_memo_' + baseName, nnSerializeLocalMemo());
+          if (!silent && !hasS) statusDiv.textContent = 'メモ保存完了';
+        }
       } else {
-        if (!nnHasAnyStrokes(localStrokesByPage)) return;
-        var jsonL = JSON.stringify(localStrokesByPage);
+        if (!nnHasLocalContentToSave()) return;
+        var jsonL = nnSerializeLocalMemo();
         localStorage.setItem('local_memo_' + baseName, jsonL);
         if (!silent) statusDiv.textContent = 'メモ保存完了';
       }
@@ -1098,33 +2847,62 @@
       if (fromDropdown) {
         legacyFolderNavActive = true;
         currentFileId = fileSelect.value;
-        if (!currentFileId) return;
+        if (!currentFileId) return Promise.resolve();
         fileName = fileSelect.options[fileSelect.selectedIndex].text;
       } else if (!currentFileId) {
-        return;
+        return Promise.resolve();
       }
 
+      var loadGen = __pdfLoadGeneration;
       var baseName = fileName.replace(/\.[^/.]+$/, '');
       var ext = fileName.split('.').pop().toLowerCase();
       fileType = ext === 'jpg' || ext === 'jpeg' || ext === 'png' ? 'image' : 'pdf';
 
       if (!silent) showLoader('ファイルを開いています...');
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        hideLoader();
+        alert('Google Apps Script からファイルを取得できません。アプリを開き直してください。');
+        return Promise.resolve();
+      }
+      return new Promise(function (resolveOpen, rejectOpen) {
       google.script.run
+        .withFailureHandler(function (err) {
+          hideLoader();
+          alert(
+            'Drive からファイルを取得できませんでした。権限・ファイルサイズ・ネットワークを確認してください。\n' +
+              (err && err.message ? err.message : String(err))
+          );
+          rejectOpen(err);
+        })
         .withSuccessHandler(function (base64Data) {
+          if (loadGen !== __pdfLoadGeneration) {
+            hideLoader();
+            resolveOpen();
+            return;
+          }
           if (base64Data && base64Data.error) {
             alert('エラー: ' + base64Data.error);
             hideLoader();
+            rejectOpen(new Error(base64Data.error));
+            return;
+          }
+          if (typeof base64Data !== 'string' || !base64Data.length) {
+            alert('ファイルデータが空です。共有ドライブの権限や、ファイルが大きすぎないか確認してください。');
+            hideLoader();
+            rejectOpen(new Error('empty file data'));
             return;
           }
           (async function () {
             try {
+              nnResetPdfViewerBinary_();
               if (fileType === 'pdf') {
                 var binaryString = window.atob(base64Data);
                 var bytes = new Uint8Array(binaryString.length);
                 for (var i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                originalPdfBytes = bytes.buffer;
-                pdfDocJs = await pdfjsLib.getDocument(bytes).promise;
-                totalPages = pdfDocJs.numPages;
+                originalPdfBytes = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+                pdfDocJs = await pdfjsLib.getDocument({ data: bytes }).promise;
+                if (loadGen !== __pdfLoadGeneration) return;
+                var physPages = pdfDocJs.numPages;
               } else {
                 var mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
                 currentImageObj = new Image();
@@ -1135,38 +2913,89 @@
                 totalPages = 1;
               }
 
-              var maxPage = Math.max(1, totalPages);
-              if (!silent) {
-                currentPageNum = goToLastPage ? maxPage : 1;
-              } else {
-                currentPageNum = Math.min(Math.max(1, currentPageNum), maxPage);
-              }
               var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
-              localStrokesByPage = savedLocalMemo ? JSON.parse(savedLocalMemo) : {};
+              nnApplyLocalMemoPayload(savedLocalMemo);
+
+              var maxPageGuess = fileType === 'pdf' ? pdfDocJs.numPages : totalPages;
+              if (!silent) {
+                currentPageNum = goToLastPage ? maxPageGuess : 1;
+              } else {
+                currentPageNum = Math.min(Math.max(1, currentPageNum), maxPageGuess);
+              }
+
+              async function nnAfterAnnotation_(res) {
+                if (loadGen !== __pdfLoadGeneration) return;
+                if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
+                else {
+                  sharedStrokesByPage = {};
+                  sharedTextByPage = {};
+                }
+                if (fileType === 'pdf') {
+                  nnLpEnsurePlanForCurrentFile(pdfDocJs.numPages);
+                  currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
+                }
+                if (!silent) {
+                  currentScale = 1.0;
+                  viewerContainer.scrollLeft = 0;
+                  viewerContainer.scrollTop = 0;
+                }
+                homeScreen.style.display = 'none';
+                viewerContainer.style.display = 'block';
+                var stLoad = document.getElementById('pdf-slot-tabs');
+                if (stLoad) stLoad.classList.add('nn-show');
+                await renderPage(currentPageNum);
+                hideLoader();
+                updateFavoriteButtonStatus();
+                applyRoleMeet();
+                savePdfSlotFromGlobals();
+                nnSyncLegacyToolsVisibility();
+              }
 
               google.script.run
-                .withSuccessHandler(async function (res) {
-                  if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
-                  else sharedStrokesByPage = {};
-                  if (!silent) {
-                    currentScale = 1.0;
-                    viewerContainer.scrollLeft = 0;
-                    viewerContainer.scrollTop = 0;
-                  }
-                  await renderPage(currentPageNum);
-                  hideLoader();
-                  updateFavoriteButtonStatus();
-                  applyRoleMeet();
+                .withFailureHandler(function (err2) {
+                  (async function () {
+                    try {
+                      await nnAfterAnnotation_(null);
+                    } catch (e) {
+                      console.error(e);
+                      hideLoader();
+                    }
+                    if (loadGen === __pdfLoadGeneration) {
+                      alert(
+                        '共有メモ（注釈）の読み込みに失敗しました。資料は表示しています。\n' +
+                          (err2 && err2.message ? err2.message : String(err2))
+                      );
+                    }
+                    resolveOpen();
+                  })();
                 })
-                .loadAnnotation(baseName);
+                .withSuccessHandler(function (res) {
+                  Promise.resolve(nnAfterAnnotation_(res))
+                    .then(function () {
+                      resolveOpen();
+                    })
+                    .catch(function (e) {
+                      console.error(e);
+                      hideLoader();
+                      if (loadGen === __pdfLoadGeneration) {
+                        alert('表示に失敗しました: ' + (e && e.message ? e.message : String(e)));
+                      }
+                      rejectOpen(e);
+                    });
+                })
+                .loadAnnotation(currentFileId, baseName);
             } catch (err) {
               console.error(err);
-              alert('読み込み失敗: ' + err.message);
+              if (loadGen === __pdfLoadGeneration) {
+                alert('読み込み失敗: ' + (err && err.message ? err.message : String(err)));
+              }
               hideLoader();
+              rejectOpen(err);
             }
           })();
         })
         .getFileData(currentFileId);
+      });
     }
 
     function nnPreloadLastPdfInBackground() {
@@ -1205,32 +3034,53 @@
       currentFileId = id;
       fileName = name || 'document.pdf';
       legacyFolderNavActive = false;
+      nnSyncLegacyToolsVisibility();
       fileType = 'pdf';
       var baseName = fileName.replace(/\.[^/.]+$/, '');
       try {
-        localStorage.setItem('last_opened_file', JSON.stringify({ id: currentFileId, name: fileName }));
+        localStorage.setItem(
+          'last_opened_file',
+          JSON.stringify({
+            id: currentFileId,
+            name: fileName,
+            folderId: currentFolderId || null,
+            pdfMode: 'individual',
+          })
+        );
       } catch (e) {}
+      __pdfLoadGeneration++;
+      nnResetPdfViewerBinary_();
+      var loadGenB64 = __pdfLoadGeneration;
       if (!silent) showLoader('PDFを開いています...');
       (async function () {
         try {
           var binaryString = window.atob(base64Data);
           var bytes = new Uint8Array(binaryString.length);
           for (var i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-          originalPdfBytes = bytes.buffer;
-          pdfDocJs = await pdfjsLib.getDocument(bytes).promise;
-          totalPages = pdfDocJs.numPages;
-          currentPageNum = 1;
+          if (loadGenB64 !== __pdfLoadGeneration) return;
+          originalPdfBytes = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+          pdfDocJs = await pdfjsLib.getDocument({ data: bytes }).promise;
+          if (loadGenB64 !== __pdfLoadGeneration) return;
+          var physPages2 = pdfDocJs.numPages;
           var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
-          localStrokesByPage = savedLocalMemo ? JSON.parse(savedLocalMemo) : {};
+          nnApplyLocalMemoPayload(savedLocalMemo);
           google.script.run
             .withSuccessHandler(async function (res) {
-              if (res && res.success && res.data) sharedStrokesByPage = JSON.parse(res.data);
-              else sharedStrokesByPage = {};
+              if (loadGenB64 !== __pdfLoadGeneration) return;
+              if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
+              else {
+                sharedStrokesByPage = {};
+                sharedTextByPage = {};
+              }
+              nnLpEnsurePlanForCurrentFile(physPages2);
+              currentPageNum = 1;
               currentScale = 1.0;
               viewerContainer.scrollLeft = 0;
               viewerContainer.scrollTop = 0;
               homeScreen.style.display = 'none';
               viewerContainer.style.display = 'block';
+              var st2 = document.getElementById('pdf-slot-tabs');
+              if (st2) st2.classList.add('nn-show');
               var nnPanel = document.getElementById('nn-panel');
               if (nnPanel) nnPanel.style.display = 'none';
               var pdfBtn = document.getElementById('btn-mode-pdf');
@@ -1243,11 +3093,15 @@
               hideLoader();
               updateFavoriteButtonStatus();
               applyRoleMeet();
+              savePdfSlotFromGlobals();
+              nnSyncLegacyToolsVisibility();
             })
-            .loadAnnotation(baseName);
+            .loadAnnotation(currentFileId, baseName);
         } catch (err) {
           console.error(err);
-          alert('読み込み失敗: ' + err.message);
+          if (loadGenB64 === __pdfLoadGeneration) {
+            alert('読み込み失敗: ' + (err && err.message ? err.message : String(err)));
+          }
           hideLoader();
         }
       })();
@@ -1281,8 +3135,14 @@
         if (s) {
           try {
             var last = JSON.parse(s);
-            if (last && last.id) {
-              openFileFromHome(last.id, last.name || 'document.pdf');
+            var lid =
+              last && last.id != null && String(last.id).trim() !== ''
+                ? String(last.id).trim()
+                : last && last.fileId != null && String(last.fileId).trim() !== ''
+                  ? String(last.fileId).trim()
+                  : '';
+            if (lid) {
+              openFileFromHome(lid, last.name || 'document.pdf', last.folderId);
               return;
             }
           } catch (e2) {}
@@ -1301,6 +3161,38 @@
     function startupChoosePdfHome() {
       hideStartupGate();
       showHomeMeet();
+    }
+
+    /** ホームヘッダーから PDF 書き込み画面へ（前回ファイルがあれば開く） */
+    function meetGoPdfFromHome() {
+      hideStartupGate();
+      if (homeScreen) homeScreen.style.display = 'none';
+      if (viewerContainer) viewerContainer.style.display = 'block';
+      setAppMode('pdf');
+      if (window.nnPdfPreload && window.nnPdfPreload.base64) {
+        loadPdfFromBase64(window.nnPdfPreload.base64, window.nnPdfPreload.id, window.nnPdfPreload.name, false);
+        return;
+      }
+      var s = localStorage.getItem('last_opened_file');
+      if (s) {
+        try {
+          var last = JSON.parse(s);
+          var lid =
+            last && last.id != null && String(last.id).trim() !== ''
+              ? String(last.id).trim()
+              : last && last.fileId != null && String(last.fileId).trim() !== ''
+                ? String(last.fileId).trim()
+                : '';
+          if (lid) {
+            openFileFromHome(lid, last.name || 'document.pdf', last.folderId);
+            return;
+          }
+        } catch (e2) {}
+      }
+    }
+    function meetGoTaskFromHome() {
+      hideStartupGate();
+      startupChooseTaskHome();
     }
 
     function startupWireMainMenu() {
@@ -1331,13 +3223,21 @@
 
     async function renderPage(pageNum) {
       statusDiv.textContent = 'レンダリング中...';
-      if (!sharedStrokesByPage[pageNum]) sharedStrokesByPage[pageNum] = [];
-      if (!localStrokesByPage[pageNum]) localStrokesByPage[pageNum] = [];
+      var lid = nnLpGetLogicalIdAt(pageNum);
+      nnSelectedTextRef = null;
+      nnTextCreateDrag = null;
+      nnTempTextRect = null;
+      nnTextMove = null;
+      if (!sharedStrokesByPage[lid]) sharedStrokesByPage[lid] = [];
+      if (!localStrokesByPage[lid]) localStrokesByPage[lid] = [];
+      if (!sharedTextByPage[lid]) sharedTextByPage[lid] = [];
+      if (!localTextByPage[lid]) localTextByPage[lid] = [];
 
       var bgCtx = bgCanvas.getContext('2d');
 
       if (fileType === 'pdf') {
-        var page = await pdfDocJs.getPage(pageNum);
+        var phys = parseInt(nnLpGetSourcePhysicalForId(lid), 10) || pageNum;
+        var page = await pdfDocJs.getPage(phys);
         var viewport = page.getViewport({ scale: 1.5 });
         baseWidth = viewport.width;
         baseHeight = viewport.height;
@@ -1360,6 +3260,15 @@
       }
       statusDiv.textContent = '書込み可 (x' + currentScale.toFixed(1) + ')';
       redraw();
+      nnSyncDupCurrentPdfPageButton();
+    }
+
+    function nnLpGetSourcePhysicalForId(logicalId) {
+      nnEnsureWorkspaceMeta();
+      if (fileType !== 'pdf' || !currentFileId) return '1';
+      var plan = treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
+      if (!plan || !plan.sources || !plan.sources[logicalId]) return '1';
+      return String(plan.sources[logicalId].sourcePdfPage || 1);
     }
 
     function setSizeAndScale(bgCtx) {
@@ -1383,7 +3292,7 @@
       var newPage = currentPageNum + delta;
 
       if (newPage >= 1 && newPage <= totalPages) {
-        if (!allowLegacyNav && currentUserRole !== 'presenter') {
+        if (!allowLegacyNav && nnRealtimeShareEnabled() && currentUserRole !== 'presenter') {
           statusDiv.textContent = 'ページ送りは発表者モードでのみ利用できます';
           return;
         }
@@ -1423,10 +3332,21 @@
 
     function setTool(tool) {
       currentTool = tool;
-      document.getElementById('btn-pen').classList.toggle('active-tool', tool === 'pen');
-      document.getElementById('btn-eraser').classList.toggle('active-tool', tool === 'eraser');
-      document.getElementById('btn-laser').classList.toggle('active-tool', tool === 'laser');
-      if(tool !== 'laser') myLaserDot.style.display = 'none';
+      nnTextCreateDrag = null;
+      nnTempTextRect = null;
+      nnTextMove = null;
+      var bp = document.getElementById('btn-pen');
+      var be = document.getElementById('btn-eraser');
+      var bl = document.getElementById('btn-laser');
+      var bt = document.getElementById('btn-textbox');
+      var bs = document.getElementById('btn-select');
+      if (bp) bp.classList.toggle('active-tool', tool === 'pen');
+      if (be) be.classList.toggle('active-tool', tool === 'eraser');
+      if (bl) bl.classList.toggle('active-tool', tool === 'laser');
+      if (bt) bt.classList.toggle('active-tool', tool === 'textbox');
+      if (bs) bs.classList.toggle('active-tool', tool === 'select');
+      if (tool !== 'laser') myLaserDot.style.display = 'none';
+      if (tool !== 'select') nnSelectedTextRef = null;
     }
 
     function getScaledCoords(e) {
@@ -1440,12 +3360,13 @@
     }
 
     function getTargetStrokesArray() {
-      if (currentUserRole === 'presenter') {
-        if (!sharedStrokesByPage[currentPageNum]) sharedStrokesByPage[currentPageNum] = [];
-        return sharedStrokesByPage[currentPageNum];
+      var sk = nnLpCurrentStrokeKey();
+      if (currentUserRole === 'presenter' && nnPresenterPenToShared) {
+        if (!sharedStrokesByPage[sk]) sharedStrokesByPage[sk] = [];
+        return sharedStrokesByPage[sk];
       }
-      if (!localStrokesByPage[currentPageNum]) localStrokesByPage[currentPageNum] = [];
-      return localStrokesByPage[currentPageNum];
+      if (!localStrokesByPage[sk]) localStrokesByPage[sk] = [];
+      return localStrokesByPage[sk];
     }
 
     drawCanvas.addEventListener('pointerdown', (e) => {
@@ -1463,16 +3384,57 @@
         return;
       }
       if (e.buttons === 0) return;
+      const pt = getScaledCoords(e);
       const isHardwareEraser = (e.buttons === 32 || e.button === 5);
       const activeTool = isHardwareEraser ? 'eraser' : currentTool;
-      const pt = getScaledCoords(e);
-      if (activeTool === 'laser') { myLaserDot.style.display = 'block'; myLaserDot.style.left = pt.x + 'px'; myLaserDot.style.top = pt.y + 'px'; return; }
-      
+      if ((currentTool === 'textbox' || currentTool === 'select') && e.pointerType === 'touch') {
+        return;
+      }
+      if (activeTool === 'laser') {
+        myLaserDot.style.display = 'block';
+        myLaserDot.style.left = pt.x + 'px';
+        myLaserDot.style.top = pt.y + 'px';
+        return;
+      }
+      if (activeTool === 'select') {
+        nnReadTextStyleFromPanel();
+        var hitSel = nnHitTextBoxesAt(pt, true);
+        if (hitSel) {
+          nnSelectedTextRef = { box: hitSel.box, layer: hitSel.layer, id: hitSel.box.id };
+          nnTextMove = {
+            hit: hitSel,
+            px: pt.x,
+            py: pt.y,
+            ox: hitSel.box.x,
+            oy: hitSel.box.y,
+            pointerId: e.pointerId,
+          };
+          isDrawing = true;
+          return;
+        }
+        nnSelectedTextRef = null;
+        redraw();
+        return;
+      }
+      if (activeTool === 'textbox') {
+        nnReadTextStyleFromPanel();
+        nnTextCreateDrag = { x1: pt.x, y1: pt.y, pointerId: e.pointerId };
+        nnTempTextRect = null;
+        isDrawing = true;
+        return;
+      }
       isDrawing = true;
       if (activeTool === 'pen') {
-        currentStroke = { color: document.getElementById('pen-color').value, opacity: parseFloat(document.getElementById('pen-opacity').value), width: parseFloat(widthInput.value), points: [pt] };
+        currentStroke = {
+          color: nnGetActivePenColor(),
+          opacity: parseFloat(document.getElementById('pen-opacity').value),
+          width: parseFloat(widthInput.value),
+          points: [pt],
+        };
         getTargetStrokesArray().push(currentStroke);
-      } else eraseStroke(pt);
+      } else {
+        eraseStroke(pt);
+      }
     });
 
     drawCanvas.addEventListener('pointermove', (e) => {
@@ -1493,20 +3455,66 @@
         }
         return;
       }
-      if (e.pointerType !== 'pen') return;
+      if (e.pointerType !== 'pen' && e.pointerType !== 'mouse') return;
       const pt = getScaledCoords(e);
       const isHardwareEraser = (e.buttons === 32 || e.button === 5);
       const activeTool = isHardwareEraser ? 'eraser' : currentTool;
-      if (activeTool === 'laser') { myLaserDot.style.display = 'block'; myLaserDot.style.left = pt.x + 'px'; myLaserDot.style.top = pt.y + 'px'; return; }
+      if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
+        var dx = pt.x - nnTextMove.px;
+        var dy = pt.y - nnTextMove.py;
+        nnTextMove.hit.box.x = nnTextMove.ox + dx;
+        nnTextMove.hit.box.y = nnTextMove.oy + dy;
+        redraw();
+        return;
+      }
+      if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
+        nnTempTextRect = nnNormalizeRect(nnTextCreateDrag.x1, nnTextCreateDrag.y1, pt.x, pt.y);
+        redraw();
+        return;
+      }
+      if (activeTool === 'laser') {
+        myLaserDot.style.display = 'block';
+        myLaserDot.style.left = pt.x + 'px';
+        myLaserDot.style.top = pt.y + 'px';
+        return;
+      }
       if (!isDrawing || e.buttons === 0) return;
-      if (activeTool === 'pen') { currentStroke.points.push(pt); redraw(); } else eraseStroke(pt);
+      if (activeTool === 'pen') {
+        currentStroke.points.push(pt);
+        redraw();
+      } else {
+        eraseStroke(pt);
+      }
     });
 
     function handlePointerEnd(e) {
       activePointers.delete(e.pointerId);
       if (currentTool === 'laser') myLaserDot.style.display = 'none';
       if (activePointers.size === 0) {
-        if (isDrawing) {
+        var skipPenAutosave = false;
+        if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
+          var tr = nnTempTextRect;
+          if (tr && tr.w >= 20 && tr.h >= 14) {
+            nnReadTextStyleFromPanel();
+            var tb = Object.assign({ id: nnNewTextBoxId(), x: tr.x, y: tr.y, w: tr.w, h: tr.h, text: '' }, nnCloneTextStyleFromDefaults());
+            var txt = window.prompt('テキスト框の内容（空欄可）', '');
+            if (txt != null) tb.text = String(txt);
+            getTargetTextBoxesArray().push(tb);
+            nnBumpStrokeTime();
+            autoSaveCurrent(true);
+          }
+          nnTextCreateDrag = null;
+          nnTempTextRect = null;
+          redraw();
+          skipPenAutosave = true;
+        }
+        if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
+          nnTextMove = null;
+          nnBumpStrokeTime();
+          autoSaveCurrent(true);
+          skipPenAutosave = true;
+        }
+        if (isDrawing && !skipPenAutosave) {
           lastStrokeTime = Date.now();
           autoSaveCurrent(true);
         }
@@ -1525,10 +3533,11 @@
       const filterFn = function (stroke) {
         return !stroke.points.some(function (p) { return Math.hypot(p.x - point.x, p.y - point.y) < threshold; });
       };
-      if (currentUserRole === 'presenter') {
-        sharedStrokesByPage[currentPageNum] = (sharedStrokesByPage[currentPageNum] || []).filter(filterFn);
+      var skE = nnLpCurrentStrokeKey();
+      if (currentUserRole === 'presenter' && nnPresenterPenToShared) {
+        sharedStrokesByPage[skE] = (sharedStrokesByPage[skE] || []).filter(filterFn);
       } else {
-        localStrokesByPage[currentPageNum] = (localStrokesByPage[currentPageNum] || []).filter(filterFn);
+        localStrokesByPage[skE] = (localStrokesByPage[skE] || []).filter(filterFn);
       }
       redraw();
     }
@@ -1551,9 +3560,32 @@
 
     function redraw() {
       drawCtx.clearRect(0, 0, drawCanvas.width / dpr, drawCanvas.height / dpr);
-      if (sharedStrokesByPage[currentPageNum]) drawStrokesToContext(drawCtx, sharedStrokesByPage[currentPageNum], false);
-      if (localStrokesByPage[currentPageNum]) drawStrokesToContext(drawCtx, localStrokesByPage[currentPageNum], false);
+      var sk = nnLpCurrentStrokeKey();
+      if (nnLayerVis.sharedPen && sharedStrokesByPage[sk]) drawStrokesToContext(drawCtx, sharedStrokesByPage[sk], false);
+      if (nnLayerVis.sharedText && sharedTextByPage[sk]) nnDrawTextBoxesToContext(drawCtx, sharedTextByPage[sk]);
+      if (nnLayerVis.localPen && localStrokesByPage[sk]) drawStrokesToContext(drawCtx, localStrokesByPage[sk], false);
+      if (nnLayerVis.localText && localTextByPage[sk]) nnDrawTextBoxesToContext(drawCtx, localTextByPage[sk]);
+      if (nnTempTextRect && nnTempTextRect.w > 0 && nnTempTextRect.h > 0) {
+        drawCtx.save();
+        drawCtx.setLineDash([6, 4]);
+        drawCtx.strokeStyle = 'rgba(26,115,232,0.8)';
+        drawCtx.lineWidth = 1.5;
+        drawCtx.strokeRect(nnTempTextRect.x, nnTempTextRect.y, nnTempTextRect.w, nnTempTextRect.h);
+        drawCtx.restore();
+      }
     }
+
+    drawCanvas.addEventListener('dblclick', function (ev) {
+      var pt = getScaledCoords(ev);
+      var hit = nnHitTextBoxesAt(pt, true);
+      if (!hit) return;
+      var nv = window.prompt('テキストを編集', hit.box.text != null ? String(hit.box.text) : '');
+      if (nv == null) return;
+      hit.box.text = String(nv);
+      nnBumpStrokeTime();
+      autoSaveCurrent(true);
+      redraw();
+    });
 
     function saveToServer() {
       if (!fileName) return alert('ファイルが開かれていません。');
@@ -1561,8 +3593,9 @@
     }
 
     function recognizeCurrentPageText() {
-      const shared = sharedStrokesByPage[currentPageNum] || [];
-      const local = localStrokesByPage[currentPageNum] || [];
+      var sk = nnLpCurrentStrokeKey();
+      const shared = sharedStrokesByPage[sk] || [];
+      const local = localStrokesByPage[sk] || [];
       const combinedStrokes = shared.concat(local);
       if (combinedStrokes.length === 0) {
         alert('このページに手書きがありません。');
@@ -1607,30 +3640,107 @@
         .recognizeSentence(apiInk);
     }
 
+    /** pdf.js 利用後にデタッチされた ArrayBuffer でも PDFLib が読めるよう複製する */
+    function nnBytesForPdfLibLoad(buf) {
+      if (!buf) return null;
+      try {
+        if (buf instanceof ArrayBuffer) return buf.slice(0);
+        if (buf.buffer && buf.buffer instanceof ArrayBuffer) {
+          return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+        }
+      } catch (e) {}
+      return buf;
+    }
+
+    async function nnExportViewportSizeForPhysicalPage(phys1Based) {
+      var ew = baseWidth > 0 ? baseWidth : 612;
+      var eh = baseHeight > 0 ? baseHeight : 792;
+      if (pdfDocJs && phys1Based >= 1) {
+        try {
+          var pjs = await pdfDocJs.getPage(phys1Based);
+          var vp = pjs.getViewport({ scale: 1.5 });
+          ew = vp.width;
+          eh = vp.height;
+        } catch (e) {}
+      }
+      return { ew: ew, eh: eh };
+    }
+
     async function exportFile() {
       if (fileType === 'pdf') {
         if (!originalPdfBytes) return alert("PDFがありません。");
         showLoader("PDFを合成・生成中...");
         try {
           const { PDFDocument } = PDFLib;
-          const pdfDoc = await PDFDocument.load(originalPdfBytes);
-          const offCanvas = document.createElement('canvas'); const offCtx = offCanvas.getContext('2d');
-          offCanvas.width = baseWidth * dpr; offCanvas.height = baseHeight * dpr; offCtx.scale(dpr, dpr);
-
-          for (let i = 1; i <= totalPages; i++) {
-            const pageStrokes = (sharedStrokesByPage[i] || []).concat(localStrokesByPage[i] || []);
-            if (!pageStrokes || pageStrokes.length === 0) continue;
-            drawStrokesToContext(offCtx, pageStrokes, true);
-            const pngImage = await pdfDoc.embedPng(offCanvas.toDataURL('image/png'));
-            const pdfPage = pdfDoc.getPage(i - 1);
-            pdfPage.drawImage(pngImage, { x: 0, y: 0, width: pdfPage.getWidth(), height: pdfPage.getHeight() });
+          const rawBytes = nnBytesForPdfLibLoad(originalPdfBytes);
+          if (!rawBytes) {
+            hideLoader();
+            return alert('PDFバイナリを読み取れません。タブを切り替えるか、ファイルを開き直してから再度お試しください。');
           }
+          const srcPdf = await PDFDocument.load(rawBytes);
+          const offCanvas = document.createElement('canvas');
+          const offCtx = offCanvas.getContext('2d');
+          const nSrcPages = srcPdf.getPageCount();
+          nnEnsureWorkspaceMeta();
+          var plan = currentFileId && treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
+          var order = plan && plan.order && plan.order.length ? plan.order : null;
 
-          const pdfBytes = await pdfDoc.save();
-          triggerDownload(new Blob([pdfBytes], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, "") + "_annotated.pdf");
+          if (order && plan.sources) {
+            const newPdf = await PDFDocument.create();
+            for (let li = 0; li < order.length; li++) {
+              var lid = order[li];
+              var physRaw = plan.sources[lid] && plan.sources[lid].sourcePdfPage ? plan.sources[lid].sourcePdfPage : 1;
+              var phys = Math.min(Math.max(1, parseInt(physRaw, 10) || 1), nSrcPages);
+              var copiedPages = await newPdf.copyPages(srcPdf, [phys - 1]);
+              newPdf.addPage(copiedPages[0]);
+              var pages = newPdf.getPages();
+              var pdfPage = pages[pages.length - 1];
+              var pageStrokes = (sharedStrokesByPage[lid] || []).concat(localStrokesByPage[lid] || []);
+              var pageTexts = (sharedTextByPage[lid] || []).concat(localTextByPage[lid] || []);
+              if (!pageStrokes.length && !pageTexts.length) continue;
+              var dim = await nnExportViewportSizeForPhysicalPage(phys);
+              offCanvas.width = dim.ew * dpr;
+              offCanvas.height = dim.eh * dpr;
+              offCtx.setTransform(1, 0, 0, 1, 0, 0);
+              offCtx.scale(dpr, dpr);
+              drawStrokesToContext(offCtx, pageStrokes, true);
+              nnDrawTextBoxesToContext(offCtx, pageTexts);
+              var pngImage = await newPdf.embedPng(offCanvas.toDataURL('image/png'));
+              var pw = pdfPage.getWidth();
+              var ph = pdfPage.getHeight();
+              pdfPage.drawImage(pngImage, { x: 0, y: 0, width: pw, height: ph });
+            }
+            var pdfBytesNew = await newPdf.save();
+            triggerDownload(new Blob([pdfBytesNew], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, '') + '_annotated.pdf');
+          } else {
+            var pdfDoc = srcPdf;
+            var nPhys = pdfDoc.getPageCount();
+            for (let i = 1; i <= nPhys; i++) {
+              var pageStrokes2 = (sharedStrokesByPage[String(i)] || []).concat(localStrokesByPage[String(i)] || []);
+              var pageTexts2 = (sharedTextByPage[String(i)] || []).concat(localTextByPage[String(i)] || []);
+              if ((!pageStrokes2 || pageStrokes2.length === 0) && (!pageTexts2 || pageTexts2.length === 0)) continue;
+              var dim2 = await nnExportViewportSizeForPhysicalPage(i);
+              offCanvas.width = dim2.ew * dpr;
+              offCanvas.height = dim2.eh * dpr;
+              offCtx.setTransform(1, 0, 0, 1, 0, 0);
+              offCtx.scale(dpr, dpr);
+              drawStrokesToContext(offCtx, pageStrokes2, true);
+              nnDrawTextBoxesToContext(offCtx, pageTexts2);
+              var pngImage2 = await pdfDoc.embedPng(offCanvas.toDataURL('image/png'));
+              var pdfPage2 = pdfDoc.getPage(i - 1);
+              var pw2 = pdfPage2.getWidth();
+              var ph2 = pdfPage2.getHeight();
+              pdfPage2.drawImage(pngImage2, { x: 0, y: 0, width: pw2, height: ph2 });
+            }
+            var pdfBytesLeg = await pdfDoc.save();
+            triggerDownload(new Blob([pdfBytesLeg], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, '') + '_annotated.pdf');
+          }
           hideLoader();
-        } catch (error) { console.error(error); alert("生成失敗: " + error.message); hideLoader(); }
-        
+        } catch (error) {
+          console.error(error);
+          alert('生成失敗: ' + (error && error.message ? error.message : String(error)));
+          hideLoader();
+        }
       } else {
         showLoader("画像を合成・生成中...");
         try {
@@ -1639,7 +3749,9 @@
           offCtx.drawImage(currentImageObj, 0, 0, baseWidth, baseHeight);
           
           const imgCombined = (sharedStrokesByPage[1] || []).concat(localStrokesByPage[1] || []);
+          const imgTexts = (sharedTextByPage[1] || []).concat(localTextByPage[1] || []);
           if (imgCombined.length > 0) drawStrokesToContext(offCtx, imgCombined, false);
+          if (imgTexts.length > 0) nnDrawTextBoxesToContext(offCtx, imgTexts);
 
           const outMime = fileName.toLowerCase().endsWith('png') ? 'image/png' : 'image/jpeg';
           offCanvas.toBlob((blob) => {
@@ -1662,14 +3774,20 @@
       const taskBtn = document.getElementById('btn-mode-tasks');
       const viewer = document.getElementById('viewer-container');
       const nnPanel = document.getElementById('nn-panel');
+      const slotTabs = document.getElementById('pdf-slot-tabs');
       if (!pdfBtn || !taskBtn || !viewer || !nnPanel) return;
       if (mode === 'tasks') {
+        if (currentFileId) autoSaveCurrent(true);
+        savePdfSlotFromGlobals();
+        legacyFolderNavActive = false;
+        nnSyncLegacyToolsVisibility();
         stopMeetSync();
         pdfBtn.classList.remove('active-mode');
         taskBtn.classList.add('active-mode');
         viewer.style.display = 'none';
         nnPanel.style.display = 'flex';
         if (homeScreen) homeScreen.style.display = 'none';
+        if (slotTabs) slotTabs.classList.remove('nn-show');
         if (typeof window.nnPhase3Init === 'function') window.nnPhase3Init();
       } else {
         taskBtn.classList.remove('active-mode');
@@ -1677,6 +3795,8 @@
         nnPanel.style.display = 'none';
         if (homeScreen) homeScreen.style.display = 'none';
         viewer.style.display = 'block';
+        if (slotTabs) slotTabs.classList.add('nn-show');
+        nnSyncLegacyToolsVisibility();
         if (currentFileId) applyRoleMeet();
       }
     }
@@ -1733,49 +3853,242 @@
         return y + '-' + m + '-' + day;
       }
 
-      function nnAdvanceRepeatDue(ymd, rule) {
-        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
-        const base = m
-          ? new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10))
-          : new Date();
-        switch (rule) {
-          case 'daily':
-            base.setDate(base.getDate() + 1);
-            break;
-          case 'weekly':
-            base.setDate(base.getDate() + 7);
-            break;
-          case 'monthly':
-            base.setMonth(base.getMonth() + 1);
-            break;
-          case 'yearly':
-            base.setFullYear(base.getFullYear() + 1);
-            break;
-          default:
-            return ymd || nnTodayYmd();
+      const NN_INBOX_NAME = 'インボックス';
+
+      function nnYmdToDate(ymd) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '').trim());
+        if (!m) return null;
+        const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+        if (d.getFullYear() !== parseInt(m[1], 10) || d.getMonth() !== parseInt(m[2], 10) - 1 || d.getDate() !== parseInt(m[3], 10)) {
+          return null;
         }
-        const y = base.getFullYear();
-        const mo = String(base.getMonth() + 1).padStart(2, '0');
-        const day = String(base.getDate()).padStart(2, '0');
+        return d;
+      }
+
+      function nnDateToYmd(d) {
+        const y = d.getFullYear();
+        const mo = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
         return y + '-' + mo + '-' + day;
       }
 
-      function nnRepeatRuleLabel(rule) {
-        switch (rule) {
-          case 'daily':
-            return '毎日';
-          case 'weekly':
-            return '毎週';
-          case 'monthly':
-            return '毎月';
-          case 'yearly':
-            return '毎年';
-          default:
-            return '';
-        }
+      function nnAddDaysYmd(ymd, n) {
+        const d = nnYmdToDate(ymd);
+        if (!d) return ymd || nnTodayYmd();
+        d.setDate(d.getDate() + n);
+        return nnDateToYmd(d);
       }
 
-      var NN_BUCKET_RANK = { today: 0, scheduled: 1, anytime: 2, past: 3 };
+      function nnParseRepeatJson(ruleRaw) {
+        const s = ruleRaw == null ? '' : String(ruleRaw).trim();
+        if (!s || s.charAt(0) !== '{') return null;
+        try {
+          const o = JSON.parse(s);
+          if (o && o.v === 1 && o.f) return o;
+        } catch (e) {}
+        return null;
+      }
+
+      function nnGetLeadDays(ruleRaw) {
+        const o = nnParseRepeatJson(ruleRaw);
+        if (!o) return 0;
+        const n = parseInt(o.lead, 10);
+        return n > 0 ? n : 0;
+      }
+
+      function nnVisibleFromYmd(t) {
+        const due = t.dueDate;
+        if (!due) return null;
+        const lead = nnGetLeadDays(t.repeatRule);
+        if (lead <= 0) return null;
+        return nnAddDaysYmd(due, -lead);
+      }
+
+      function nnNthWeekdayOfMonth(year, month0, nth, weekday) {
+        const d0 = new Date(year, month0, 1);
+        let d = new Date(d0);
+        let count = 0;
+        while (d.getMonth() === month0) {
+          if (d.getDay() === weekday) {
+            count++;
+            if (count === nth) return new Date(d.getTime());
+          }
+          d.setDate(d.getDate() + 1);
+        }
+        return null;
+      }
+
+      function nnNextMonthlyNthAfter(anchorYmd, nth, weekday) {
+        const a = nnYmdToDate(anchorYmd);
+        if (!a) return anchorYmd;
+        let y = a.getFullYear();
+        let m = a.getMonth();
+        for (let hop = 0; hop < 48; hop++) {
+          const hit = nnNthWeekdayOfMonth(y, m, nth, weekday);
+          if (hit && hit > a) return nnDateToYmd(hit);
+          m++;
+          if (m > 11) {
+            m = 0;
+            y++;
+          }
+        }
+        return anchorYmd;
+      }
+
+      function nnNextMonthlyDomAfter(anchorYmd, dom) {
+        const a = nnYmdToDate(anchorYmd);
+        if (!a) return anchorYmd;
+        const nextMon = new Date(a.getFullYear(), a.getMonth() + 1, 1);
+        const last = new Date(nextMon.getFullYear(), nextMon.getMonth() + 1, 0).getDate();
+        const day = Math.min(dom, last);
+        return nnDateToYmd(new Date(nextMon.getFullYear(), nextMon.getMonth(), day));
+      }
+
+      function nnNextWeeklyMultiAfter(anchorYmd, wds) {
+        const a = nnYmdToDate(anchorYmd);
+        if (!a) return anchorYmd;
+        const set = {};
+        for (let i = 0; i < wds.length; i++) set[wds[i]] = true;
+        for (let k = 1; k <= 380; k++) {
+          const nd = new Date(a);
+          nd.setDate(nd.getDate() + k);
+          if (set[nd.getDay()]) return nnDateToYmd(nd);
+        }
+        return nnAddDaysYmd(anchorYmd, 7);
+      }
+
+      function nnNormalizeLegacyRepeatRule(v) {
+        const s = v == null ? '' : String(v).trim();
+        if (!s || s === 'none' || s.charAt(0) === '{') return '';
+        if (['daily', 'weekly', 'monthly', 'yearly'].indexOf(s) >= 0) return s;
+        return '';
+      }
+
+      function nnAdvanceRepeatDue(ymd, ruleRaw) {
+        const legacy = nnNormalizeLegacyRepeatRule(ruleRaw);
+        if (legacy) {
+          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
+          const base = m
+            ? new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10))
+            : new Date();
+          switch (legacy) {
+            case 'daily':
+              base.setDate(base.getDate() + 1);
+              break;
+            case 'weekly':
+              base.setDate(base.getDate() + 7);
+              break;
+            case 'monthly':
+              base.setMonth(base.getMonth() + 1);
+              break;
+            case 'yearly':
+              base.setFullYear(base.getFullYear() + 1);
+              break;
+            default:
+              return ymd || nnTodayYmd();
+          }
+          return nnDateToYmd(base);
+        }
+        const o = nnParseRepeatJson(ruleRaw);
+        if (!o) return ymd || nnTodayYmd();
+        const f = String(o.f || '').toLowerCase();
+        if (f === 'daily') return nnAddDaysYmd(ymd, 1);
+        if (f === 'weekly') {
+          const wds = Array.isArray(o.wd)
+            ? o.wd
+                .map(function (x) {
+                  return parseInt(x, 10);
+                })
+                .filter(function (x) {
+                  return x >= 0 && x <= 6;
+                })
+            : [];
+          if (wds.length) return nnNextWeeklyMultiAfter(ymd, wds);
+          return nnAddDaysYmd(ymd, 7);
+        }
+        if (f === 'monthly') {
+          const mm = String(o.mm || 'dom');
+          if (mm === 'nth') {
+            const nth = parseInt(o.nth, 10);
+            const wd = parseInt(o.wd, 10);
+            if (nth >= 1 && nth <= 5 && wd >= 0 && wd <= 6) return nnNextMonthlyNthAfter(ymd, nth, wd);
+          }
+          const dom = parseInt(o.dom, 10);
+          if (dom >= 1 && dom <= 31) return nnNextMonthlyDomAfter(ymd, dom);
+          const base = nnYmdToDate(ymd);
+          if (base) {
+            base.setMonth(base.getMonth() + 1);
+            return nnDateToYmd(base);
+          }
+        }
+        if (f === 'yearly') {
+          const base = nnYmdToDate(ymd);
+          if (base) {
+            base.setFullYear(base.getFullYear() + 1);
+            return nnDateToYmd(base);
+          }
+        }
+        return ymd || nnTodayYmd();
+      }
+
+      function nnRepeatRuleLabel(ruleRaw) {
+        const legacy = nnNormalizeLegacyRepeatRule(ruleRaw);
+        if (legacy) {
+          switch (legacy) {
+            case 'daily':
+              return '毎日';
+            case 'weekly':
+              return '毎週';
+            case 'monthly':
+              return '毎月';
+            case 'yearly':
+              return '毎年';
+            default:
+              return '';
+          }
+        }
+        const o = nnParseRepeatJson(ruleRaw);
+        if (!o) return '';
+        const f = String(o.f || '').toLowerCase();
+        const lead = nnGetLeadDays(ruleRaw);
+        const leadTxt = lead > 0 ? ' · 一覧は期限の' + lead + '日前から' : '';
+        const wdNames = ['日', '月', '火', '水', '木', '金', '土'];
+        if (f === 'daily') return '毎日' + leadTxt;
+        if (f === 'weekly') {
+          const wds = Array.isArray(o.wd) ? o.wd : [];
+          if (wds.length) {
+            const lbl = wds
+              .map(function (x) {
+                return parseInt(x, 10);
+              })
+              .filter(function (x) {
+                return x >= 0 && x <= 6;
+              })
+              .sort(function (a, b) {
+                return a - b;
+              })
+              .map(function (d) {
+                return wdNames[d];
+              })
+              .join('・');
+            return '毎週（' + lbl + '）' + leadTxt;
+          }
+          return '毎週' + leadTxt;
+        }
+        if (f === 'monthly') {
+          const mm = String(o.mm || 'dom');
+          if (mm === 'nth') {
+            const wd = parseInt(o.wd, 10);
+            const wn = wd >= 0 && wd <= 6 ? wdNames[wd] : '?';
+            return '毎月（第' + o.nth + ' ' + wn + '曜）' + leadTxt;
+          }
+          return '毎月（' + (o.dom || '?') + '日）' + leadTxt;
+        }
+        if (f === 'yearly') return '毎年' + leadTxt;
+        return '';
+      }
+
+      var NN_BUCKET_RANK = { today: 0, scheduled: 10, lead_wait: 14, anytime: 20, past: 30 };
 
       function nnStartBucket(t) {
         const s = t.startDate;
@@ -1786,12 +4099,21 @@
         return 'scheduled';
       }
 
+      function nnListBucket(t) {
+        const vf = nnVisibleFromYmd(t);
+        const today = nnTodayYmd();
+        if (vf && today < vf) return 'lead_wait';
+        return nnStartBucket(t);
+      }
+
       function nnBucketTitle(b) {
         switch (b) {
           case 'today':
             return '今日';
           case 'scheduled':
             return '予定';
+          case 'lead_wait':
+            return '表示待ち（期限の N 日前まではここに集約）';
           case 'past':
             return '開始日が過去';
           case 'anytime':
@@ -1801,9 +4123,44 @@
         }
       }
 
+      function nnSanitizeRepeatObj(o) {
+        const out = { v: 1, f: String(o.f || 'daily').toLowerCase(), lead: Math.max(0, parseInt(o.lead, 10) || 0) };
+        if (out.f === 'weekly') {
+          const wds = Array.isArray(o.wd) ? o.wd : [];
+          out.wd = wds
+            .map(function (x) {
+              return parseInt(x, 10);
+            })
+            .filter(function (x) {
+              return x >= 0 && x <= 6;
+            });
+        }
+        if (out.f === 'monthly') {
+          out.mm = String(o.mm || 'dom') === 'nth' ? 'nth' : 'dom';
+          if (out.mm === 'nth') {
+            out.nth = Math.min(5, Math.max(1, parseInt(o.nth, 10) || 1));
+            let wd = parseInt(o.wd, 10);
+            if (isNaN(wd) || wd < 0 || wd > 6) wd = 1;
+            out.wd = wd;
+          } else {
+            out.dom = Math.min(31, Math.max(1, parseInt(o.dom, 10) || 1));
+          }
+        }
+        return out;
+      }
+
       function nnNormalizeRepeatRule(v) {
         const s = v == null ? '' : String(v).trim();
         if (!s || s === 'none') return '';
+        if (s.charAt(0) === '{') {
+          try {
+            const o = JSON.parse(s);
+            if (o && o.v === 1 && o.f) {
+              return JSON.stringify(nnSanitizeRepeatObj(o));
+            }
+          } catch (e) {}
+          return '';
+        }
         if (['daily', 'weekly', 'monthly', 'yearly'].indexOf(s) >= 0) return s;
         return '';
       }
@@ -2044,23 +4401,130 @@
         window.nnFpAtLastRender = nnFingerprintTasks(all);
       }
 
+      async function nnReorderTasksInSubgroup(wrapEl, dragId, targetId) {
+        if (!wrapEl || !dragId || dragId === targetId) return;
+        const cards = wrapEl.querySelectorAll('.nn-task-card[data-task-id]');
+        const ids = [];
+        cards.forEach(function (c) {
+          ids.push(c.getAttribute('data-task-id'));
+        });
+        const di = ids.indexOf(dragId);
+        const ti = ids.indexOf(targetId);
+        if (di < 0 || ti < 0) return;
+        ids.splice(di, 1);
+        const newTi = ids.indexOf(targetId);
+        ids.splice(newTi, 0, dragId);
+        const base = 1024;
+        for (let i = 0; i < ids.length; i++) {
+          const row = await nnDb.tasks.get(ids[i]);
+          if (!row) continue;
+          const next = nnNormalizeTask(row);
+          next.sortOrder = base + i * 64;
+          nnEnsureCheckItemIds(next);
+          await nnDb.tasks.put(next);
+          await nnQueueOp({ type: 'upsert', task: next });
+        }
+        await nnRecomputeFpFromDb();
+        await nnRenderTaskList();
+      }
+
+      async function nnReorderCheckItemsInTask(taskId, orderedVisibleIds) {
+        const row = await nnDb.tasks.get(taskId);
+        if (!row) return;
+        const next = nnNormalizeTask(row);
+        nnEnsureCheckItemIds(next);
+        const all = nnNormalizeCheckItems(next.checkItems);
+        const withText = [];
+        const withoutText = [];
+        all.forEach(function (ci) {
+          if ((ci.text || '').trim()) withText.push(ci);
+          else withoutText.push(ci);
+        });
+        const remaining = withText.slice();
+        const newWith = [];
+        orderedVisibleIds.forEach(function (id) {
+          for (let j = 0; j < remaining.length; j++) {
+            if (remaining[j].id === id) {
+              newWith.push(remaining[j]);
+              remaining.splice(j, 1);
+              return;
+            }
+          }
+        });
+        remaining.forEach(function (c) {
+          newWith.push(c);
+        });
+        next.checkItems = newWith.concat(withoutText);
+        nnEnsureCheckItemIds(next);
+        await nnDb.tasks.put(next);
+        await nnQueueOp({ type: 'upsert', task: next });
+        await nnRecomputeFpFromDb();
+        await nnRenderTaskList();
+      }
+
+      async function nnReorderCheckItemRow(taskId, ulEl, dragCiId, targetCiId) {
+        if (!ulEl || !dragCiId || dragCiId === targetCiId) return;
+        const lis = ulEl.querySelectorAll('li[data-ci-id]');
+        const ids = [];
+        lis.forEach(function (li) {
+          ids.push(li.getAttribute('data-ci-id'));
+        });
+        const di = ids.indexOf(dragCiId);
+        const ti = ids.indexOf(targetCiId);
+        if (di < 0 || ti < 0) return;
+        ids.splice(di, 1);
+        const newTi = ids.indexOf(targetCiId);
+        ids.splice(newTi, 0, dragCiId);
+        await nnReorderCheckItemsInTask(taskId, ids);
+      }
+
       async function nnRenderTaskList() {
         const host = document.getElementById('nn-task-list');
         if (!host) return;
         const list = await nnDb.tasks.toArray();
         list.sort(function (a, b) {
-          const ba = NN_BUCKET_RANK[nnStartBucket(a)];
-          const bb = NN_BUCKET_RANK[nnStartBucket(b)];
+          const ba = NN_BUCKET_RANK[nnListBucket(a)];
+          const bb = NN_BUCKET_RANK[nnListBucket(b)];
           if (ba !== bb) return ba - bb;
-          const pj = (a.project || '').localeCompare(b.project || '');
+          const pj = ((a.project || '').trim() || NN_INBOX_NAME).localeCompare((b.project || '').trim() || NN_INBOX_NAME);
           if (pj !== 0) return pj;
           const gh = (a.heading || '').localeCompare(b.heading || '');
           if (gh !== 0) return gh;
           return (a.sortOrder || 0) - (b.sortOrder || 0);
         });
+        let idFixCount = 0;
+        for (let fi = 0; fi < list.length; fi++) {
+          const tk = list[fi];
+          let need = false;
+          (tk.checkItems || []).forEach(function (ci) {
+            if (ci && (ci.text || '').trim() && (!ci.id || !String(ci.id).trim())) need = true;
+          });
+          if (need) {
+            const nextT = nnNormalizeTask(tk);
+            nnEnsureCheckItemIds(nextT);
+            await nnDb.tasks.put(nextT);
+            await nnQueueOp({ type: 'upsert', task: nextT });
+            idFixCount++;
+          }
+        }
+        if (idFixCount) await nnRecomputeFpFromDb();
+        let listForStructure = list;
+        if (idFixCount) {
+          listForStructure = await nnDb.tasks.toArray();
+          listForStructure.sort(function (a, b) {
+            const ba = NN_BUCKET_RANK[nnListBucket(a)];
+            const bb = NN_BUCKET_RANK[nnListBucket(b)];
+            if (ba !== bb) return ba - bb;
+            const pj = ((a.project || '').trim() || NN_INBOX_NAME).localeCompare((b.project || '').trim() || NN_INBOX_NAME);
+            if (pj !== 0) return pj;
+            const gh = (a.heading || '').localeCompare(b.heading || '');
+            if (gh !== 0) return gh;
+            return (a.sortOrder || 0) - (b.sortOrder || 0);
+          });
+        }
         const structure = [];
-        list.forEach(function (t) {
-          const b = nnStartBucket(t);
+        listForStructure.forEach(function (t) {
+          const b = nnListBucket(t);
           let bg = null;
           for (let i = 0; i < structure.length; i++) {
             if (structure[i].bucket === b) {
@@ -2072,7 +4536,8 @@
             bg = { bucket: b, subgroups: [] };
             structure.push(bg);
           }
-          const subKey = (t.project || '（プロジェクトなし）') + ' / ' + (t.heading || '（見出しなし）');
+          const subKey =
+            ((t.project || '').trim() || NN_INBOX_NAME) + ' / ' + ((t.heading || '').trim() || '（見出しなし）');
           let sg = null;
           for (let j = 0; j < bg.subgroups.length; j++) {
             if (bg.subgroups[j].key === subKey) {
@@ -2101,12 +4566,16 @@
             th.className = 'nn-group-title';
             th.textContent = sg.key;
             host.appendChild(th);
+            const wrap = document.createElement('div');
+            wrap.className = 'nn-task-sg-wrap';
             sg.items.forEach(function (t) {
               const card = document.createElement('div');
               card.className = 'nn-task-card' + (t.status !== 'active' ? ' done' : '');
+              card.setAttribute('data-task-id', t.id);
               const done = t.status === 'completed' || t.status === 'canceled';
               const canceled = t.status === 'canceled';
               card.innerHTML =
+                '<span class="nn-task-grip meet-drag-grip" draggable="true" title="ドラッグで順番変更">⋮⋮</span>' +
                 '<input type="checkbox" data-nn-check ' +
                 (done ? 'checked ' : '') +
                 (canceled ? 'disabled ' : '') +
@@ -2122,9 +4591,12 @@
               card.querySelector('.nn-task-title').textContent = t.title || '(無題)';
               const whenPart = t.startDate ? '開始 ' + t.startDate : 'いつでも';
               const duePart = t.dueDate ? '期限 ' + t.dueDate : '期限なし';
-              const rr = nnNormalizeRepeatRule(t.repeatRule);
-              const repPart = rr ? ' · 繰返:' + nnRepeatRuleLabel(rr) : '';
-              card.querySelector('.nn-task-meta').textContent = whenPart + ' · ' + duePart + repPart + ' · ' + (t.status || 'active');
+              const repPart =
+                t.repeatRule && String(t.repeatRule).trim() ? ' · 繰返:' + nnRepeatRuleLabel(t.repeatRule) : '';
+              const vf = nnVisibleFromYmd(t);
+              const visPart = vf ? ' · 通常一覧表示は ' + vf + ' から' : '';
+              card.querySelector('.nn-task-meta').textContent =
+                whenPart + ' · ' + duePart + repPart + visPart + ' · ' + (t.status || 'active');
               const body = card.querySelector('.nn-task-body');
               const itemsRaw = nnNormalizeCheckItems(t.checkItems).filter(function (ci) {
                 return (ci.text || '').trim();
@@ -2141,6 +4613,13 @@
                 ul.className = 'nn-checklist-preview';
                 itemsRaw.forEach(function (ci, idx) {
                   const li = document.createElement('li');
+                  li.className = 'nn-check-preview-row';
+                  li.setAttribute('data-ci-id', ci.id || '');
+                  const cg = document.createElement('span');
+                  cg.className = 'nn-ci-grip meet-drag-grip';
+                  cg.textContent = '⋮⋮';
+                  cg.title = 'ドラッグで順番変更';
+                  cg.setAttribute('draggable', 'true');
                   const label = document.createElement('label');
                   const inp = document.createElement('input');
                   inp.type = 'checkbox';
@@ -2158,11 +4637,72 @@
                   });
                   label.appendChild(inp);
                   label.appendChild(span);
+                  li.appendChild(cg);
                   li.appendChild(label);
+                  cg.addEventListener('dragstart', function (e) {
+                    e.stopPropagation();
+                    nnCheckDragTaskId = t.id;
+                    nnCheckDragCiId = ci.id || '';
+                    e.dataTransfer.setData('text/plain', 'nnchk:' + t.id + ':' + (ci.id || ''));
+                    e.dataTransfer.effectAllowed = 'move';
+                  });
+                  cg.addEventListener('dragend', function () {
+                    nnCheckDragTaskId = null;
+                    nnCheckDragCiId = null;
+                    li.classList.remove('nn-ci-drag-over');
+                  });
+                  li.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    if (nnCheckDragTaskId === t.id && nnCheckDragCiId && nnCheckDragCiId !== (ci.id || '')) {
+                      li.classList.add('nn-ci-drag-over');
+                    }
+                  });
+                  li.addEventListener('dragleave', function () {
+                    li.classList.remove('nn-ci-drag-over');
+                  });
+                  li.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    li.classList.remove('nn-ci-drag-over');
+                    const raw = e.dataTransfer.getData('text/plain') || '';
+                    const m = /^nnchk:([^:]+):(.*)$/.exec(raw);
+                    const dragT = m ? m[1] : nnCheckDragTaskId;
+                    const dragCi = m ? m[2] : nnCheckDragCiId;
+                    if (!dragT || dragT !== t.id || !dragCi || dragCi === (ci.id || '')) return;
+                    nnReorderCheckItemRow(t.id, ul, dragCi, ci.id || '');
+                  });
                   ul.appendChild(li);
                 });
                 body.appendChild(ul);
               }
+              const grip = card.querySelector('.nn-task-grip');
+              if (grip) {
+                grip.addEventListener('dragstart', function (e) {
+                  e.stopPropagation();
+                  nnTaskDragId = t.id;
+                  e.dataTransfer.setData('text/plain', 'nntask:' + t.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                });
+                grip.addEventListener('dragend', function () {
+                  nnTaskDragId = null;
+                  card.classList.remove('nn-task-drag-over');
+                });
+              }
+              card.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                if (nnTaskDragId && nnTaskDragId !== t.id) card.classList.add('nn-task-drag-over');
+              });
+              card.addEventListener('dragleave', function () {
+                card.classList.remove('nn-task-drag-over');
+              });
+              card.addEventListener('drop', function (e) {
+                e.preventDefault();
+                card.classList.remove('nn-task-drag-over');
+                const raw = e.dataTransfer.getData('text/plain') || '';
+                const m = /^nntask:(.+)$/.exec(raw);
+                const dragId = m ? m[1] : nnTaskDragId;
+                if (!dragId || dragId === t.id) return;
+                nnReorderTasksInSubgroup(wrap, dragId, t.id);
+              });
               const chk = card.querySelector('[data-nn-check]');
               chk.addEventListener('change', function () {
                 nnToggleDone(t.id, chk.checked);
@@ -2173,8 +4713,9 @@
               card.querySelector('[data-nn-del]').addEventListener('click', function () {
                 nnDeleteTask(t.id);
               });
-              host.appendChild(card);
+              wrap.appendChild(card);
             });
+            host.appendChild(wrap);
           });
         });
       }
@@ -2209,10 +4750,10 @@
           return;
         }
         if (completed) {
-          const rr = nnNormalizeRepeatRule(next.repeatRule);
-          if (rr) {
+          const rawR = next.repeatRule && String(next.repeatRule).trim();
+          if (rawR) {
             const anchor = next.dueDate || nnTodayYmd();
-            next.dueDate = nnAdvanceRepeatDue(anchor, rr);
+            next.dueDate = nnAdvanceRepeatDue(anchor, next.repeatRule);
             next.startDate = nnTodayYmd();
             next.status = 'active';
             next.completedAt = null;
@@ -2241,18 +4782,318 @@
 
       let nnEditingId = null;
 
-      window.nnShowNewTaskForm = function nnShowNewTaskForm() {
+      function nnEditorSetSection(secId, on) {
+        const sec = document.getElementById(secId);
+        const btnMap = { 'nn-sec-check': 'nn-tog-check', 'nn-sec-tag': 'nn-tog-tag', 'nn-sec-flag': 'nn-tog-flag' };
+        const b = document.getElementById(btnMap[secId]);
+        if (sec) sec.style.display = on ? 'block' : 'none';
+        if (b) b.classList.toggle('nn-on', !!on);
+      }
+
+      async function nnRefreshProjectHeadingSelects(currentProj, currentHead) {
+        await nnDb.open();
+        const tasks = await nnDb.tasks.toArray();
+        const projects = new Set();
+        const headings = new Set();
+        tasks.forEach(function (x) {
+          const p = (x.project || '').trim() || NN_INBOX_NAME;
+          projects.add(p);
+          const h = (x.heading || '').trim();
+          if (h) headings.add(h);
+        });
+        projects.add(NN_INBOX_NAME);
+        const psel = document.getElementById('nn-f-project-select');
+        const hsel = document.getElementById('nn-f-heading-select');
+        if (!psel || !hsel) return;
+        const pChosen = (currentProj || '').trim() || NN_INBOX_NAME;
+        const hChosen = (currentHead || '').trim();
+        psel.innerHTML =
+          '<option value="">' + NN_INBOX_NAME + '（既定）</option>' +
+          '<option value="__new__">＋ 新規プロジェクト…</option>';
+        Array.from(projects)
+          .sort()
+          .forEach(function (p) {
+            if (p === NN_INBOX_NAME) return;
+            const o = document.createElement('option');
+            o.value = p;
+            o.textContent = p;
+            psel.appendChild(o);
+          });
+        let foundP = false;
+        for (let i = 0; i < psel.options.length; i++) {
+          const ov = psel.options[i].value;
+          if (ov === pChosen || (pChosen === NN_INBOX_NAME && ov === '')) {
+            psel.selectedIndex = i;
+            foundP = true;
+            break;
+          }
+        }
+        if (!foundP && pChosen && pChosen !== NN_INBOX_NAME) {
+          const o2 = document.createElement('option');
+          o2.value = pChosen;
+          o2.textContent = pChosen;
+          psel.insertBefore(o2, psel.options[2] || null);
+          psel.value = pChosen;
+        }
+        const pn = document.getElementById('nn-f-project-new');
+        if (pn) {
+          pn.style.display = psel.value === '__new__' ? 'block' : 'none';
+          if (psel.value !== '__new__') pn.value = '';
+        }
+        hsel.innerHTML =
+          '<option value="">（見出しなし）</option>' +
+          '<option value="__new__">＋ 新規見出し…</option>';
+        Array.from(headings)
+          .sort()
+          .forEach(function (h) {
+            const ho = document.createElement('option');
+            ho.value = h;
+            ho.textContent = h;
+            hsel.appendChild(ho);
+          });
+        let hfound = false;
+        if (hChosen) {
+          for (let j = 0; j < hsel.options.length; j++) {
+            if (hsel.options[j].value === hChosen) {
+              hsel.selectedIndex = j;
+              hfound = true;
+              break;
+            }
+          }
+        }
+        if (!hfound && hChosen) {
+          const ho2 = document.createElement('option');
+          ho2.value = hChosen;
+          ho2.textContent = hChosen;
+          hsel.insertBefore(ho2, hsel.options[2] || null);
+          hsel.value = hChosen;
+        }
+        const hn = document.getElementById('nn-f-heading-new');
+        if (hn) {
+          hn.style.display = hsel.value === '__new__' ? 'block' : 'none';
+          if (hsel.value !== '__new__') hn.value = '';
+        }
+      }
+
+      function nnRepeatUiSyncSubpanels() {
+        const baseEl = document.getElementById('nn-f-repeat-base');
+        const v = baseEl ? baseEl.value : '';
+        const w = document.getElementById('nn-repeat-weekly');
+        const m = document.getElementById('nn-repeat-monthly');
+        if (w) w.style.display = v === 'weekly' ? 'block' : 'none';
+        if (m) m.style.display = v === 'monthly' ? 'block' : 'none';
+        const mm = (document.querySelector('input[name="nn-mm"]:checked') || {}).value || 'dom';
+        const domWrap = document.getElementById('nn-mm-dom-wrap');
+        const nthWrap = document.getElementById('nn-mm-nth-wrap');
+        if (domWrap) domWrap.style.display = v === 'monthly' && mm === 'dom' ? 'block' : 'none';
+        if (nthWrap) nthWrap.style.display = v === 'monthly' && mm === 'nth' ? 'flex' : 'none';
+      }
+
+      function nnWriteRepeatFromUi() {
+        const baseEl = document.getElementById('nn-f-repeat-base');
+        const leadEl = document.getElementById('nn-f-lead');
+        const base = baseEl ? baseEl.value : '';
+        const lead = leadEl ? parseInt(leadEl.value, 10) || 0 : 0;
+        if (!base) return '';
+        if (base === 'daily' || base === 'yearly') {
+          return JSON.stringify(nnSanitizeRepeatObj({ v: 1, f: base, lead: lead }));
+        }
+        if (base === 'weekly') {
+          const wds = [];
+          document.querySelectorAll('[data-nn-wd]').forEach(function (c) {
+            if (c.checked) wds.push(parseInt(c.getAttribute('data-nn-wd'), 10));
+          });
+          return JSON.stringify(nnSanitizeRepeatObj({ v: 1, f: 'weekly', wd: wds, lead: lead }));
+        }
+        if (base === 'monthly') {
+          const mm = (document.querySelector('input[name="nn-mm"]:checked') || {}).value || 'dom';
+          if (mm === 'nth') {
+            const nEl = document.getElementById('nn-mm-nth-n');
+            const wEl = document.getElementById('nn-mm-nth-wd');
+            return JSON.stringify(
+              nnSanitizeRepeatObj({
+                v: 1,
+                f: 'monthly',
+                mm: 'nth',
+                nth: nEl ? nEl.value : 1,
+                wd: wEl ? wEl.value : 1,
+                lead: lead
+              })
+            );
+          }
+          const dIn = document.getElementById('nn-mm-dom-input');
+          return JSON.stringify(
+            nnSanitizeRepeatObj({
+              v: 1,
+              f: 'monthly',
+              mm: 'dom',
+              dom: dIn ? dIn.value : 1,
+              lead: lead
+            })
+          );
+        }
+        return '';
+      }
+
+      function nnLoadRepeatToUi(ruleRaw) {
+        const baseEl = document.getElementById('nn-f-repeat-base');
+        const leadEl = document.getElementById('nn-f-lead');
+        document.querySelectorAll('[data-nn-wd]').forEach(function (c) {
+          c.checked = false;
+        });
+        if (leadEl) leadEl.value = '0';
+        if (!baseEl) return;
+        const leg = nnNormalizeLegacyRepeatRule(ruleRaw);
+        if (leg) {
+          baseEl.value = leg;
+          nnRepeatUiSyncSubpanels();
+          return;
+        }
+        const o = nnParseRepeatJson(ruleRaw);
+        if (!o) {
+          baseEl.value = '';
+          nnRepeatUiSyncSubpanels();
+          return;
+        }
+        baseEl.value = o.f || '';
+        if (leadEl) leadEl.value = String(o.lead != null && o.lead > 0 ? o.lead : 0);
+        if (o.f === 'weekly' && Array.isArray(o.wd)) {
+          o.wd.forEach(function (d) {
+            const cb = document.querySelector('[data-nn-wd="' + d + '"]');
+            if (cb) cb.checked = true;
+          });
+        }
+        if (o.f === 'monthly') {
+          const mm = o.mm === 'nth' ? 'nth' : 'dom';
+          document.querySelectorAll('input[name="nn-mm"]').forEach(function (r) {
+            r.checked = r.value === mm;
+          });
+          if (mm === 'nth') {
+            const nEl = document.getElementById('nn-mm-nth-n');
+            const wEl = document.getElementById('nn-mm-nth-wd');
+            if (nEl) nEl.value = String(o.nth || 1);
+            if (wEl) wEl.value = String(o.wd != null ? o.wd : 1);
+          } else {
+            const dIn = document.getElementById('nn-mm-dom-input');
+            if (dIn) dIn.value = String(o.dom || 1);
+          }
+        }
+        nnRepeatUiSyncSubpanels();
+      }
+
+      function nnUpdateRepeatPreview() {
+        const pr = document.getElementById('nn-repeat-preview');
+        if (!pr) return;
+        const due = document.getElementById('nn-f-due');
+        const d = due ? due.value.trim() : '';
+        const raw = nnWriteRepeatFromUi();
+        if (!raw) {
+          pr.textContent = '';
+          return;
+        }
+        if (!d) {
+          pr.textContent = '期限を入力すると、次回の期限と一覧表示開始の例をここに表示します。';
+          return;
+        }
+        const nextDue = nnAdvanceRepeatDue(d, raw);
+        const lead = nnGetLeadDays(raw);
+        const tail =
+          lead > 0
+            ? ' 通常の一覧バンドへは「' + nnAddDaysYmd(nextDue, -lead) + '」から（期限の' + lead + '日前）。'
+            : ' 一覧表示の追加制限はありません（0日）。';
+        pr.textContent = '完了して次のループに進んだ場合の一例: 次回の期限 ' + nextDue + '。' + tail;
+      }
+
+      function nnEditorCollapseAll() {
+        nnEditorSetSection('nn-sec-check', false);
+        nnEditorSetSection('nn-sec-tag', false);
+        nnEditorSetSection('nn-sec-flag', false);
+      }
+
+      function nnSyncEditorSectionsFromTask(row) {
+        nnEditorCollapseAll();
+        const hasCheck = nnNormalizeCheckItems(row && row.checkItems).some(function (ci) {
+          return (ci.text || '').trim();
+        });
+        const p = (row && row.project ? String(row.project) : '').trim();
+        const h = (row && row.heading ? String(row.heading) : '').trim();
+        const hasTag = !!(p || h);
+        const hasFlag = !!(
+          (row && row.startDate) ||
+          (row && row.dueDate) ||
+          (row && row.repeatRule && String(row.repeatRule).trim())
+        );
+        if (hasCheck) nnEditorSetSection('nn-sec-check', true);
+        if (hasTag) nnEditorSetSection('nn-sec-tag', true);
+        if (hasFlag) nnEditorSetSection('nn-sec-flag', true);
+      }
+
+      var nnEditorUiBound = false;
+      function nnBindEditorUiOnce() {
+        if (nnEditorUiBound) return;
+        nnEditorUiBound = true;
+        [['nn-tog-check', 'nn-sec-check'], ['nn-tog-tag', 'nn-sec-tag'], ['nn-tog-flag', 'nn-sec-flag']].forEach(function (pair) {
+          const btn = document.getElementById(pair[0]);
+          if (!btn) return;
+          btn.addEventListener('click', function () {
+            const sec = document.getElementById(pair[1]);
+            const on = !sec || sec.style.display === 'none';
+            nnEditorSetSection(pair[1], on);
+          });
+        });
+        const psel = document.getElementById('nn-f-project-select');
+        if (psel) {
+          psel.addEventListener('change', function () {
+            const pn = document.getElementById('nn-f-project-new');
+            if (pn) pn.style.display = psel.value === '__new__' ? 'block' : 'none';
+          });
+        }
+        const hsel = document.getElementById('nn-f-heading-select');
+        if (hsel) {
+          hsel.addEventListener('change', function () {
+            const hn = document.getElementById('nn-f-heading-new');
+            if (hn) hn.style.display = hsel.value === '__new__' ? 'block' : 'none';
+          });
+        }
+        const rb = document.getElementById('nn-f-repeat-base');
+        if (rb) {
+          rb.addEventListener('change', function () {
+            nnRepeatUiSyncSubpanels();
+            nnUpdateRepeatPreview();
+          });
+        }
+        document.querySelectorAll('[data-nn-wd]').forEach(function (c) {
+          c.addEventListener('change', nnUpdateRepeatPreview);
+        });
+        document.querySelectorAll('input[name="nn-mm"]').forEach(function (r) {
+          r.addEventListener('change', function () {
+            nnRepeatUiSyncSubpanels();
+            nnUpdateRepeatPreview();
+          });
+        });
+        ['nn-mm-dom-input', 'nn-mm-nth-n', 'nn-mm-nth-wd', 'nn-f-lead', 'nn-f-due'].forEach(function (id) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('input', nnUpdateRepeatPreview);
+        });
+      }
+
+      window.nnShowNewTaskForm = async function nnShowNewTaskForm() {
+        nnBindEditorUiOnce();
         nnEditingId = null;
         document.getElementById('nn-f-title').value = '';
-        document.getElementById('nn-f-project').value = '';
-        document.getElementById('nn-f-heading').value = '';
-        document.getElementById('nn-f-start').value = '';
-        document.getElementById('nn-f-due').value = '';
-        const rep = document.getElementById('nn-f-repeat');
-        if (rep) rep.value = '';
         document.getElementById('nn-f-notes').value = '';
         const cr = document.getElementById('nn-checklist-rows');
         if (cr) cr.innerHTML = '';
+        document.getElementById('nn-f-start').value = '';
+        document.getElementById('nn-f-due').value = '';
+        nnLoadRepeatToUi('');
+        nnEditorCollapseAll();
+        await nnRefreshProjectHeadingSelects(NN_INBOX_NAME, '');
+        const pn = document.getElementById('nn-f-project-new');
+        const hn = document.getElementById('nn-f-heading-new');
+        if (pn) pn.value = '';
+        if (hn) hn.value = '';
+        nnUpdateRepeatPreview();
         document.getElementById('nn-editor').style.display = 'flex';
       };
 
@@ -2262,19 +5103,21 @@
       };
 
       async function nnOpenEditor(id) {
+        nnBindEditorUiOnce();
         const row = await nnDb.tasks.get(id);
         if (!row) return;
         nnEditingId = id;
         const t = nnNormalizeTask(row);
         document.getElementById('nn-f-title').value = t.title;
-        document.getElementById('nn-f-project').value = t.project;
-        document.getElementById('nn-f-heading').value = t.heading;
+        document.getElementById('nn-f-notes').value = t.notes;
         document.getElementById('nn-f-start').value = t.startDate || '';
         document.getElementById('nn-f-due').value = t.dueDate || '';
-        const rep = document.getElementById('nn-f-repeat');
-        if (rep) rep.value = t.repeatRule || '';
-        document.getElementById('nn-f-notes').value = t.notes;
+        nnLoadRepeatToUi(t.repeatRule || '');
+        const projDisp = (t.project || '').trim() || NN_INBOX_NAME;
+        await nnRefreshProjectHeadingSelects(projDisp, t.heading || '');
         nnFillChecklistEditor(t.checkItems);
+        nnSyncEditorSectionsFromTask(t);
+        nnUpdateRepeatPreview();
         document.getElementById('nn-editor').style.display = 'flex';
       }
 
@@ -2284,19 +5127,36 @@
           alert('タイトルは必須です。');
           return;
         }
+        nnBindEditorUiOnce();
         let base = nnEditingId ? await nnDb.tasks.get(nnEditingId) : null;
         const t = nnNormalizeTask(base || {});
         if (!nnEditingId) t.id = nnUuid();
         else t.id = nnEditingId;
         t.title = title;
-        t.project = document.getElementById('nn-f-project').value.trim();
-        t.heading = document.getElementById('nn-f-heading').value.trim();
+        const psel = document.getElementById('nn-f-project-select');
+        let project = NN_INBOX_NAME;
+        if (psel) {
+          if (psel.value === '__new__') {
+            project = (document.getElementById('nn-f-project-new') || {}).value.trim() || NN_INBOX_NAME;
+          } else if (psel.value && psel.value !== '') {
+            project = psel.value.trim();
+          } else {
+            project = NN_INBOX_NAME;
+          }
+        }
+        const hsel = document.getElementById('nn-f-heading-select');
+        let heading = '';
+        if (hsel) {
+          if (hsel.value === '__new__') heading = (document.getElementById('nn-f-heading-new') || {}).value.trim();
+          else heading = (hsel.value || '').trim();
+        }
+        t.project = project;
+        t.heading = heading;
         const startRaw = document.getElementById('nn-f-start').value.trim();
         t.startDate = startRaw === '' ? null : startRaw;
         const dueRaw = document.getElementById('nn-f-due').value.trim();
         t.dueDate = dueRaw === '' ? null : dueRaw;
-        const repEl = document.getElementById('nn-f-repeat');
-        t.repeatRule = repEl ? nnNormalizeRepeatRule(repEl.value) : '';
+        t.repeatRule = nnNormalizeRepeatRule(nnWriteRepeatFromUi());
         t.notes = document.getElementById('nn-f-notes').value;
         t.checkItems = nnCollectCheckItemsFromEditor();
         if (t.status !== 'completed' && t.status !== 'canceled') t.status = 'active';
@@ -2376,6 +5236,7 @@
       }
 
       window.nnPhase3Init = async function nnPhase3Init() {
+        nnBindEditorUiOnce();
         await nnDb.open();
         nnUpdateOnlineBadge();
         await nnRenderTaskList();
@@ -2404,7 +5265,7 @@
           var tasks = await nnDb.tasks.toArray();
           var set = {};
           tasks.forEach(function (t) {
-            var p = (t.project || '').trim();
+            var p = (t.project || '').trim() || NN_INBOX_NAME;
             if (p) set[p] = true;
           });
           Object.keys(set).sort().forEach(function (p) {
@@ -2450,7 +5311,8 @@
           var project = '';
           var heading = '';
           if (mode === 'inbox') {
-            heading = 'インボックス';
+            project = NN_INBOX_NAME;
+            heading = '';
           } else {
             var selEl = document.getElementById('nn-dest-project-select');
             project = selEl ? String(selEl.value || '').trim() : '';
@@ -2459,6 +5321,7 @@
             if (cust) project = cust;
             var headEl = document.getElementById('nn-dest-heading');
             heading = headEl ? headEl.value.trim() : '';
+            if (!project) project = NN_INBOX_NAME;
           }
           var notes = window.nnQuickPendingNotes || '';
           var title = nnTitleFromQuickBody(notes);
