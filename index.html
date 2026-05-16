@@ -3807,6 +3807,8 @@
         fileId: null,
         fileName: 'document.pdf',
         fileType: 'pdf',
+        folderId: null,
+        lastOpenedAt: 0,
         originalPdfBytes: null,
         imageDataUrl: '',
         localStrokesByPage: {},
@@ -3817,10 +3819,11 @@
         currentScale: 1,
         scrollLeft: 0,
         scrollTop: 0,
-        legacyFolderNavActive: false
+        legacyFolderNavActive: false,
       };
     }
     var pdfSlots = [nnEmptyPdfSlot(), nnEmptyPdfSlot(), nnEmptyPdfSlot()];
+    var __startupWarmPromise = null;
 
     function nnClonePdfBytes(buf) {
       if (!buf) return null;
@@ -3866,15 +3869,193 @@
       return n.length > 10 ? n.slice(0, 9) + '…' : n;
     }
 
+    function nnGetSlotOrderByRecency() {
+      var order = [];
+      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) order.push(i);
+      order.sort(function (a, b) {
+        var sa = pdfSlots[a];
+        var sb = pdfSlots[b];
+        var ha = !!(sa && sa.fileId);
+        var hb = !!(sb && sb.fileId);
+        if (ha && !hb) return -1;
+        if (!ha && hb) return 1;
+        if (!ha && !hb) return a - b;
+        return (sb.lastOpenedAt || 0) - (sa.lastOpenedAt || 0);
+      });
+      return order;
+    }
+
     function nnUpdatePdfSlotTabButtons() {
-      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) {
-        var b = document.getElementById('pdf-slot-btn-' + i);
+      var order = nnGetSlotOrderByRecency();
+      for (var disp = 0; disp < NN_PDF_SLOT_COUNT; disp++) {
+        var b = document.getElementById('pdf-slot-btn-' + disp);
         if (!b) continue;
-        var s = pdfSlots[i];
-        var slotLabel = i === 0 ? '① ' : i === 1 ? '② ' : '③ ';
+        var slotIdx = order[disp];
+        var s = pdfSlots[slotIdx];
+        var slotLabel = disp === 0 ? '① ' : disp === 1 ? '② ' : '③ ';
         b.textContent = slotLabel + (s && s.fileId ? nnPdfSlotLabel(s.fileName) : '空');
-        b.classList.toggle('active-slot', i === pdfActiveSlot);
+        b.classList.toggle('active-slot', slotIdx === pdfActiveSlot);
+        b.setAttribute('data-slot-index', String(slotIdx));
+        b.title = s && s.fileId ? s.fileName : '空のタブ';
+        b.onclick = function () {
+          var si = parseInt(this.getAttribute('data-slot-index'), 10);
+          if (!isNaN(si)) switchPdfSlotIndex(si);
+        };
       }
+    }
+
+    function nnPickLruSlotIndexForNewFile() {
+      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) {
+        if (!pdfSlots[i].fileId) return i;
+      }
+      var idx = 0;
+      var oldest = pdfSlots[0].lastOpenedAt || 0;
+      for (var j = 1; j < NN_PDF_SLOT_COUNT; j++) {
+        var t = pdfSlots[j].lastOpenedAt || 0;
+        if (t < oldest) {
+          oldest = t;
+          idx = j;
+        }
+      }
+      return idx;
+    }
+
+    function nnAssignPdfToSlotLru(fid, name, folderId) {
+      var now = Date.now();
+      var idx = nnFindSlotIndexByFileId(fid);
+      var isNewInSlots = idx < 0;
+      if (isNewInSlots) idx = nnPickLruSlotIndexForNewFile();
+      if (isNewInSlots) pdfSlots[idx] = nnEmptyPdfSlot();
+      var s = pdfSlots[idx];
+      var sameFile = s.fileId === fid;
+      s.fileId = fid;
+      s.fileName = name || 'document.pdf';
+      s.fileType = 'pdf';
+      s.folderId = folderId != null && String(folderId).trim() !== '' ? String(folderId).trim() : null;
+      s.lastOpenedAt = now;
+      if (isNewInSlots || !sameFile) {
+        s.originalPdfBytes = null;
+        s.imageDataUrl = '';
+        s.localStrokesByPage = {};
+        s.sharedStrokesByPage = {};
+        s.localTextByPage = {};
+        s.sharedTextByPage = {};
+        s.currentPageNum = 1;
+        s.currentScale = 1;
+        s.scrollLeft = 0;
+        s.scrollTop = 0;
+        s.legacyFolderNavActive = false;
+      }
+      pdfActiveSlot = idx;
+      nnPersistPdfSessionMeta();
+      nnUpdatePdfSlotTabButtons();
+      return idx;
+    }
+
+    function nnApplyAnnotationPayloadToSlot(s, dataStr) {
+      if (!s || !dataStr || !String(dataStr).trim()) return;
+      var d;
+      try {
+        d = JSON.parse(dataStr);
+      } catch (e) {
+        return;
+      }
+      if (d && d.v === 2 && d.pen && typeof d.pen === 'object') {
+        s.sharedStrokesByPage = d.pen;
+        s.sharedTextByPage = d.text && typeof d.text === 'object' ? d.text : {};
+        return;
+      }
+      if (d && typeof d === 'object') {
+        s.sharedStrokesByPage = d;
+        s.sharedTextByPage = {};
+      }
+    }
+
+    function nnPreloadSlotInBackground(slotIdx) {
+      var s = pdfSlots[slotIdx];
+      if (!s || !s.fileId || s.originalPdfBytes) return Promise.resolve();
+      var fileId = s.fileId;
+      var baseName = (s.fileName || 'document.pdf').replace(/\.[^/.]+$/, '');
+      return new Promise(function (resolve) {
+        google.script.run
+          .withFailureHandler(function () {
+            resolve();
+          })
+          .withSuccessHandler(function (b64re) {
+            (async function () {
+              try {
+                if (b64re && typeof b64re === 'object' && b64re.error) return;
+                if (typeof b64re !== 'string' || !b64re.length) return;
+                if (pdfSlots[slotIdx].fileId !== fileId) return;
+                var bstr = window.atob(b64re);
+                var uarr = new Uint8Array(bstr.length);
+                for (var ir = 0; ir < bstr.length; ir++) uarr[ir] = bstr.charCodeAt(ir);
+                pdfSlots[slotIdx].originalPdfBytes = uarr.buffer;
+                var annRes = await new Promise(function (resAnn) {
+                  google.script.run
+                    .withFailureHandler(function () {
+                      resAnn(null);
+                    })
+                    .withSuccessHandler(resAnn)
+                    .loadAnnotation(fileId, baseName);
+                });
+                if (pdfSlots[slotIdx].fileId !== fileId) return;
+                if (annRes && annRes.success && annRes.data) {
+                  nnApplyAnnotationPayloadToSlot(pdfSlots[slotIdx], annRes.data);
+                }
+                var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
+                if (savedLocalMemo) {
+                  try {
+                    var ld = JSON.parse(savedLocalMemo);
+                    if (ld && ld.v === 2 && ld.pen) {
+                      pdfSlots[slotIdx].localStrokesByPage = ld.pen;
+                      pdfSlots[slotIdx].localTextByPage = ld.text && typeof ld.text === 'object' ? ld.text : {};
+                    } else if (ld && typeof ld === 'object') {
+                      pdfSlots[slotIdx].localStrokesByPage = ld;
+                    }
+                  } catch (e2) {}
+                }
+              } catch (e) {
+                console.warn('nnPreloadSlotInBackground', e);
+              } finally {
+                resolve();
+              }
+            })();
+          })
+          .getFileData(fileId);
+      });
+    }
+
+    function nnMigrateLegacyLastOpenedToSlots() {
+      var hasAny = false;
+      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) {
+        if (pdfSlots[i] && pdfSlots[i].fileId) {
+          hasAny = true;
+          break;
+        }
+      }
+      if (hasAny) return;
+      var last = nnGetLastOpenedFileMeta();
+      if (!last) return;
+      nnAssignPdfToSlotLru(last.id, last.name, last.folderId);
+    }
+
+    function nnWarmStartupBehindGate() {
+      nnLoadPdfSessionMeta();
+      nnMigrateLegacyLastOpenedToSlots();
+      nnUpdatePdfSlotTabButtons();
+      var jobs = [];
+      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) jobs.push(nnPreloadSlotInBackground(i));
+      if (typeof window.nnPhase3Init === 'function') {
+        jobs.push(
+          window.nnPhase3Init().catch(function (e) {
+            console.warn('nnPhase3Init preload', e);
+          })
+        );
+      } else {
+        jobs.push(Promise.resolve());
+      }
+      __startupWarmPromise = Promise.all(jobs);
     }
 
     var NN_PDF_SLOTS_META_KEY = 'nn_pdf_slots_meta';
@@ -3912,6 +4093,8 @@
                   fileId: s.fileId,
                   fileName: s.fileName,
                   fileType: s.fileType,
+                  folderId: s.folderId || null,
+                  lastOpenedAt: s.lastOpenedAt || 0,
                   currentPageNum: s.currentPageNum,
                   currentScale: s.currentScale,
                   scrollLeft: s.scrollLeft,
@@ -3944,6 +4127,8 @@
           sl.fileId = m.fileId;
           sl.fileName = m.fileName || 'document.pdf';
           sl.fileType = m.fileType || 'pdf';
+          sl.folderId = m.folderId != null ? m.folderId : null;
+          sl.lastOpenedAt = m.lastOpenedAt || Date.now() - (NN_PDF_SLOT_COUNT - i) * 60000;
           sl.currentPageNum = m.currentPageNum || 1;
           sl.currentScale = m.currentScale > 0 ? m.currentScale : 1;
           sl.scrollLeft = m.scrollLeft || 0;
@@ -4011,30 +4196,108 @@
       var nnPanel = document.getElementById('nn-panel');
       if (nnPanel) nnPanel.style.display = 'none';
 
-      var activeSlot = pdfSlots[pdfActiveSlot];
-      if (activeSlot && activeSlot.fileId) {
-        return restorePdfSlotToGlobals(pdfActiveSlot).then(function () {
+      var warm = __startupWarmPromise || Promise.resolve();
+      return warm.then(function () {
+        var order = nnGetSlotOrderByRecency();
+        for (var i = 0; i < order.length; i++) {
+          var idx = order[i];
+          if (pdfSlots[idx] && pdfSlots[idx].fileId) {
+            pdfActiveSlot = idx;
+            return restorePdfSlotToGlobals(idx).then(function () {
+              return true;
+            });
+          }
+        }
+        var last = nnGetLastOpenedFileMeta();
+        if (last) {
+          nnOpenPdfFile(last.id, last.name, last.folderId);
           return true;
-        });
+        }
+        return false;
+      });
+    }
+
+    function nnOpenPdfFile(fid, name, storedFolderId) {
+      hideStartupGate();
+      setAppMode('pdf');
+      var fileId =
+        fid != null && String(fid).trim() !== '' ? String(fid).trim() : '';
+      if (!fileId) {
+        alert('ファイル ID がありません。一覧の「開く」から開いてください。');
+        showHomeMeet();
+        return Promise.resolve(false);
       }
-      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) {
-        if (pdfSlots[i] && pdfSlots[i].fileId) {
-          pdfActiveSlot = i;
-          return restorePdfSlotToGlobals(pdfActiveSlot).then(function () {
-            return true;
-          });
+      if (currentFileId) {
+        try {
+          autoSaveCurrent(true);
+        } catch (e0) {
+          console.warn(e0);
+        }
+        try {
+          savePdfSlotFromGlobals();
+        } catch (e1) {
+          console.warn('savePdfSlotFromGlobals', e1);
         }
       }
-      if (window.nnPdfPreload && window.nnPdfPreload.base64) {
-        loadPdfFromBase64(window.nnPdfPreload.base64, window.nnPdfPreload.id, window.nnPdfPreload.name, false);
+      var folderForFile = nnFindFolderIdForFile(fileId);
+      if (folderForFile) currentFolderId = folderForFile;
+      else if (storedFolderId != null && String(storedFolderId).trim() !== '') {
+        currentFolderId = String(storedFolderId).trim();
+      }
+      var mode = nnGetFolderPdfModeForFolder(currentFolderId);
+      if (mode === 'seamless') {
+        if (!currentFolderId) {
+          alert(
+            'シームレス表示のフォルダを特定できませんでした。ホームで「ツリーを最新に更新」してから、一覧の「開く」で開くか、前回の記録を開き直してください。'
+          );
+          showHomeMeet();
+          return Promise.resolve(false);
+        }
+        openSeamlessViewerForFolder(currentFolderId, fileId, name);
         return Promise.resolve(true);
       }
-      var last = nnGetLastOpenedFileMeta();
-      if (last) {
-        openFileFromHome(last.id, last.name, last.folderId);
-        return Promise.resolve(true);
+      var slotIdx = nnAssignPdfToSlotLru(fileId, name || 'document.pdf', currentFolderId);
+      var s = pdfSlots[slotIdx];
+      try {
+        localStorage.setItem(
+          'last_opened_file',
+          JSON.stringify({
+            id: fileId,
+            name: s.fileName,
+            folderId: currentFolderId,
+            pdfMode: 'individual',
+          })
+        );
+      } catch (e) {}
+      legacyFolderNavActive = false;
+      nnSyncLegacyToolsVisibility();
+      homeScreen.style.display = 'none';
+      nnShowPdfViewer();
+      nnSetPdfSlotToolbarVisible(true);
+      var nnPanel = document.getElementById('nn-panel');
+      if (nnPanel) nnPanel.style.display = 'none';
+      var pdfBtn = document.getElementById('btn-mode-pdf');
+      var taskBtn = document.getElementById('btn-mode-tasks');
+      if (pdfBtn && taskBtn && taskBtn.classList.contains('active-mode')) {
+        taskBtn.classList.remove('active-mode');
+        pdfBtn.classList.add('active-mode');
       }
-      return Promise.resolve(false);
+      updateFavoriteButtonStatus();
+      __pdfLoadGeneration++;
+      var openChain = __startupWarmPromise || Promise.resolve();
+      __pdfFileOpenChain = openChain.then(function () {
+        if (s.originalPdfBytes) {
+          return restorePdfSlotToGlobals(slotIdx);
+        }
+        nnResetPdfViewerBinary_();
+        currentFileId = fileId;
+        fileName = s.fileName;
+        fileType = 'pdf';
+        return loadSelectedFile(false, false);
+      });
+      return __pdfFileOpenChain.then(function () {
+        return true;
+      });
     }
 
     function savePdfSlotFromGlobals() {
@@ -4129,6 +4392,7 @@
       currentFileId = s.fileId;
       fileName = s.fileName || 'document.pdf';
       fileType = s.fileType || 'pdf';
+      if (s.folderId) currentFolderId = s.folderId;
       legacyFolderNavActive = !!s.legacyFolderNavActive;
       localStrokesByPage = nnSafeJsonClone(s.localStrokesByPage);
       sharedStrokesByPage = nnSafeJsonClone(s.sharedStrokesByPage);
@@ -4241,6 +4505,11 @@
       autoSaveCurrent(true);
       savePdfSlotFromGlobals();
       pdfActiveSlot = nextIdx;
+      if (pdfSlots[pdfActiveSlot] && pdfSlots[pdfActiveSlot].fileId) {
+        pdfSlots[pdfActiveSlot].lastOpenedAt = Date.now();
+        nnPersistPdfSessionMeta();
+        nnUpdatePdfSlotTabButtons();
+      }
       if (homeScreen) homeScreen.style.display = 'none';
       if (viewerContainer) nnShowPdfViewer();
       nnSetPdfSlotToolbarVisible(true);
@@ -4289,11 +4558,9 @@
           if (res && res.success) {
             renderQuickAccess();
             loadFolderTree(false);
-            nnLoadPdfSessionMeta();
-            nnPreloadLastPdfInBackground();
+            nnWarmStartupBehindGate();
             startupWireMainMenu();
             showStartupGate();
-            nnUpdatePdfSlotTabButtons();
           } else {
             alert((res && res.error) ? res.error : '初期化に失敗しました');
             showHomeMeet();
@@ -4730,98 +4997,7 @@
     }
 
     function openFileFromHome(id, name, storedFolderId) {
-      hideStartupGate();
-      setAppMode('pdf');
-      var fid =
-        id != null && String(id).trim() !== ''
-          ? String(id).trim()
-          : '';
-      if (!fid) {
-        alert('ファイル ID がありません。一覧の「開く」から開いてください。');
-        showHomeMeet();
-        return;
-      }
-      if (currentFileId) {
-        try {
-          autoSaveCurrent(true);
-        } catch (e0) {
-          console.warn(e0);
-        }
-        try {
-          savePdfSlotFromGlobals();
-        } catch (e1) {
-          console.warn('savePdfSlotFromGlobals', e1);
-        }
-      }
-      var folderForFile = nnFindFolderIdForFile(fid);
-      if (folderForFile) currentFolderId = folderForFile;
-      else if (storedFolderId != null && String(storedFolderId).trim() !== '') {
-        currentFolderId = String(storedFolderId).trim();
-      }
-      var mode = nnGetFolderPdfModeForFolder(currentFolderId);
-      if (mode === 'seamless') {
-        if (!currentFolderId) {
-          alert(
-            'シームレス表示のフォルダを特定できませんでした。ホームで「ツリーを最新に更新」してから、一覧の「開く」で開くか、前回の記録を開き直してください。'
-          );
-          showHomeMeet();
-          return;
-        }
-        openSeamlessViewerForFolder(currentFolderId, fid, name);
-        return;
-      }
-      var existingIdx = nnFindSlotIndexByFileId(fid);
-      if (existingIdx >= 0) {
-        pdfActiveSlot = existingIdx;
-      }
-      try {
-        localStorage.setItem(
-          'last_opened_file',
-          JSON.stringify({
-            id: fid,
-            name: name || 'document.pdf',
-            folderId: currentFolderId,
-            pdfMode: 'individual',
-          })
-        );
-      } catch (e) {}
-      nnPersistPdfSessionMeta();
-      updateFavoriteButtonStatus();
-      homeScreen.style.display = 'none';
-      nnShowPdfViewer();
-      nnSetPdfSlotToolbarVisible(true);
-      var nnPanel = document.getElementById('nn-panel');
-      if (nnPanel) nnPanel.style.display = 'none';
-      var pdfBtn = document.getElementById('btn-mode-pdf');
-      var taskBtn = document.getElementById('btn-mode-tasks');
-      if (pdfBtn && taskBtn && taskBtn.classList.contains('active-mode')) {
-        taskBtn.classList.remove('active-mode');
-        pdfBtn.classList.add('active-mode');
-      }
-      if (existingIdx >= 0) {
-        __pdfFileOpenChain = __pdfFileOpenChain
-          .then(function () {
-            return restorePdfSlotToGlobals(pdfActiveSlot);
-          })
-          .catch(function (e) {
-            console.error('openFileFromHome restore', e);
-            hideLoader();
-          });
-        return;
-      }
-      nnPrepareActiveSlotForNewFile(fid, name || 'document.pdf', currentFolderId);
-      legacyFolderNavActive = false;
-      nnSyncLegacyToolsVisibility();
-      __pdfLoadGeneration++;
-      nnResetPdfViewerBinary_();
-      __pdfFileOpenChain = __pdfFileOpenChain
-        .then(function () {
-          return loadSelectedFile(false, false);
-        })
-        .catch(function (e) {
-          console.error('openFileFromHome load', e);
-          hideLoader();
-        });
+      nnOpenPdfFile(id, name, storedFolderId);
     }
 
     function applyRoleMeet() {
@@ -5147,6 +5323,7 @@
         alert('PDFデータがありません。');
         return;
       }
+      nnAssignPdfToSlotLru(id, name || 'document.pdf', currentFolderId);
       currentFileId = id;
       fileName = name || 'document.pdf';
       legacyFolderNavActive = false;
@@ -5251,6 +5428,11 @@
       homeScreen.style.display = 'none';
       nnHidePdfViewer();
       setAppMode('tasks');
+      if (typeof window.nnPhase3Init === 'function') {
+        (window.__nnPhase3InitPromise || window.nnPhase3Init()).catch(function (e) {
+          console.warn('startupChooseTaskHome', e);
+        });
+      }
     }
 
     function startupChoosePdfHome() {
@@ -7241,13 +7423,21 @@
       }
 
       window.nnPhase3Init = async function nnPhase3Init() {
-        nnBindEditorUiOnce();
-        await nnDb.open();
-        nnUpdateOnlineBadge();
-        await nnRenderTaskList();
-        await nnRecomputeFpFromDb();
-        await nnUpdateSyncBadge();
-        nnBackgroundPull();
+        if (window.__nnPhase3InitPromise) return window.__nnPhase3InitPromise;
+        window.__nnPhase3InitPromise = (async function () {
+          nnBindEditorUiOnce();
+          await nnDb.open();
+          nnUpdateOnlineBadge();
+          await nnRenderTaskList();
+          await nnRecomputeFpFromDb();
+          await nnUpdateSyncBadge();
+          nnBackgroundPull();
+          window.nnPhase3InitDone = true;
+        })().catch(function (e) {
+          window.__nnPhase3InitPromise = null;
+          throw e;
+        });
+        return window.__nnPhase3InitPromise;
       };
 
       window.nnQuickPendingNotes = '';
