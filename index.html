@@ -3464,6 +3464,10 @@
     function savePdfSlotFromGlobals() {
       var s = pdfSlots[pdfActiveSlot];
       if (!s) return;
+      if (!currentFileId && !originalPdfBytes && !currentImageObj) {
+        nnUpdatePdfSlotTabButtons();
+        return;
+      }
       var prevSlotId = s.fileId;
       var prevSlotBytes = s.originalPdfBytes;
       s.fileId = currentFileId;
@@ -3615,16 +3619,22 @@
         if (needFetch) hideLoader();
       }
       if (restoreGen !== __pdfLoadGeneration) return;
-      try {
-        var annRes = await nnLoadAnnotationsForCurrentFile();
-        if (restoreGen !== __pdfLoadGeneration) return;
-        if (annRes && annRes.success && annRes.data) nnApplySharedAnnotationData(annRes.data);
-        var savedLocalMemo = localStorage.getItem('local_memo_' + fileName.replace(/\.[^/.]+$/, ''));
-        nnApplyLocalMemoPayload(savedLocalMemo);
-        savePdfSlotFromGlobals();
-        await renderPage(currentPageNum);
-      } catch (annErr) {
-        console.warn('restore annotation load', annErr);
+      var slotStrokeCount = 0;
+      Object.keys(s.localStrokesByPage || {}).forEach(function (k) {
+        if (s.localStrokesByPage[k] && s.localStrokesByPage[k].length) slotStrokeCount++;
+      });
+      if (slotStrokeCount === 0) {
+        try {
+          var annRes = await nnLoadAnnotationsForCurrentFile();
+          if (restoreGen !== __pdfLoadGeneration) return;
+          if (annRes && annRes.success && annRes.data) nnApplySharedAnnotationData(annRes.data);
+          var savedLocalMemo = localStorage.getItem('local_memo_' + fileName.replace(/\.[^/.]+$/, ''));
+          if (savedLocalMemo) nnApplyLocalMemoPayload(savedLocalMemo);
+          savePdfSlotFromGlobals();
+          await renderPage(currentPageNum);
+        } catch (annErr) {
+          console.warn('restore annotation load', annErr);
+        }
       }
       if (restoreGen !== __pdfLoadGeneration) return;
       if (viewerContainer) {
@@ -4154,15 +4164,17 @@
         showHomeMeet();
         return;
       }
-      try {
-        if (currentFileId) autoSaveCurrent(true);
-      } catch (e0) {
-        console.warn(e0);
-      }
-      try {
-        savePdfSlotFromGlobals();
-      } catch (e1) {
-        console.warn('savePdfSlotFromGlobals', e1);
+      if (currentFileId) {
+        try {
+          autoSaveCurrent(true);
+        } catch (e0) {
+          console.warn(e0);
+        }
+        try {
+          savePdfSlotFromGlobals();
+        } catch (e1) {
+          console.warn('savePdfSlotFromGlobals', e1);
+        }
       }
       var folderForFile = nnFindFolderIdForFile(fid);
       if (folderForFile) currentFolderId = folderForFile;
@@ -4210,8 +4222,6 @@
         pdfBtn.classList.add('active-mode');
       }
       if (existingIdx >= 0) {
-        __pdfLoadGeneration++;
-        nnResetPdfViewerBinary_();
         __pdfFileOpenChain = __pdfFileOpenChain
           .then(function () {
             return restorePdfSlotToGlobals(pdfActiveSlot);
@@ -4227,13 +4237,9 @@
       nnSyncLegacyToolsVisibility();
       __pdfLoadGeneration++;
       nnResetPdfViewerBinary_();
-      var openSlot = pdfActiveSlot;
       __pdfFileOpenChain = __pdfFileOpenChain
         .then(function () {
           return loadSelectedFile(false, false);
-        })
-        .then(function () {
-          return restorePdfSlotToGlobals(openSlot);
         })
         .catch(function (e) {
           console.error('openFileFromHome load', e);
