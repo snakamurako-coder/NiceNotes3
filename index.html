@@ -1742,6 +1742,8 @@
       fs.selectedIndex = idx;
       autoSaveCurrent(true);
       savePdfSlotFromGlobals();
+      __pdfLoadGeneration++;
+      nnResetPdfViewerBinary_();
       legacyFolderNavActive = true;
       currentFileId = files[idx].id;
       fileName = files[idx].name || startFileName || 'document.pdf';
@@ -1883,6 +1885,8 @@
     const NN_PDF_SLOT_COUNT = 3;
     let pdfActiveSlot = 0;
     var __pdfSlotSwitchChain = Promise.resolve();
+    var __pdfFileOpenChain = Promise.resolve();
+    var __pdfLoadGeneration = 0;
 
     function nnEmptyPdfSlot() {
       return {
@@ -1913,6 +1917,35 @@
       }
     }
 
+    function nnDestroyPdfDocJs() {
+      if (!pdfDocJs) return;
+      try {
+        var d = pdfDocJs;
+        pdfDocJs = null;
+        var p = d.destroy && d.destroy();
+        if (p && typeof p.then === 'function') {
+          p.catch(function () {});
+        }
+      } catch (e) {
+        pdfDocJs = null;
+      }
+    }
+
+    function nnResetPdfViewerBinary_() {
+      nnDestroyPdfDocJs();
+      originalPdfBytes = null;
+      currentImageObj = null;
+    }
+
+    function nnSafeJsonClone(obj) {
+      try {
+        return JSON.parse(JSON.stringify(obj || {}));
+      } catch (e) {
+        console.warn('nnSafeJsonClone', e);
+        return {};
+      }
+    }
+
     function nnPdfSlotLabel(name) {
       var n = (name || '').trim();
       if (!n) return '空';
@@ -1938,19 +1971,28 @@
       s.fileId = currentFileId;
       s.fileName = fileName;
       s.fileType = fileType;
-      var clonedBytes = nnClonePdfBytes(originalPdfBytes);
-      if (!clonedBytes && currentFileId && currentFileId === prevSlotId && fileType === 'pdf' && prevSlotBytes) {
-        clonedBytes = nnClonePdfBytes(prevSlotBytes);
+      if (fileType === 'pdf') {
+        var clonedBytes = nnClonePdfBytes(originalPdfBytes);
+        if (!clonedBytes && currentFileId && currentFileId === prevSlotId && prevSlotBytes) {
+          clonedBytes = nnClonePdfBytes(prevSlotBytes);
+        }
+        if (clonedBytes) {
+          s.originalPdfBytes = clonedBytes;
+        } else if (!currentFileId || currentFileId !== prevSlotId) {
+          s.originalPdfBytes = null;
+        }
+        s.imageDataUrl = '';
+      } else {
+        s.originalPdfBytes = null;
+        s.imageDataUrl =
+          currentImageObj && currentImageObj.src && currentImageObj.src.indexOf('data:') === 0
+            ? currentImageObj.src
+            : '';
       }
-      s.originalPdfBytes = clonedBytes;
-      s.imageDataUrl =
-        fileType !== 'pdf' && currentImageObj && currentImageObj.src && currentImageObj.src.indexOf('data:') === 0
-          ? currentImageObj.src
-          : '';
-      s.localStrokesByPage = JSON.parse(JSON.stringify(localStrokesByPage || {}));
-      s.sharedStrokesByPage = JSON.parse(JSON.stringify(sharedStrokesByPage || {}));
-      s.localTextByPage = JSON.parse(JSON.stringify(localTextByPage || {}));
-      s.sharedTextByPage = JSON.parse(JSON.stringify(sharedTextByPage || {}));
+      s.localStrokesByPage = nnSafeJsonClone(localStrokesByPage);
+      s.sharedStrokesByPage = nnSafeJsonClone(sharedStrokesByPage);
+      s.localTextByPage = nnSafeJsonClone(localTextByPage);
+      s.sharedTextByPage = nnSafeJsonClone(sharedTextByPage);
       s.currentPageNum = currentPageNum;
       s.currentScale = currentScale;
       s.scrollLeft = viewerContainer ? viewerContainer.scrollLeft : 0;
@@ -1961,7 +2003,7 @@
 
     async function nnClearViewerForEmptySlot() {
       stopMeetSync();
-      pdfDocJs = null;
+      nnDestroyPdfDocJs();
       originalPdfBytes = null;
       currentImageObj = null;
       totalPages = 0;
@@ -2002,36 +2044,46 @@
         nnUpdatePdfSlotTabButtons();
         return;
       }
+      var restoreGen = ++__pdfLoadGeneration;
       stopMeetSync();
+      nnResetPdfViewerBinary_();
       currentFileId = s.fileId;
       fileName = s.fileName || 'document.pdf';
       fileType = s.fileType || 'pdf';
       legacyFolderNavActive = !!s.legacyFolderNavActive;
-      localStrokesByPage = JSON.parse(JSON.stringify(s.localStrokesByPage || {}));
-      sharedStrokesByPage = JSON.parse(JSON.stringify(s.sharedStrokesByPage || {}));
-      localTextByPage = JSON.parse(JSON.stringify(s.localTextByPage || {}));
-      sharedTextByPage = JSON.parse(JSON.stringify(s.sharedTextByPage || {}));
+      localStrokesByPage = nnSafeJsonClone(s.localStrokesByPage);
+      sharedStrokesByPage = nnSafeJsonClone(s.sharedStrokesByPage);
+      localTextByPage = nnSafeJsonClone(s.localTextByPage);
+      sharedTextByPage = nnSafeJsonClone(s.sharedTextByPage);
       currentPageNum = s.currentPageNum || 1;
       currentScale = s.currentScale > 0 ? s.currentScale : 1;
       originalPdfBytes = nnClonePdfBytes(s.originalPdfBytes);
       currentImageObj = null;
+      var needFetch = fileType === 'pdf' && !originalPdfBytes && currentFileId;
+      if (needFetch) showLoader('PDFを読み込み中...');
       try {
-        if (fileType === 'pdf' && !originalPdfBytes && currentFileId && typeof google !== 'undefined' && google.script && google.script.run) {
+        if (needFetch && typeof google !== 'undefined' && google.script && google.script.run) {
           var b64re = await new Promise(function (resolve, reject) {
             google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getFileData(currentFileId);
           });
+          if (restoreGen !== __pdfLoadGeneration) return;
           if (b64re && typeof b64re === 'object' && b64re.error) throw new Error(b64re.error);
-          if (typeof b64re === 'string') {
-            var bstr = window.atob(b64re);
-            var uarr = new Uint8Array(bstr.length);
-            for (var ir = 0; ir < bstr.length; ir++) uarr[ir] = bstr.charCodeAt(ir);
-            originalPdfBytes = uarr.buffer;
-            s.originalPdfBytes = nnClonePdfBytes(originalPdfBytes);
+          if (typeof b64re !== 'string' || !b64re.length) {
+            throw new Error('ファイルデータが空です。');
           }
+          var bstr = window.atob(b64re);
+          var uarr = new Uint8Array(bstr.length);
+          for (var ir = 0; ir < bstr.length; ir++) uarr[ir] = bstr.charCodeAt(ir);
+          originalPdfBytes = uarr.buffer;
+          var stored = nnClonePdfBytes(originalPdfBytes);
+          if (stored) s.originalPdfBytes = stored;
         }
+        if (restoreGen !== __pdfLoadGeneration) return;
         if (fileType === 'pdf' && originalPdfBytes) {
-          var u8 = new Uint8Array(originalPdfBytes);
-          pdfDocJs = await pdfjsLib.getDocument(u8).promise;
+          var u8 = new Uint8Array(originalPdfBytes.slice(0));
+          nnDestroyPdfDocJs();
+          pdfDocJs = await pdfjsLib.getDocument({ data: u8 }).promise;
+          if (restoreGen !== __pdfLoadGeneration) return;
           var physPages3 = pdfDocJs.numPages;
           nnLpEnsurePlanForCurrentFile(physPages3);
           currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
@@ -2043,17 +2095,27 @@
             currentImageObj.onerror = reject;
             currentImageObj.src = s.imageDataUrl;
           });
+          if (restoreGen !== __pdfLoadGeneration) return;
           totalPages = 1;
           currentPageNum = 1;
           await renderPage(1);
+        } else if (fileType === 'pdf') {
+          throw new Error('PDFデータを取得できませんでした。');
         } else {
           await nnClearViewerForEmptySlot();
+          return;
         }
       } catch (err) {
         console.error(err);
-        alert('タブの復元に失敗しました: ' + (err.message || String(err)));
-        await nnClearViewerForEmptySlot();
+        if (restoreGen === __pdfLoadGeneration) {
+          alert('タブの復元に失敗しました: ' + (err.message || String(err)));
+          await nnClearViewerForEmptySlot();
+        }
+        return;
+      } finally {
+        if (needFetch) hideLoader();
       }
+      if (restoreGen !== __pdfLoadGeneration) return;
       if (viewerContainer) {
         viewerContainer.scrollLeft = s.scrollLeft || 0;
         viewerContainer.scrollTop = s.scrollTop || 0;
@@ -2078,9 +2140,14 @@
 
     async function switchPdfSlotIndexDo(nextIdx) {
       if (nextIdx < 0 || nextIdx >= NN_PDF_SLOT_COUNT || nextIdx === pdfActiveSlot) return;
+      __pdfLoadGeneration++;
       autoSaveCurrent(true);
       savePdfSlotFromGlobals();
       pdfActiveSlot = nextIdx;
+      if (homeScreen) homeScreen.style.display = 'none';
+      if (viewerContainer) viewerContainer.style.display = 'block';
+      var st = document.getElementById('pdf-slot-tabs');
+      if (st) st.classList.add('nn-show');
       await restorePdfSlotToGlobals(pdfActiveSlot);
     }
 
@@ -2629,7 +2696,16 @@
         taskBtn.classList.remove('active-mode');
         pdfBtn.classList.add('active-mode');
       }
-      loadSelectedFile(false, false);
+      __pdfLoadGeneration++;
+      nnResetPdfViewerBinary_();
+      __pdfFileOpenChain = __pdfFileOpenChain
+        .then(function () {
+          return loadSelectedFile(false, false);
+        })
+        .catch(function (e) {
+          console.error('openFileFromHome load', e);
+          hideLoader();
+        });
     }
 
     function applyRoleMeet() {
@@ -2771,12 +2847,13 @@
       if (fromDropdown) {
         legacyFolderNavActive = true;
         currentFileId = fileSelect.value;
-        if (!currentFileId) return;
+        if (!currentFileId) return Promise.resolve();
         fileName = fileSelect.options[fileSelect.selectedIndex].text;
       } else if (!currentFileId) {
-        return;
+        return Promise.resolve();
       }
 
+      var loadGen = __pdfLoadGeneration;
       var baseName = fileName.replace(/\.[^/.]+$/, '');
       var ext = fileName.split('.').pop().toLowerCase();
       fileType = ext === 'jpg' || ext === 'jpeg' || ext === 'png' ? 'image' : 'pdf';
@@ -2785,8 +2862,9 @@
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         hideLoader();
         alert('Google Apps Script からファイルを取得できません。アプリを開き直してください。');
-        return;
+        return Promise.resolve();
       }
+      return new Promise(function (resolveOpen, rejectOpen) {
       google.script.run
         .withFailureHandler(function (err) {
           hideLoader();
@@ -2794,26 +2872,36 @@
             'Drive からファイルを取得できませんでした。権限・ファイルサイズ・ネットワークを確認してください。\n' +
               (err && err.message ? err.message : String(err))
           );
+          rejectOpen(err);
         })
         .withSuccessHandler(function (base64Data) {
+          if (loadGen !== __pdfLoadGeneration) {
+            hideLoader();
+            resolveOpen();
+            return;
+          }
           if (base64Data && base64Data.error) {
             alert('エラー: ' + base64Data.error);
             hideLoader();
+            rejectOpen(new Error(base64Data.error));
             return;
           }
           if (typeof base64Data !== 'string' || !base64Data.length) {
             alert('ファイルデータが空です。共有ドライブの権限や、ファイルが大きすぎないか確認してください。');
             hideLoader();
+            rejectOpen(new Error('empty file data'));
             return;
           }
           (async function () {
             try {
+              nnResetPdfViewerBinary_();
               if (fileType === 'pdf') {
                 var binaryString = window.atob(base64Data);
                 var bytes = new Uint8Array(binaryString.length);
                 for (var i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                originalPdfBytes = bytes.buffer;
-                pdfDocJs = await pdfjsLib.getDocument(bytes).promise;
+                originalPdfBytes = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+                pdfDocJs = await pdfjsLib.getDocument({ data: bytes }).promise;
+                if (loadGen !== __pdfLoadGeneration) return;
                 var physPages = pdfDocJs.numPages;
               } else {
                 var mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
@@ -2836,6 +2924,7 @@
               }
 
               async function nnAfterAnnotation_(res) {
+                if (loadGen !== __pdfLoadGeneration) return;
                 if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
                 else {
                   sharedStrokesByPage = {};
@@ -2850,6 +2939,10 @@
                   viewerContainer.scrollLeft = 0;
                   viewerContainer.scrollTop = 0;
                 }
+                homeScreen.style.display = 'none';
+                viewerContainer.style.display = 'block';
+                var stLoad = document.getElementById('pdf-slot-tabs');
+                if (stLoad) stLoad.classList.add('nn-show');
                 await renderPage(currentPageNum);
                 hideLoader();
                 updateFavoriteButtonStatus();
@@ -2867,28 +2960,42 @@
                       console.error(e);
                       hideLoader();
                     }
-                    alert(
-                      '共有メモ（注釈）の読み込みに失敗しました。資料は表示しています。\n' +
-                        (err2 && err2.message ? err2.message : String(err2))
-                    );
+                    if (loadGen === __pdfLoadGeneration) {
+                      alert(
+                        '共有メモ（注釈）の読み込みに失敗しました。資料は表示しています。\n' +
+                          (err2 && err2.message ? err2.message : String(err2))
+                      );
+                    }
+                    resolveOpen();
                   })();
                 })
                 .withSuccessHandler(function (res) {
-                  Promise.resolve(nnAfterAnnotation_(res)).catch(function (e) {
-                    console.error(e);
-                    hideLoader();
-                    alert('表示に失敗しました: ' + (e && e.message ? e.message : String(e)));
-                  });
+                  Promise.resolve(nnAfterAnnotation_(res))
+                    .then(function () {
+                      resolveOpen();
+                    })
+                    .catch(function (e) {
+                      console.error(e);
+                      hideLoader();
+                      if (loadGen === __pdfLoadGeneration) {
+                        alert('表示に失敗しました: ' + (e && e.message ? e.message : String(e)));
+                      }
+                      rejectOpen(e);
+                    });
                 })
                 .loadAnnotation(currentFileId, baseName);
             } catch (err) {
               console.error(err);
-              alert('読み込み失敗: ' + (err && err.message ? err.message : String(err)));
+              if (loadGen === __pdfLoadGeneration) {
+                alert('読み込み失敗: ' + (err && err.message ? err.message : String(err)));
+              }
               hideLoader();
+              rejectOpen(err);
             }
           })();
         })
         .getFileData(currentFileId);
+      });
     }
 
     function nnPreloadLastPdfInBackground() {
@@ -2941,19 +3048,25 @@
           })
         );
       } catch (e) {}
+      __pdfLoadGeneration++;
+      nnResetPdfViewerBinary_();
+      var loadGenB64 = __pdfLoadGeneration;
       if (!silent) showLoader('PDFを開いています...');
       (async function () {
         try {
           var binaryString = window.atob(base64Data);
           var bytes = new Uint8Array(binaryString.length);
           for (var i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-          originalPdfBytes = bytes.buffer;
-          pdfDocJs = await pdfjsLib.getDocument(bytes).promise;
+          if (loadGenB64 !== __pdfLoadGeneration) return;
+          originalPdfBytes = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+          pdfDocJs = await pdfjsLib.getDocument({ data: bytes }).promise;
+          if (loadGenB64 !== __pdfLoadGeneration) return;
           var physPages2 = pdfDocJs.numPages;
           var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
           nnApplyLocalMemoPayload(savedLocalMemo);
           google.script.run
             .withSuccessHandler(async function (res) {
+              if (loadGenB64 !== __pdfLoadGeneration) return;
               if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
               else {
                 sharedStrokesByPage = {};
@@ -2986,7 +3099,9 @@
             .loadAnnotation(currentFileId, baseName);
         } catch (err) {
           console.error(err);
-          alert('読み込み失敗: ' + err.message);
+          if (loadGenB64 === __pdfLoadGeneration) {
+            alert('読み込み失敗: ' + (err && err.message ? err.message : String(err)));
+          }
           hideLoader();
         }
       })();
