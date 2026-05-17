@@ -472,15 +472,55 @@ function nn_buildFolderBreadcrumbs_(folder) {
   return chain;
 }
 
+/** @param {string} name @param {string} q */
+function nn_driveBrowseNameMatch_(name, q) {
+  const qq = String(q || '').trim().toLowerCase();
+  if (!qq) return true;
+  return String(name || '').toLowerCase().indexOf(qq) >= 0;
+}
+
+/**
+ * @param {Array<Object>} arr
+ * @param {string} sortBy
+ * @param {boolean} sortAsc
+ */
+function nn_driveBrowseSort_(arr, sortBy, sortAsc) {
+  const mul = sortAsc ? 1 : -1;
+  arr.sort(function (a, b) {
+    if (sortBy === 'updated') {
+      const du = (a.updated || 0) - (b.updated || 0);
+      if (du !== 0) return du * mul;
+    } else if (sortBy === 'created') {
+      const dc = (a.created || 0) - (b.created || 0);
+      if (dc !== 0) return dc * mul;
+    }
+    const cn = String(a.name || '').localeCompare(String(b.name || ''), 'ja');
+    return cn * mul;
+  });
+}
+
 /**
  * 追加用ドライブブラウザ（ユーザー権限・DriveApp）。Picker / Cloud API キー不要。
  * @param {string|null|undefined} folderId 省略時はマイドライブ直下
+ * @param {Object=} options typeFilter, sortBy, sortAsc, nameQuery, offsets, limits
  * @return {Object}
  */
-function browseDriveForAdd(folderId) {
-  const MAX_FOLDERS = 200;
-  const MAX_PDFS = 100;
-  const MAX_IMAGES = 100;
+function browseDriveForAdd(folderId, options) {
+  const MAX_COLLECT_PER_TYPE = 500;
+  const MAX_FILE_ITERATIONS = 15000;
+  const o = options && typeof options === 'object' ? options : {};
+  const typeFilter = ['all', 'folder', 'pdf', 'image'].indexOf(o.typeFilter) >= 0 ? o.typeFilter : 'all';
+  const sortBy = ['name', 'updated', 'created'].indexOf(o.sortBy) >= 0 ? o.sortBy : 'name';
+  const sortAsc = o.sortAsc !== false;
+  const nameQuery = String(o.nameQuery || '').trim();
+
+  const folderOffset = Math.max(0, parseInt(o.folderOffset, 10) || 0);
+  const pdfOffset = Math.max(0, parseInt(o.pdfOffset, 10) || 0);
+  const imageOffset = Math.max(0, parseInt(o.imageOffset, 10) || 0);
+  const folderLimit = Math.max(1, Math.min(200, parseInt(o.folderLimit, 10) || 50));
+  const pdfLimit = Math.max(1, Math.min(200, parseInt(o.pdfLimit, 10) || 50));
+  const imageLimit = Math.max(1, Math.min(200, parseInt(o.imageLimit, 10) || 50));
+
   try {
     let folder;
     if (folderId == null || String(folderId).trim() === '' || folderId === '__root__') {
@@ -493,57 +533,127 @@ function browseDriveForAdd(folderId) {
     const parentId = parents.hasNext() ? parents.next().getId() : null;
     const breadcrumbs = nn_buildFolderBreadcrumbs_(folder);
 
-    let folders = [];
+    const foldersRaw = [];
+    let foldersScanTruncated = false;
     const dIter = folder.getFolders();
     while (dIter.hasNext()) {
+      if (foldersRaw.length >= MAX_COLLECT_PER_TYPE) {
+        foldersScanTruncated = true;
+        break;
+      }
       const d = dIter.next();
-      folders.push({ id: d.getId(), name: d.getName() });
+      foldersRaw.push({
+        id: d.getId(),
+        name: d.getName(),
+        updated: d.getLastUpdated().getTime(),
+        created: d.getDateCreated().getTime(),
+      });
     }
-    folders.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
-    const folderTotal = folders.length;
-    const foldersTruncated = folderTotal > MAX_FOLDERS;
-    if (foldersTruncated) folders = folders.slice(0, MAX_FOLDERS);
+    if (dIter.hasNext()) foldersScanTruncated = true;
 
-    const pdfsAll = [];
-    const imagesAll = [];
+    const pdfsRaw = [];
+    const imagesRaw = [];
+    let pdfsScanTruncated = false;
+    let imagesScanTruncated = false;
+    let filesIteratorTruncated = false;
     const fIter = folder.getFiles();
+    let fileSteps = 0;
     while (fIter.hasNext()) {
-      const f = fIter.next();
-      const mime = f.getMimeType();
+      if (fileSteps >= MAX_FILE_ITERATIONS) {
+        filesIteratorTruncated = true;
+        break;
+      }
+      fileSteps++;
+      const fl = fIter.next();
+      const mime = fl.getMimeType();
       if (mime === MimeType.PDF) {
-        pdfsAll.push({
-          id: f.getId(),
-          name: f.getName(),
-          updated: f.getLastUpdated().getTime(),
-        });
+        if (pdfsRaw.length >= MAX_COLLECT_PER_TYPE) {
+          pdfsScanTruncated = true;
+        } else {
+          pdfsRaw.push({
+            id: fl.getId(),
+            name: fl.getName(),
+            updated: fl.getLastUpdated().getTime(),
+            created: fl.getDateCreated().getTime(),
+            size: fl.getSize(),
+          });
+        }
       } else if (mime === MimeType.JPEG || mime === MimeType.PNG) {
-        imagesAll.push({
-          id: f.getId(),
-          name: f.getName(),
-          mimeType: mime,
-          updated: f.getLastUpdated().getTime(),
-        });
+        if (imagesRaw.length >= MAX_COLLECT_PER_TYPE) {
+          imagesScanTruncated = true;
+        } else {
+          imagesRaw.push({
+            id: fl.getId(),
+            name: fl.getName(),
+            mimeType: mime,
+            updated: fl.getLastUpdated().getTime(),
+            created: fl.getDateCreated().getTime(),
+            size: fl.getSize(),
+          });
+        }
       }
     }
-    pdfsAll.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
-    const pdfTotal = pdfsAll.length;
-    const pdfs = pdfTotal > MAX_PDFS ? pdfsAll.slice(0, MAX_PDFS) : pdfsAll;
+    if (fIter.hasNext()) filesIteratorTruncated = true;
 
-    imagesAll.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
-    const imageTotal = imagesAll.length;
-    const images = imageTotal > MAX_IMAGES ? imagesAll.slice(0, MAX_IMAGES) : imagesAll;
+    const foldersF = foldersRaw.filter(function (x) {
+      return nn_driveBrowseNameMatch_(x.name, nameQuery);
+    });
+    const pdfsF = pdfsRaw.filter(function (x) {
+      return nn_driveBrowseNameMatch_(x.name, nameQuery);
+    });
+    const imagesF = imagesRaw.filter(function (x) {
+      return nn_driveBrowseNameMatch_(x.name, nameQuery);
+    });
+
+    nn_driveBrowseSort_(foldersF, sortBy, sortAsc);
+    nn_driveBrowseSort_(pdfsF, sortBy, sortAsc);
+    nn_driveBrowseSort_(imagesF, sortBy, sortAsc);
+
+    const folderTotal = foldersF.length;
+    const pdfTotal = pdfsF.length;
+    const imageTotal = imagesF.length;
+
+    let foldersOut = [];
+    let pdfsOut = [];
+    let imagesOut = [];
+
+    if (typeFilter === 'all' || typeFilter === 'folder') {
+      foldersOut = foldersF.slice(folderOffset, folderOffset + folderLimit);
+    }
+    if (typeFilter === 'all' || typeFilter === 'pdf') {
+      pdfsOut = pdfsF.slice(pdfOffset, pdfOffset + pdfLimit);
+    }
+    if (typeFilter === 'all' || typeFilter === 'image') {
+      imagesOut = imagesF.slice(imageOffset, imageOffset + imageLimit);
+    }
+
+    const foldersHasMore =
+      typeFilter === 'all' || typeFilter === 'folder' ? folderOffset + foldersOut.length < folderTotal : false;
+    const pdfsHasMore = typeFilter === 'all' || typeFilter === 'pdf' ? pdfOffset + pdfsOut.length < pdfTotal : false;
+    const imagesHasMore =
+      typeFilter === 'all' || typeFilter === 'image' ? imageOffset + imagesOut.length < imageTotal : false;
 
     return {
       success: true,
       current: { id: folder.getId(), name: folder.getName() },
       parentId: parentId,
       breadcrumbs: breadcrumbs,
-      folders: folders,
-      pdfs: pdfs,
-      images: images,
-      foldersTruncated: foldersTruncated,
-      pdfsTruncated: pdfTotal > MAX_PDFS,
-      imagesTruncated: imageTotal > MAX_IMAGES,
+      folders: foldersOut,
+      pdfs: pdfsOut,
+      images: imagesOut,
+      folderTotal: folderTotal,
+      pdfTotal: pdfTotal,
+      imageTotal: imageTotal,
+      foldersHasMore: foldersHasMore,
+      pdfsHasMore: pdfsHasMore,
+      imagesHasMore: imagesHasMore,
+      foldersScanTruncated: foldersScanTruncated,
+      pdfsScanTruncated: pdfsScanTruncated,
+      imagesScanTruncated: imagesScanTruncated,
+      filesIteratorTruncated: filesIteratorTruncated,
+      foldersTruncated: foldersScanTruncated,
+      pdfsTruncated: pdfsScanTruncated,
+      imagesTruncated: imagesScanTruncated,
     };
   } catch (e) {
     return {

@@ -364,6 +364,35 @@
     .nn-drive-browse-crumb button:hover { text-decoration: underline; }
     .nn-drive-browse-crumb .nn-crumb-sep { color: #9aa0a6; }
     .nn-drive-browse-toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .nn-drive-browse-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: #202124;
+    }
+    .nn-drive-browse-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .nn-db-fil { display: inline-flex; align-items: center; cursor: pointer; user-select: none; }
+    .nn-db-fil input { margin: 0 4px 0 0; vertical-align: middle; }
+    .nn-db-fil.nn-db-disabled { opacity: 0.45; pointer-events: none; cursor: not-allowed; }
+    .nn-drive-browse-sort-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .nn-drive-browse-sort-row select { font-size: 12px; padding: 4px 6px; border-radius: 6px; border: 1px solid #dadce0; }
+    #nn-drive-browse-q { width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; }
+    .nn-drive-browse-row .nn-row-main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nn-drive-browse-row .nn-row-meta-col {
+      margin-left: auto;
+      flex-shrink: 0;
+      text-align: right;
+      font-size: 11px;
+      color: #888;
+      line-height: 1.35;
+      max-width: 55%;
+    }
+    .nn-drive-browse-row .nn-row-meta-line { display: block; }
+    .nn-drive-browse-row .nn-row-meta-sub { display: block; font-size: 10px; color: #9aa0a6; margin-top: 2px; }
+    .nn-drive-browse-more { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+    .nn-drive-browse-more button { font-size: 12px; padding: 6px 10px; }
     .nn-drive-browse-list {
       flex: 1;
       min-height: 120px;
@@ -872,9 +901,29 @@
       <div class="nn-drive-browse-toolbar">
         <button type="button" class="file-btn-meet" id="nn-drive-browse-up" onclick="nnDriveBrowseUp()">↑ 上のフォルダ</button>
       </div>
+      <div class="nn-drive-browse-controls">
+        <div class="nn-drive-browse-filters">
+          <label class="nn-db-fil"><input type="radio" name="nn-drive-browse-type" value="all"> すべて</label>
+          <label class="nn-db-fil"><input type="radio" name="nn-drive-browse-type" value="folder"> フォルダ</label>
+          <label class="nn-db-fil"><input type="radio" name="nn-drive-browse-type" value="pdf"> PDF</label>
+          <label class="nn-db-fil"><input type="radio" name="nn-drive-browse-type" value="image"> 画像</label>
+        </div>
+        <div class="nn-drive-browse-sort-row">
+          <label>並び
+            <select id="nn-drive-browse-sort">
+              <option value="name">名前</option>
+              <option value="updated">更新日</option>
+              <option value="created">作成日</option>
+            </select>
+          </label>
+          <button type="button" class="file-btn-meet" id="nn-drive-browse-sort-asc" title="昇順・降順を切り替え">昇順</button>
+        </div>
+        <input type="search" id="nn-drive-browse-q" class="input-field-meet" placeholder="名前で絞り込み" autocomplete="off">
+      </div>
       <div id="nn-drive-browse-list" class="nn-drive-browse-list">
         <div class="nn-drive-browse-empty">読み込み中...</div>
       </div>
+      <div id="nn-drive-browse-more" class="nn-drive-browse-more"></div>
       <p id="nn-drive-browse-note" class="nn-drive-browse-note"></p>
       <div class="nn-drive-browse-actions">
         <button type="button" class="file-btn-meet" onclick="nnCloseDriveBrowse()">キャンセル</button>
@@ -4855,11 +4904,166 @@
       var panel = document.getElementById('panel-' + tabName);
       if (panel) panel.classList.add('active');
     }
-    var nnDriveBrowse = { mode: 'folder', folderId: null, parentId: null, currentId: null };
+    var nnDriveBrowseControlsWired = false;
+    var nnDriveBrowseSearchTimer = null;
+    var nnDriveBrowse = {
+      mode: 'folder',
+      folderId: null,
+      parentId: null,
+      currentId: null,
+      typeFilter: 'folder',
+      sortBy: 'name',
+      sortAsc: true,
+      accumulated: { folders: [], pdfs: [], images: [] },
+      totals: { folders: 0, pdfs: 0, images: 0 },
+      hasMore: { folders: false, pdfs: false, images: false },
+      scanFlags: {},
+      lastBrowseRes: null,
+    };
+
+    function nnDriveBrowseFormatBytes(n) {
+      if (n == null || n <= 0) return '—';
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1048576).toFixed(1) + ' MB';
+    }
+
+    function nnDriveBrowseMetaFolderHtml(item) {
+      var u = item.updated
+        ? new Date(item.updated).toLocaleString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '';
+      var c = item.created ? new Date(item.created).toLocaleDateString('ja-JP') : '';
+      var line1 = u ? u + ' 更新' : '';
+      var line2 = c ? '作成: ' + c : '';
+      return (
+        '<span class="nn-row-meta-col">' +
+        (line1 ? '<span class="nn-row-meta-line">' + line1 + '</span>' : '') +
+        (line2 ? '<span class="nn-row-meta-sub">' + line2 + '</span>' : '') +
+        '</span>'
+      );
+    }
+
+    function nnDriveBrowseMetaFileHtml(item) {
+      var u = item.updated
+        ? new Date(item.updated).toLocaleString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '';
+      var sz = nnDriveBrowseFormatBytes(item.size);
+      var c = item.created ? new Date(item.created).toLocaleDateString('ja-JP') : '';
+      var line1 = '';
+      if (u) line1 += u + ' 更新';
+      if (u && sz !== '—') line1 += ' · ';
+      if (sz !== '—') line1 += sz;
+      var line2 = c ? '作成: ' + c : '';
+      return (
+        '<span class="nn-row-meta-col">' +
+        (line1 ? '<span class="nn-row-meta-line">' + line1 + '</span>' : '') +
+        (line2 ? '<span class="nn-row-meta-sub">' + line2 + '</span>' : '') +
+        '</span>'
+      );
+    }
+
+    function nnDriveBrowseEffectiveTypeFilter() {
+      if (nnDriveBrowse.mode === 'folder') return 'folder';
+      var r = document.querySelector('input[name="nn-drive-browse-type"]:checked');
+      return r ? r.value : 'all';
+    }
+
+    function nnDriveBrowseBuildOptions(overrides) {
+      overrides = overrides || {};
+      var sortEl = document.getElementById('nn-drive-browse-sort');
+      var qEl = document.getElementById('nn-drive-browse-q');
+      return {
+        typeFilter: overrides.typeFilter != null ? overrides.typeFilter : nnDriveBrowseEffectiveTypeFilter(),
+        sortBy: overrides.sortBy != null ? overrides.sortBy : sortEl ? sortEl.value : 'name',
+        sortAsc: overrides.sortAsc != null ? overrides.sortAsc : nnDriveBrowse.sortAsc,
+        nameQuery: overrides.nameQuery != null ? overrides.nameQuery : qEl ? qEl.value.trim() : '',
+        folderOffset: overrides.folderOffset != null ? overrides.folderOffset : 0,
+        pdfOffset: overrides.pdfOffset != null ? overrides.pdfOffset : 0,
+        imageOffset: overrides.imageOffset != null ? overrides.imageOffset : 0,
+        folderLimit: 50,
+        pdfLimit: 50,
+        imageLimit: 50,
+      };
+    }
+
+    function nnDriveBrowseUpdateFilterDisabledState() {
+      var isFolderMode = nnDriveBrowse.mode === 'folder';
+      document.querySelectorAll('label.nn-db-fil').forEach(function (lab) {
+        var inp = lab.querySelector('input[name="nn-drive-browse-type"]');
+        if (!inp) return;
+        var v = inp.value;
+        if (isFolderMode && (v === 'pdf' || v === 'image')) {
+          lab.classList.add('nn-db-disabled');
+          lab.title = 'フォルダ登録ではフォルダのみ選択できます';
+        } else {
+          lab.classList.remove('nn-db-disabled');
+          lab.title = '';
+        }
+      });
+    }
+
+    function nnWireDriveBrowseControls() {
+      if (nnDriveBrowseControlsWired) return;
+      nnDriveBrowseControlsWired = true;
+      document.querySelectorAll('input[name="nn-drive-browse-type"]').forEach(function (el) {
+        el.addEventListener('change', function () {
+          if (nnDriveBrowse.mode !== 'folder') nnDriveBrowseReloadFromControls();
+        });
+      });
+      var sortEl = document.getElementById('nn-drive-browse-sort');
+      if (sortEl) sortEl.addEventListener('change', nnDriveBrowseReloadFromControls);
+      var ascBtn = document.getElementById('nn-drive-browse-sort-asc');
+      if (ascBtn) {
+        ascBtn.addEventListener('click', function () {
+          nnDriveBrowse.sortAsc = !nnDriveBrowse.sortAsc;
+          ascBtn.textContent = nnDriveBrowse.sortAsc ? '昇順' : '降順';
+          nnDriveBrowseReloadFromControls();
+        });
+      }
+      var q = document.getElementById('nn-drive-browse-q');
+      if (q) {
+        q.addEventListener('input', function () {
+          clearTimeout(nnDriveBrowseSearchTimer);
+          nnDriveBrowseSearchTimer = setTimeout(nnDriveBrowseReloadFromControls, 300);
+        });
+      }
+    }
+
+    function nnDriveBrowseReloadFromControls() {
+      nnLoadDriveBrowse(nnDriveBrowse.currentId, false, null);
+    }
 
     function nnOpenDriveBrowse(mode) {
       nnDriveBrowse.mode = mode === 'folder' ? 'folder' : 'media';
       nnDriveBrowse.folderId = null;
+      nnDriveBrowse.accumulated = { folders: [], pdfs: [], images: [] };
+      nnDriveBrowse.sortBy = 'name';
+      nnDriveBrowse.sortAsc = true;
+      var sortSel = document.getElementById('nn-drive-browse-sort');
+      if (sortSel) sortSel.value = 'name';
+      var ascBtn = document.getElementById('nn-drive-browse-sort-asc');
+      if (ascBtn) ascBtn.textContent = '昇順';
+      var qIn = document.getElementById('nn-drive-browse-q');
+      if (qIn) qIn.value = '';
+      var allR = document.querySelector('input[name="nn-drive-browse-type"][value="all"]');
+      var folderR = document.querySelector('input[name="nn-drive-browse-type"][value="folder"]');
+      if (nnDriveBrowse.mode === 'folder') {
+        if (folderR) folderR.checked = true;
+      } else {
+        if (allR) allR.checked = true;
+      }
       var modal = document.getElementById('nn-drive-browse-modal');
       var title = document.getElementById('nn-drive-browse-title');
       var btnFolder = document.getElementById('nn-drive-browse-select-folder');
@@ -4874,7 +5078,9 @@
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
       }
-      nnLoadDriveBrowse(null);
+      nnWireDriveBrowseControls();
+      nnDriveBrowseUpdateFilterDisabledState();
+      nnLoadDriveBrowse(null, false, null);
     }
 
     function nnCloseDriveBrowse() {
@@ -4885,15 +5091,56 @@
       }
     }
 
-    function nnLoadDriveBrowse(folderId) {
+    function nnLoadDriveBrowse(folderId, append, loadMoreKind) {
       var list = document.getElementById('nn-drive-browse-list');
       var note = document.getElementById('nn-drive-browse-note');
+      var moreWrap = document.getElementById('nn-drive-browse-more');
       var upBtn = document.getElementById('nn-drive-browse-up');
-      if (list) list.innerHTML = '<div class="nn-drive-browse-empty">読み込み中...</div>';
-      if (note) note.textContent = '';
+      var isAppend = !!(append && loadMoreKind);
+      if (list && !isAppend) list.innerHTML = '<div class="nn-drive-browse-empty">読み込み中...</div>';
+      if (note && !isAppend) note.textContent = '';
+      if (moreWrap && isAppend) moreWrap.innerHTML = '<span style="font-size:12px;color:#888;">読み込み中...</span>';
+      else if (moreWrap) moreWrap.innerHTML = '';
+
+      if (!append || !loadMoreKind) {
+        nnDriveBrowse.accumulated = { folders: [], pdfs: [], images: [] };
+      }
+
+      var opts;
+      if (loadMoreKind === 'folders') {
+        opts = nnDriveBrowseBuildOptions({
+          typeFilter: 'folder',
+          folderOffset: nnDriveBrowse.accumulated.folders.length,
+        });
+      } else if (loadMoreKind === 'pdfs') {
+        opts = nnDriveBrowseBuildOptions({
+          typeFilter: 'pdf',
+          pdfOffset: nnDriveBrowse.accumulated.pdfs.length,
+        });
+      } else if (loadMoreKind === 'images') {
+        opts = nnDriveBrowseBuildOptions({
+          typeFilter: 'image',
+          imageOffset: nnDriveBrowse.accumulated.images.length,
+        });
+      } else {
+        opts = nnDriveBrowseBuildOptions({
+          folderOffset: 0,
+          pdfOffset: 0,
+          imageOffset: 0,
+        });
+      }
+
       google.script.run
         .withSuccessHandler(function (res) {
           if (!res || !res.success) {
+            if (isAppend) {
+              if (moreWrap) {
+                moreWrap.innerHTML = '';
+                nnDriveBrowseRenderMoreButtons();
+              }
+              alert(res && res.error ? String(res.error) : '取得に失敗しました');
+              return;
+            }
             if (list) {
               list.innerHTML =
                 '<div class="nn-drive-browse-empty">' +
@@ -4906,9 +5153,53 @@
           nnDriveBrowse.parentId = res.parentId;
           nnDriveBrowse.currentId = res.current.id;
           if (upBtn) upBtn.disabled = !res.parentId;
-          nnRenderDriveBrowse(res);
+          nnDriveBrowse.lastBrowseRes = res;
+          nnDriveBrowse.totals = {
+            folders: res.folderTotal || 0,
+            pdfs: res.pdfTotal || 0,
+            images: res.imageTotal || 0,
+          };
+          nnDriveBrowse.scanFlags = {
+            foldersScanTruncated: !!res.foldersScanTruncated,
+            pdfsScanTruncated: !!res.pdfsScanTruncated,
+            imagesScanTruncated: !!res.imagesScanTruncated,
+            filesIteratorTruncated: !!res.filesIteratorTruncated,
+          };
+
+          if (loadMoreKind === 'folders') {
+            nnDriveBrowse.accumulated.folders = nnDriveBrowse.accumulated.folders.concat(res.folders || []);
+            nnDriveBrowse.hasMore.folders = !!res.foldersHasMore;
+          } else if (loadMoreKind === 'pdfs') {
+            nnDriveBrowse.accumulated.pdfs = nnDriveBrowse.accumulated.pdfs.concat(res.pdfs || []);
+            nnDriveBrowse.hasMore.pdfs = !!res.pdfsHasMore;
+          } else if (loadMoreKind === 'images') {
+            nnDriveBrowse.accumulated.images = nnDriveBrowse.accumulated.images.concat(res.images || []);
+            nnDriveBrowse.hasMore.images = !!res.imagesHasMore;
+          } else {
+            nnDriveBrowse.accumulated = {
+              folders: (res.folders || []).slice(),
+              pdfs: (res.pdfs || []).slice(),
+              images: (res.images || []).slice(),
+            };
+            nnDriveBrowse.hasMore = {
+              folders: !!res.foldersHasMore,
+              pdfs: !!res.pdfsHasMore,
+              images: !!res.imagesHasMore,
+            };
+          }
+
+          nnDriveBrowseRenderCrumb(res);
+          nnDriveBrowseRenderList();
+          nnDriveBrowseRenderNote(res);
+          nnDriveBrowseRenderMoreButtons();
         })
         .withFailureHandler(function (err) {
+          if (isAppend && moreWrap) {
+            moreWrap.innerHTML = '';
+            nnDriveBrowseRenderMoreButtons();
+            alert('読み込みに失敗しました: ' + (err && err.message ? err.message : String(err)));
+            return;
+          }
           if (list) {
             list.innerHTML =
               '<div class="nn-drive-browse-empty">エラー: ' +
@@ -4916,77 +5207,88 @@
               '</div>';
           }
         })
-        .browseDriveForAdd(folderId);
+        .browseDriveForAdd(folderId, opts);
     }
 
-    function nnRenderDriveBrowse(res) {
+    function nnDriveBrowseRenderCrumb(res) {
       var crumb = document.getElementById('nn-drive-browse-crumb');
+      if (!crumb) return;
+      crumb.innerHTML = '';
+      var crumbs = res.breadcrumbs || [];
+      crumbs.forEach(function (c, i) {
+        if (i > 0) {
+          var sep = document.createElement('span');
+          sep.className = 'nn-crumb-sep';
+          sep.textContent = ' › ';
+          crumb.appendChild(sep);
+        }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = c.name || 'フォルダ';
+        btn.onclick = function () {
+          nnLoadDriveBrowse(c.id, false, null);
+        };
+        crumb.appendChild(btn);
+      });
+    }
+
+    function nnDriveBrowseRenderList() {
       var list = document.getElementById('nn-drive-browse-list');
-      var note = document.getElementById('nn-drive-browse-note');
-      if (crumb) {
-        crumb.innerHTML = '';
-        var crumbs = res.breadcrumbs || [];
-        crumbs.forEach(function (c, i) {
-          if (i > 0) {
-            var sep = document.createElement('span');
-            sep.className = 'nn-crumb-sep';
-            sep.textContent = ' › ';
-            crumb.appendChild(sep);
-          }
-          var btn = document.createElement('button');
-          btn.type = 'button';
-          btn.textContent = c.name || 'フォルダ';
-          btn.onclick = function () {
-            nnLoadDriveBrowse(c.id);
-          };
-          crumb.appendChild(btn);
-        });
-      }
       if (!list) return;
       list.innerHTML = '';
       var hasAny = false;
+      var resFolders = nnDriveBrowse.accumulated.folders || [];
+      var resPdfs = nnDriveBrowse.accumulated.pdfs || [];
+      var resImages = nnDriveBrowse.accumulated.images || [];
+
       if (nnDriveBrowse.mode === 'folder') {
-        (res.folders || []).forEach(function (f) {
+        resFolders.forEach(function (f) {
           hasAny = true;
           var row = document.createElement('div');
           row.className = 'nn-drive-browse-row';
-          row.innerHTML = '📁 ' + (f.name || '（名称なし）');
+          row.innerHTML =
+            '<span class="nn-row-main">📁 ' +
+            (f.name || '（名称なし）') +
+            '</span>' +
+            nnDriveBrowseMetaFolderHtml(f);
           row.onclick = function () {
-            nnLoadDriveBrowse(f.id);
+            nnLoadDriveBrowse(f.id, false, null);
           };
           list.appendChild(row);
         });
       } else {
-        (res.folders || []).forEach(function (f) {
+        resFolders.forEach(function (f) {
           hasAny = true;
           var row = document.createElement('div');
           row.className = 'nn-drive-browse-row';
-          row.innerHTML = '📁 ' + (f.name || '（名称なし）') + '<span class="nn-row-meta">開く</span>';
+          row.innerHTML =
+            '<span class="nn-row-main">📁 ' +
+            (f.name || '（名称なし）') +
+            ' <span style="color:#1a73e8;font-size:11px;margin-left:6px;">開く</span></span>' +
+            nnDriveBrowseMetaFolderHtml(f);
           row.onclick = function () {
-            nnLoadDriveBrowse(f.id);
+            nnLoadDriveBrowse(f.id, false, null);
           };
           list.appendChild(row);
         });
-        (res.pdfs || []).forEach(function (p) {
+        resPdfs.forEach(function (p) {
           hasAny = true;
           var row = document.createElement('div');
           row.className = 'nn-drive-browse-row nn-pdf-row';
-          var when = p.updated ? new Date(p.updated).toLocaleDateString() : '';
           row.innerHTML =
-            '📄 ' + (p.name || 'document.pdf') + (when ? '<span class="nn-row-meta">' + when + '</span>' : '');
+            '<span class="nn-row-main">📄 ' + (p.name || 'document.pdf') + '</span>' + nnDriveBrowseMetaFileHtml(p);
           row.onclick = function () {
             nnCloseDriveBrowse();
             submitAddPdf(p.id);
           };
           list.appendChild(row);
         });
-        (res.images || []).forEach(function (im) {
+        resImages.forEach(function (im) {
           hasAny = true;
           var rowImg = document.createElement('div');
           rowImg.className = 'nn-drive-browse-row nn-image-row';
-          var whenImg = im.updated ? new Date(im.updated).toLocaleDateString() : '';
           rowImg.innerHTML =
-            '🖼 ' + (im.name || 'image') + (whenImg ? '<span class="nn-row-meta">' + whenImg + '</span>' : '');
+            '<span class="nn-row-main">🖼 ' + (im.name || 'image') + '</span>' + nnDriveBrowseMetaFileHtml(im);
           rowImg.onclick = function () {
             nnCloseDriveBrowse();
             nnImportImageFromDriveId(im.id, { mimeType: im.mimeType, name: im.name });
@@ -4995,19 +5297,70 @@
         });
       }
       if (!hasAny) {
-        list.innerHTML = '<div class="nn-drive-browse-empty">このフォルダには表示できる項目がありません</div>';
+        list.innerHTML =
+          '<div class="nn-drive-browse-empty">条件に一致する項目がありません（別フォルダへ移動するか、検索・絞り込みを変えてください）</div>';
       }
-      if (note) {
-        var parts = [];
-        if (res.foldersTruncated) parts.push('フォルダは200件まで表示');
-        if (res.pdfsTruncated) parts.push('PDFは100件まで表示');
-        if (res.imagesTruncated) parts.push('画像は100件まで表示');
-        note.textContent = parts.length ? parts.join(' · ') : '';
+    }
+
+    function nnDriveBrowseRenderNote(res) {
+      var note = document.getElementById('nn-drive-browse-note');
+      if (!note) return;
+      var parts = [];
+      var tf = nnDriveBrowseEffectiveTypeFilter();
+      var t = nnDriveBrowse.totals;
+      var a = nnDriveBrowse.accumulated;
+      if (tf === 'all' || tf === 'folder') {
+        parts.push('フォルダ ' + a.folders.length + '/' + t.folders + ' 件');
+      }
+      if (nnDriveBrowse.mode === 'media' && (tf === 'all' || tf === 'pdf')) {
+        parts.push('PDF ' + a.pdfs.length + '/' + t.pdfs + ' 件');
+      }
+      if (nnDriveBrowse.mode === 'media' && (tf === 'all' || tf === 'image')) {
+        parts.push('画像 ' + a.images.length + '/' + t.images + ' 件');
+      }
+      if (parts.length) note.textContent = '表示中 ' + parts.join(' · ');
+      var warn = [];
+      if (res.foldersScanTruncated) warn.push('フォルダはフォルダ内最大500件まで読み込み（検索で絞り込み可）');
+      if (res.pdfsScanTruncated) warn.push('PDFは最大500件まで読み込み');
+      if (res.imagesScanTruncated) warn.push('画像は最大500件まで読み込み');
+      if (res.filesIteratorTruncated) warn.push('ファイル走査が上限のため一覧が不完全な場合があります');
+      if (warn.length) {
+        note.textContent = (note.textContent ? note.textContent + ' — ' : '') + warn.join(' · ');
+      }
+    }
+
+    function nnDriveBrowseRenderMoreButtons() {
+      var moreWrap = document.getElementById('nn-drive-browse-more');
+      if (!moreWrap) return;
+      moreWrap.innerHTML = '';
+      var tf = nnDriveBrowseEffectiveTypeFilter();
+      function addBtn(label, kind) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'file-btn-meet';
+        b.textContent = label;
+        b.onclick = function () {
+          nnLoadDriveBrowse(nnDriveBrowse.currentId, true, kind);
+        };
+        moreWrap.appendChild(b);
+      }
+      if (nnDriveBrowse.mode === 'folder') {
+        if (nnDriveBrowse.hasMore.folders) addBtn('フォルダをさらに表示', 'folders');
+      } else {
+        if ((tf === 'all' || tf === 'folder') && nnDriveBrowse.hasMore.folders) {
+          addBtn('フォルダをさらに表示', 'folders');
+        }
+        if ((tf === 'all' || tf === 'pdf') && nnDriveBrowse.hasMore.pdfs) {
+          addBtn('PDFをさらに表示', 'pdfs');
+        }
+        if ((tf === 'all' || tf === 'image') && nnDriveBrowse.hasMore.images) {
+          addBtn('画像をさらに表示', 'images');
+        }
       }
     }
 
     function nnDriveBrowseUp() {
-      if (nnDriveBrowse.parentId) nnLoadDriveBrowse(nnDriveBrowse.parentId);
+      if (nnDriveBrowse.parentId) nnLoadDriveBrowse(nnDriveBrowse.parentId, false, null);
     }
 
     function nnDriveBrowseConfirmFolder() {
