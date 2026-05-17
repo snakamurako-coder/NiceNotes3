@@ -375,26 +375,22 @@
       display: none;
       pointer-events: none;
       box-sizing: border-box;
-      overflow: visible;
     }
-    #nn-text-box-chrome.nn-show { display: block; }
-    #nn-text-box-chrome.nn-show .nn-tb-grip,
-    #nn-text-box-chrome.nn-show .nn-tb-resize { pointer-events: auto; }
-    #nn-text-box-chrome .nn-tb-grip.nn-panel-grip {
+    #nn-text-box-chrome.nn-show { display: block; pointer-events: auto; }
+    #nn-text-box-chrome .nn-tb-grip {
       position: absolute;
       left: 0;
-      width: 100%;
-      min-height: 0;
-      height: 28px;
-      padding: 4px 8px;
-      box-sizing: border-box;
-      border-radius: 8px;
-      border: 1px solid #dadce0;
+      border-radius: 6px;
+      min-height: 24px;
+      padding: 10px 8px;
+      box-sizing: content-box;
     }
     #nn-text-box-chrome .nn-tb-resize {
       position: absolute;
       width: 14px;
       height: 14px;
+      right: -4px;
+      bottom: -4px;
       background: #1a73e8;
       border: 2px solid #fff;
       border-radius: 3px;
@@ -856,7 +852,7 @@
           <span style="color:#aaa; font-size:12px;">|</span>
           <button type="button" class="file-btn-meet" onclick="loadFolderTree(true)">🔄 ツリーを最新に更新</button>
           <label style="margin:0 0 0 10px; display:inline;">並び替え:</label>
-          <select id="sort-type-meet" onchange="nnOnMeetSortChanged()">
+          <select id="sort-type-meet" onchange="renderFilesMeet()">
             <option value="manual">通し番号（手動・ドラッグ）</option>
             <option value="updated">更新日時</option>
             <option value="created">作成日時</option>
@@ -868,9 +864,9 @@
         </div>
         <div id="meet-folder-mode" aria-label="フォルダのPDF閲覧モード">
           <strong style="margin-right:8px;">このフォルダ:</strong>
-          <label><input type="radio" name="meet-fp-mode" value="individual" checked onchange="nnSetFolderPdfMode('individual')"> 通常格納（個別）</label>
-          <label><input type="radio" name="meet-fp-mode" value="seamless" onchange="nnSetFolderPdfMode('seamless')"> シームレス</label>
-          <span style="font-size:12px;color:#5f6368;">※ 表示方法のみ変わります。注釈は各PDFファイルに保存されます。</span>
+          <label><input type="radio" name="meet-fp-mode" value="individual" checked onchange="nnSetFolderPdfMode('individual')"> 個別ビューア（1ファイルずつ）</label>
+          <label><input type="radio" name="meet-fp-mode" value="seamless" onchange="nnSetFolderPdfMode('seamless')"> シームレス（フォルダ内を1冊のように連続）</label>
+          <span style="font-size:12px;color:#5f6368;">※ 書き込み画面のプルダウンは廃止。ここで切り替えます。</span>
         </div>
         <div class="explorer-body">
           <div class="folder-tree" id="folder-tree-container"></div>
@@ -1227,8 +1223,6 @@
     let currentFolderId = null;
     let sortOrderMeet = -1;
     let legacyFolderNavActive = false;
-    var nnSeamlessCtx = null;
-    var nnSeamlessPendingLocalPage = 1;
     let currentStroke = null;
 
     function nnBumpStrokeTime() {
@@ -1662,10 +1656,7 @@
     var nnInspectorManualPos = null;
     var nnTextEditActive = false;
     var nnTextTouchBoxOp = false;
-    var NN_TEXT_GRIP_H = 28;
-    var NN_TEXT_GRIP_GAP = 4;
-    var NN_TEXT_RESIZE_SZ = 14;
-    var NN_TEXT_RESIZE_OUT = 6;
+    var NN_TEXT_GRIP_H = 24;
     var NN_TEXT_DEFAULT_W = 160;
     var NN_TEXT_DEFAULT_H = 80;
 
@@ -1701,18 +1692,14 @@
 
     function nnHitTextGripZone(pt, box) {
       if (!box) return false;
-      var gh = NN_TEXT_GRIP_H / currentScale;
-      var gap = NN_TEXT_GRIP_GAP / currentScale;
-      return pt.x >= box.x && pt.x <= box.x + box.w && pt.y >= box.y - gh - gap && pt.y < box.y;
+      var gh = NN_TEXT_GRIP_H;
+      return pt.x >= box.x && pt.x <= box.x + box.w && pt.y >= box.y - gh - 4 && pt.y < box.y;
     }
 
     function nnHitTextResizeSE(pt, box) {
       if (!box) return false;
-      var hs = 20 / currentScale;
-      var out = NN_TEXT_RESIZE_OUT / currentScale;
-      var cx = box.x + box.w + out;
-      var cy = box.y + box.h + out;
-      return pt.x >= cx - hs && pt.x <= cx + hs && pt.y >= cy - hs && pt.y <= cy + hs;
+      var hs = 16 / currentScale;
+      return pt.x >= box.x + box.w - hs && pt.x <= box.x + box.w + hs && pt.y >= box.y + box.h - hs && pt.y <= box.y + box.h + hs;
     }
 
     function nnBeginGripDrag() {
@@ -2241,21 +2228,18 @@
       if (!sr) return;
       chrome.classList.add('nn-show');
       chrome.style.left = sr.left - pr.left + 'px';
-      chrome.style.top = sr.top - pr.top + 'px';
+      chrome.style.top = sr.top - pr.top - NN_TEXT_GRIP_H - 2 + 'px';
       chrome.style.width = sr.width + 'px';
-      chrome.style.height = sr.height + 'px';
+      chrome.style.height = sr.height + NN_TEXT_GRIP_H + 2 + 'px';
       var grip = chrome.querySelector('.nn-tb-grip');
       var res = chrome.querySelector('.nn-tb-resize');
       if (grip) {
         grip.style.width = sr.width + 'px';
-        grip.style.height = NN_TEXT_GRIP_H + 'px';
-        grip.style.top = (-NN_TEXT_GRIP_H - NN_TEXT_GRIP_GAP) + 'px';
-        grip.style.left = '0';
+        grip.style.top = '0';
       }
       if (res) {
-        var rh = NN_TEXT_RESIZE_SZ;
-        res.style.left = sr.width + NN_TEXT_RESIZE_OUT - rh / 2 + 'px';
-        res.style.top = sr.height + NN_TEXT_RESIZE_OUT - rh / 2 + 'px';
+        res.style.left = sr.width - 10 + 'px';
+        res.style.top = NN_TEXT_GRIP_H + sr.height - 10 + 'px';
       }
     }
 
@@ -2744,9 +2728,6 @@
           folderPdfMode: {},
           folderKind: {},
           fileLogicalPages: {},
-          folderFileSort: {},
-          seamlessResume: {},
-          filePageCounts: {},
           layout: { childrenOrder: {}, fileOrder: {}, fileDue: {} },
         };
       }
@@ -2757,9 +2738,6 @@
       if (!treeData.workspaceMeta.folderPdfMode) treeData.workspaceMeta.folderPdfMode = {};
       if (!treeData.workspaceMeta.folderKind) treeData.workspaceMeta.folderKind = {};
       if (!treeData.workspaceMeta.fileLogicalPages) treeData.workspaceMeta.fileLogicalPages = {};
-      if (!treeData.workspaceMeta.folderFileSort) treeData.workspaceMeta.folderFileSort = {};
-      if (!treeData.workspaceMeta.seamlessResume) treeData.workspaceMeta.seamlessResume = {};
-      if (!treeData.workspaceMeta.filePageCounts) treeData.workspaceMeta.filePageCounts = {};
     }
 
     function nnSaveWorkspaceMetaToServer() {
@@ -2825,9 +2803,8 @@
       });
     }
 
-    function nnSortFilesMeet(filesIn, folderIdForOrder, sortType, sortOrder) {
+    function nnSortFilesMeet(filesIn, folderIdForOrder, sortType) {
       nnEnsureWorkspaceMeta();
-      if (sortOrder === undefined) sortOrder = sortOrderMeet;
       var files = filesIn.slice();
       var fo = treeData.workspaceMeta.layout.fileOrder[folderIdForOrder];
       var dueMap = treeData.workspaceMeta.layout.fileDue;
@@ -2849,14 +2826,14 @@
         files.sort(function (a, b) {
           var da = dueMap[a.id] || '9999-12-31';
           var db = dueMap[b.id] || '9999-12-31';
-          if (da !== db) return da < db ? -1 * sortOrder : da > db ? 1 * sortOrder : 0;
-          return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrder;
+          if (da !== db) return da < db ? -1 * sortOrderMeet : da > db ? 1 * sortOrderMeet : 0;
+          return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrderMeet;
         });
         return files;
       }
       if (sortType === 'name') {
         files.sort(function (a, b) {
-          return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrder;
+          return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrderMeet;
         });
         return files;
       }
@@ -2864,202 +2841,18 @@
       files.sort(function (a, b) {
         var va = a[key] || 0;
         var vb = b[key] || 0;
-        if (va < vb) return -1 * sortOrder;
-        if (va > vb) return 1 * sortOrder;
-        return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrder;
+        if (va < vb) return -1 * sortOrderMeet;
+        if (va > vb) return 1 * sortOrderMeet;
+        return (a.name || '').localeCompare(b.name || '', 'ja') * sortOrderMeet;
       });
       return files;
-    }
-
-    function nnGetFolderFileSort(folderId) {
-      nnEnsureWorkspaceMeta();
-      var s = treeData.workspaceMeta.folderFileSort[folderId];
-      if (s && s.sortType) {
-        return { sortType: s.sortType, sortOrder: s.sortOrder === -1 ? -1 : 1 };
-      }
-      if (nnGetFolderPdfModeForFolder(folderId) === 'seamless') {
-        return { sortType: 'name', sortOrder: 1 };
-      }
-      return { sortType: 'updated', sortOrder: -1 };
-    }
-
-    function nnGetOrderedFilesInFolder(folderId) {
-      var sort = nnGetFolderFileSort(folderId);
-      var raw = nnGetFilesInFolderRaw(folderId);
-      return nnSortFilesMeet(raw, folderId, sort.sortType, sort.sortOrder);
-    }
-
-    function nnApplyFolderSortToUi(folderId) {
-      if (!folderId) return;
-      var sort = nnGetFolderFileSort(folderId);
-      var sortEl = document.getElementById('sort-type-meet');
-      if (sortEl) sortEl.value = sort.sortType;
-      sortOrderMeet = sort.sortOrder;
-      var btn = document.getElementById('btn-sort-order-meet');
-      if (btn) btn.textContent = sortOrderMeet === -1 ? '🔽' : '🔼';
-    }
-
-    function nnSaveFolderSortFromUi() {
-      if (!currentFolderId) return;
-      nnEnsureWorkspaceMeta();
-      var sortEl = document.getElementById('sort-type-meet');
-      treeData.workspaceMeta.folderFileSort[currentFolderId] = {
-        sortType: sortEl ? sortEl.value : 'updated',
-        sortOrder: sortOrderMeet,
-      };
-      nnSaveWorkspaceMetaToServer();
-    }
-
-    function nnOnMeetSortChanged() {
-      nnSaveFolderSortFromUi();
-      renderFilesMeet();
-    }
-
-    function nnIsSeamlessActive() {
-      return !!(nnSeamlessCtx && nnSeamlessCtx.folderId);
-    }
-
-    function nnFileIsImageEntry(f) {
-      if (!f || !f.name) return false;
-      var ext = f.name.split('.').pop().toLowerCase();
-      return ext === 'jpg' || ext === 'jpeg' || ext === 'png';
-    }
-
-    function nnCacheFilePageCount(fileId, physicalCount) {
-      if (!fileId || !physicalCount) return;
-      nnEnsureWorkspaceMeta();
-      treeData.workspaceMeta.filePageCounts[fileId] = physicalCount;
-    }
-
-    function nnBuildSeamlessPageMap(folderId) {
-      nnEnsureWorkspaceMeta();
-      var files = nnGetOrderedFilesInFolder(folderId);
-      var map = [];
-      var counts = treeData.workspaceMeta.filePageCounts;
-      var plans = treeData.workspaceMeta.fileLogicalPages;
-      for (var fi = 0; fi < files.length; fi++) {
-        var f = files[fi];
-        var fname = f.name || 'document.pdf';
-        if (nnFileIsImageEntry(f)) {
-          map.push({
-            fileId: f.id,
-            fileName: fname,
-            logicalId: '1',
-            physPage: 1,
-            fileIndex: fi + 1,
-            localPageNum: 1,
-          });
-          continue;
-        }
-        var plan = plans[f.id];
-        if (plan && plan.order && plan.order.length) {
-          for (var li = 0; li < plan.order.length; li++) {
-            var lid = plan.order[li];
-            var phys = plan.sources && plan.sources[lid] ? plan.sources[lid].sourcePdfPage : li + 1;
-            map.push({
-              fileId: f.id,
-              fileName: fname,
-              logicalId: lid,
-              physPage: phys,
-              fileIndex: fi + 1,
-              localPageNum: li + 1,
-            });
-          }
-        } else {
-          var n = counts[f.id];
-          if (!n || n < 1) n = 1;
-          for (var p = 1; p <= n; p++) {
-            map.push({
-              fileId: f.id,
-              fileName: fname,
-              logicalId: null,
-              physPage: p,
-              fileIndex: fi + 1,
-              localPageNum: p,
-            });
-          }
-        }
-      }
-      return map;
-    }
-
-    function nnEstimateSeamlessPageStats(folderId) {
-      var files = nnGetOrderedFilesInFolder(folderId);
-      var map = nnBuildSeamlessPageMap(folderId);
-      var missing = 0;
-      nnEnsureWorkspaceMeta();
-      var counts = treeData.workspaceMeta.filePageCounts;
-      var plans = treeData.workspaceMeta.fileLogicalPages;
-      files.forEach(function (f) {
-        if (nnFileIsImageEntry(f)) return;
-        if (plans[f.id] && plans[f.id].order && plans[f.id].order.length) return;
-        if (!counts[f.id]) missing++;
-      });
-      return { total: map.length, fileCount: files.length, missingCounts: missing };
-    }
-
-    function nnSeamlessFileIdToGlobal(fileId) {
-      if (!nnSeamlessCtx || !nnSeamlessCtx.pageMap) return 0;
-      for (var i = 0; i < nnSeamlessCtx.pageMap.length; i++) {
-        if (nnSeamlessCtx.pageMap[i].fileId === fileId) return i + 1;
-      }
-      return 0;
-    }
-
-    function nnSeamlessLocalToGlobal(fileId, localPageNum) {
-      if (!nnSeamlessCtx || !nnSeamlessCtx.pageMap) return 0;
-      for (var i = 0; i < nnSeamlessCtx.pageMap.length; i++) {
-        var e = nnSeamlessCtx.pageMap[i];
-        if (e.fileId === fileId && e.localPageNum === localPageNum) return i + 1;
-      }
-      return 0;
-    }
-
-    function nnRebuildSeamlessPageMapIfActive() {
-      if (!nnIsSeamlessActive()) return;
-      var prevGp = nnSeamlessCtx.globalPage;
-      var prevFile = currentFileId;
-      var prevLocal = currentPageNum;
-      nnSeamlessCtx.pageMap = nnBuildSeamlessPageMap(nnSeamlessCtx.folderId);
-      nnSeamlessCtx.globalTotal = nnSeamlessCtx.pageMap.length;
-      var gp = nnSeamlessLocalToGlobal(prevFile, prevLocal);
-      if (gp > 0) nnSeamlessCtx.globalPage = gp;
-      else nnSeamlessCtx.globalPage = Math.min(Math.max(1, prevGp), nnSeamlessCtx.globalTotal || 1);
-    }
-
-    function nnPersistSeamlessResume() {
-      if (!nnIsSeamlessActive()) return;
-      nnEnsureWorkspaceMeta();
-      treeData.workspaceMeta.seamlessResume[nnSeamlessCtx.folderId] = {
-        globalPage: nnSeamlessCtx.globalPage,
-      };
-      nnSaveWorkspaceMetaToServer();
-    }
-
-    function nnPersistLastOpenedSeamless(folderId, folderName, globalPage) {
-      try {
-        localStorage.setItem(
-          'last_opened_file',
-          JSON.stringify({
-            pdfMode: 'seamless',
-            folderId: folderId,
-            name: folderName || 'シームレス',
-            globalPage: globalPage || 1,
-          })
-        );
-      } catch (e) {}
     }
 
     window.nnSetFolderPdfMode = function (mode) {
       if (!currentFolderId) return;
       nnEnsureWorkspaceMeta();
       treeData.workspaceMeta.folderPdfMode[currentFolderId] = mode === 'seamless' ? 'seamless' : 'individual';
-      if (mode === 'seamless' && !treeData.workspaceMeta.folderFileSort[currentFolderId]) {
-        treeData.workspaceMeta.folderFileSort[currentFolderId] = { sortType: 'name', sortOrder: 1 };
-        nnApplyFolderSortToUi(currentFolderId);
-      }
       nnSaveWorkspaceMetaToServer();
-      renderFilesMeet();
     };
 
     function nnGetFolderPdfModeForFolder(folderId) {
@@ -3085,7 +2878,7 @@
 
     function nnSyncLegacyToolsVisibility() {
       var el = document.getElementById('pdf-legacy-tools');
-      if (el) el.style.display = 'none';
+      if (el) el.style.display = legacyFolderNavActive ? 'flex' : 'none';
       nnSyncDupCurrentPdfPageButton();
     }
 
@@ -3096,7 +2889,12 @@
       var pdfBtn = document.getElementById('btn-mode-pdf');
       var pdfMode = pdfBtn && pdfBtn.classList.contains('active-mode');
       var homeOpen = homeScreen && homeScreen.style.display === 'flex';
-      var show = pdfMode && !homeOpen && !!currentFileId && fileType === 'pdf';
+      var show =
+        pdfMode &&
+        !homeOpen &&
+        !!currentFileId &&
+        fileType === 'pdf' &&
+        !legacyFolderNavActive;
       wrap.style.display = show ? 'inline-flex' : 'none';
       if (!show) return;
       var org = nnGetFolderKindForCurrentFile() === 'org';
@@ -3646,8 +3444,8 @@
       return (async function () {
         try {
           if (!pdfDocJs || !currentFileId || fileType !== 'pdf') return;
+          if (legacyFolderNavActive) return;
           if (nnGetFolderKindForCurrentFile() === 'org') return;
-          var prevGlobal = nnIsSeamlessActive() ? nnSeamlessCtx.globalPage : 0;
           var physN = pdfDocJs.numPages;
           nnLpEnsurePlanForCurrentFile(physN);
           var plan = treeData.workspaceMeta.fileLogicalPages[currentFileId];
@@ -3670,19 +3468,7 @@
           if (!sharedTextByPage[newId]) sharedTextByPage[newId] = [];
           totalPages = plan.order.length;
           nnSaveWorkspaceMetaToServer();
-          if (nnIsSeamlessActive()) {
-            nnRebuildSeamlessPageMapIfActive();
-            if (prevGlobal > 0) {
-              nnSeamlessCtx.globalPage = Math.min(prevGlobal, nnSeamlessCtx.globalTotal);
-              var ent = nnSeamlessCtx.pageMap[nnSeamlessCtx.globalPage - 1];
-              if (ent && ent.fileId === currentFileId) {
-                currentPageNum = ent.localPageNum;
-                nnSeamlessPendingLocalPage = ent.localPageNum;
-              }
-            }
-          }
           await renderPage(currentPageNum);
-          if (nnIsSeamlessActive()) nnUpdateSeamlessPageIndicator();
           autoSaveCurrent(true);
           savePdfSlotFromGlobals();
         } catch (err) {
@@ -3694,6 +3480,10 @@
     function nnOpenDuplicateCurrentPdfPageModal() {
       if (!pdfDocJs || !currentFileId || fileType !== 'pdf') {
         alert('PDFを開いていません。');
+        return;
+      }
+      if (legacyFolderNavActive) {
+        alert('シームレス表示内ではこの操作は利用できません。個別PDFモードで開いてください。');
         return;
       }
       if (nnGetFolderKindForCurrentFile() === 'org') {
@@ -3830,123 +3620,54 @@
       })();
     }
 
-    function nnSeamlessNavigateToGlobal(globalPage) {
-      if (!nnIsSeamlessActive()) return Promise.resolve();
-      if (!nnSeamlessCtx.pageMap || !nnSeamlessCtx.pageMap.length) {
-        nnRebuildSeamlessPageMapIfActive();
-      }
-      var total = nnSeamlessCtx.pageMap.length;
-      if (!total) {
-        alert('このフォルダに PDF/画像がありません。');
-        return Promise.resolve();
-      }
-      globalPage = Math.max(1, Math.min(globalPage, total));
-      var entry = nnSeamlessCtx.pageMap[globalPage - 1];
-      if (!entry) return Promise.resolve();
-      nnSeamlessCtx.globalPage = globalPage;
-      nnSeamlessPendingLocalPage = entry.localPageNum;
-      nnPersistSeamlessResume();
-      var folder = nnFolderById(nnSeamlessCtx.folderId);
-      nnPersistLastOpenedSeamless(nnSeamlessCtx.folderId, folder ? folder.name : 'シームレス', globalPage);
-      if (currentFileId === entry.fileId && pdfDocJs && fileType === 'pdf') {
-        currentPageNum = entry.localPageNum;
-        return renderPage(currentPageNum).then(function () {
-          nnUpdateSeamlessPageIndicator();
-        });
-      }
-      if (currentFileId === entry.fileId && fileType !== 'pdf') {
-        currentPageNum = 1;
-        return renderPage(1).then(function () {
-          nnUpdateSeamlessPageIndicator();
-        });
-      }
-      autoSaveCurrent(true);
-      currentFileId = entry.fileId;
-      fileName = entry.fileName;
-      __pdfLoadGeneration++;
-      nnResetPdfViewerBinary_();
-      legacyFolderNavActive = false;
-      return loadSelectedFile(false, false, false).then(function () {
-        nnUpdateSeamlessPageIndicator();
-      });
-    }
-
-    function nnUpdateSeamlessPageIndicator() {
-      if (!nnIsSeamlessActive()) return;
-      var gp = nnSeamlessCtx.globalPage;
-      var gt = nnSeamlessCtx.globalTotal || nnSeamlessCtx.pageMap.length;
-      var entry = nnSeamlessCtx.pageMap[gp - 1];
-      if (!entry) {
-        pageIndicator.innerHTML = 'Pg ' + gp + '/' + gt;
-        return;
-      }
-      var files = nnGetOrderedFilesInFolder(nnSeamlessCtx.folderId);
-      pageIndicator.innerHTML =
-        'Pg ' +
-        gp +
-        '/' +
-        gt +
-        '<br><span style="font-size:10px;">資料 ' +
-        entry.fileIndex +
-        '/' +
-        files.length +
-        ' · ファイル内 ' +
-        entry.localPageNum +
-        '/' +
-        totalPages +
-        '</span>';
-    }
-
-    function openSeamlessFolder(folderId, opts) {
-      opts = opts || {};
+    function openSeamlessViewerForFolder(folderId, startFileId, startFileName) {
       nnEnsureWorkspaceMeta();
       if (!folderId) {
         alert('フォルダ情報がありません。ホームでツリーを更新し、一覧の「開く」から開いてください。');
-        return Promise.resolve(false);
-      }
-      var files = nnGetOrderedFilesInFolder(folderId);
-      if (!files.length) {
-        alert('このフォルダに PDF/画像がありません。');
-        return Promise.resolve(false);
+        return;
       }
       currentFolderId = folderId;
-      if (currentFileId) {
-        try {
-          autoSaveCurrent(true);
-        } catch (e0) {
-          console.warn(e0);
+      var sortEl = document.getElementById('sort-type-meet');
+      var sortType = sortEl ? sortEl.value : 'updated';
+      var raw = nnGetFilesInFolderRaw(folderId);
+      var files = nnSortFilesMeet(raw, folderId, sortType);
+      if (!files.length) {
+        alert('このフォルダに PDF/画像がありません。');
+        return;
+      }
+      var fs = document.getElementById('file-select');
+      if (!fs) {
+        alert('ツールバーのファイル一覧を表示できません。ページを再読み込みしてください。');
+        return;
+      }
+      fs.innerHTML = '';
+      for (var i = 0; i < files.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = files[i].id;
+        opt.text = files[i].name;
+        fs.appendChild(opt);
+      }
+      var idx = 0;
+      for (var j = 0; j < files.length; j++) {
+        if (files[j].id === startFileId) {
+          idx = j;
+          break;
         }
-        try {
-          savePdfSlotFromGlobals();
-        } catch (e1) {
-          console.warn(e1);
-        }
       }
-      nnSeamlessCtx = {
-        folderId: folderId,
-        pageMap: nnBuildSeamlessPageMap(folderId),
-        globalPage: 1,
-        globalTotal: 0,
-      };
-      nnSeamlessCtx.globalTotal = nnSeamlessCtx.pageMap.length;
-      var gp = opts.startGlobalPage || 1;
-      if (opts.startFileId) {
-        var gFromFile = nnSeamlessFileIdToGlobal(opts.startFileId);
-        if (gFromFile > 0) gp = gFromFile;
-      }
-      var resume = treeData.workspaceMeta.seamlessResume[folderId];
-      if (!opts.startGlobalPage && !opts.startFileId && resume && resume.globalPage) {
-        gp = resume.globalPage;
-      }
-      gp = Math.max(1, Math.min(gp, nnSeamlessCtx.globalTotal || 1));
-      legacyFolderNavActive = false;
+      fs.selectedIndex = idx;
       autoSaveCurrent(true);
       savePdfSlotFromGlobals();
       __pdfLoadGeneration++;
       nnResetPdfViewerBinary_();
-      var folder = nnFolderById(folderId);
-      var folderName = folder ? folder.name : 'シームレス';
-      nnPersistLastOpenedSeamless(folderId, folderName, gp);
+      legacyFolderNavActive = true;
+      currentFileId = files[idx].id;
+      fileName = files[idx].name || startFileName || 'document.pdf';
+      try {
+        localStorage.setItem(
+          'last_opened_file',
+          JSON.stringify({ id: currentFileId, name: fileName, folderId: folderId, pdfMode: 'seamless' })
+        );
+      } catch (e1) {}
       updateFavoriteButtonStatus();
       homeScreen.style.display = 'none';
       nnShowPdfViewer();
@@ -3960,13 +3681,7 @@
         pdfBtn.classList.add('active-mode');
       }
       nnSyncLegacyToolsVisibility();
-      return nnSeamlessNavigateToGlobal(gp).then(function () {
-        return true;
-      });
-    }
-
-    function openSeamlessViewerForFolder(folderId, startFileId, startFileName) {
-      return openSeamlessFolder(folderId, { startFileId: startFileId });
+      loadSelectedFile(false, false, true);
     }
 
     var meetFolderDragId = null;
@@ -4040,9 +3755,8 @@
       nnEnsureWorkspaceMeta();
       var sortEl = document.getElementById('sort-type-meet');
       if (sortEl) sortEl.value = 'manual';
-      treeData.workspaceMeta.folderFileSort[currentFolderId] = { sortType: 'manual', sortOrder: sortOrderMeet };
       var raw = nnGetFilesInFolderRaw(currentFolderId);
-      var files = nnSortFilesMeet(raw, currentFolderId, 'manual', sortOrderMeet);
+      var files = nnSortFilesMeet(raw, currentFolderId, 'manual');
       var ids = files.map(function (x) {
         return x.id;
       });
@@ -4322,7 +4036,7 @@
       }
       if (hasAny) return;
       var last = nnGetLastOpenedFileMeta();
-      if (!last || last.pdfMode === 'seamless') return;
+      if (!last) return;
       nnAssignPdfToSlotLru(last.id, last.name, last.folderId);
     }
 
@@ -4351,14 +4065,6 @@
       if (!s) return null;
       try {
         var last = JSON.parse(s);
-        if (last && last.pdfMode === 'seamless' && last.folderId) {
-          return {
-            pdfMode: 'seamless',
-            folderId: String(last.folderId).trim(),
-            name: last.name || 'シームレス',
-            globalPage: last.globalPage || 1,
-          };
-        }
         var lid =
           last && last.id != null && String(last.id).trim() !== ''
             ? String(last.id).trim()
@@ -4370,7 +4076,6 @@
           id: lid,
           name: last.name || 'document.pdf',
           folderId: last.folderId != null ? last.folderId : null,
-          pdfMode: 'individual',
         };
       } catch (e) {
         return null;
@@ -4505,11 +4210,6 @@
         }
         var last = nnGetLastOpenedFileMeta();
         if (last) {
-          if (last.pdfMode === 'seamless' && last.folderId) {
-            return openSeamlessFolder(last.folderId, { startGlobalPage: last.globalPage }).then(function () {
-              return true;
-            });
-          }
           nnOpenPdfFile(last.id, last.name, last.folderId);
           return true;
         }
@@ -4548,13 +4248,13 @@
       if (mode === 'seamless') {
         if (!currentFolderId) {
           alert(
-            'シームレス表示のフォルダを特定できませんでした。ホームで「ツリーを最新に更新」してから、1冊カードの「開く」で開くか、前回の記録を開き直してください。'
+            'シームレス表示のフォルダを特定できませんでした。ホームで「ツリーを最新に更新」してから、一覧の「開く」で開くか、前回の記録を開き直してください。'
           );
           showHomeMeet();
           return Promise.resolve(false);
         }
-        nnSeamlessCtx = null;
-        return openSeamlessFolder(currentFolderId, { startFileId: fileId });
+        openSeamlessViewerForFolder(currentFolderId, fileId, name);
+        return Promise.resolve(true);
       }
       var slotIdx = nnAssignPdfToSlotLru(fileId, name || 'document.pdf', currentFolderId);
       var s = pdfSlots[slotIdx];
@@ -4569,7 +4269,6 @@
           })
         );
       } catch (e) {}
-      nnSeamlessCtx = null;
       legacyFolderNavActive = false;
       nnSyncLegacyToolsVisibility();
       homeScreen.style.display = 'none';
@@ -4689,7 +4388,6 @@
       }
       var restoreGen = ++__pdfLoadGeneration;
       stopMeetSync();
-      nnSeamlessCtx = null;
       nnResetPdfViewerBinary_();
       currentFileId = s.fileId;
       fileName = s.fileName || 'document.pdf';
@@ -4960,7 +4658,6 @@
     function showHomeMeet() {
       if (currentFileId) autoSaveCurrent(true);
       savePdfSlotFromGlobals();
-      nnSeamlessCtx = null;
       legacyFolderNavActive = false;
       nnSyncLegacyToolsVisibility();
       stopMeetSync();
@@ -5000,7 +4697,6 @@
           var lu = treeData.lastUpdated ? new Date(treeData.lastUpdated).toLocaleString() : '';
           if (ts) ts.textContent = lu ? '最終更新: ' + lu : '';
           renderFolders();
-          if (currentFolderId) nnApplyFolderSortToUi(currentFolderId);
           renderFilesMeet();
         })
         .getFolderTree(forceRefresh);
@@ -5081,7 +4777,6 @@
       }
       if (!currentFolderId && roots.length > 0) {
         currentFolderId = roots[0].id;
-        nnApplyFolderSortToUi(currentFolderId);
         renderFolders();
         renderFilesMeet();
       }
@@ -5089,7 +4784,6 @@
 
     function selectFolderMeet(id) {
       currentFolderId = id;
-      nnApplyFolderSortToUi(id);
       renderFolders();
       renderFilesMeet();
       nnUpdateMeetFolderModeBar();
@@ -5099,7 +4793,6 @@
       sortOrderMeet *= -1;
       var btn = document.getElementById('btn-sort-order-meet');
       if (btn) btn.textContent = sortOrderMeet === -1 ? '🔽' : '🔼';
-      nnSaveFolderSortFromUi();
       renderFilesMeet();
     }
 
@@ -5113,46 +4806,13 @@
         return;
       }
       nnEnsureWorkspaceMeta();
-      var files = nnGetOrderedFilesInFolder(currentFolderId);
-      var folderMode = nnGetFolderPdfModeForFolder(currentFolderId);
-      var showPerFileOpen = folderMode !== 'seamless';
+      var sortEl = document.getElementById('sort-type-meet');
+      var sortType = sortEl ? sortEl.value : 'updated';
+      var raw = nnGetFilesInFolderRaw(currentFolderId);
+      var files = nnSortFilesMeet(raw, currentFolderId, sortType);
       if (files.length === 0) {
         container.innerHTML = '<div style="padding:10px;color:#888;">ファイルがありません</div>';
         return;
-      }
-      if (folderMode === 'seamless') {
-        var folder = nnFolderById(currentFolderId);
-        var stats = nnEstimateSeamlessPageStats(currentFolderId);
-        var card = document.createElement('div');
-        card.className = 'file-item';
-        card.style.cssText = 'background:#e8f0fe;border:1px solid #1a73e8;border-radius:8px;margin-bottom:12px;padding:12px;';
-        var cardTitle = document.createElement('div');
-        cardTitle.style.cssText = 'font-weight:600;font-size:15px;margin-bottom:6px;';
-        cardTitle.textContent = '📚 ' + (folder ? folder.name : 'シームレス') + '（1冊として開く）';
-        var cardMeta = document.createElement('div');
-        cardMeta.style.cssText = 'font-size:12px;color:#5f6368;margin-bottom:8px;';
-        if (stats.missingCounts > 0) {
-          cardMeta.textContent =
-            stats.fileCount + ' ファイル · 約 ' + stats.total + ' ページ（' + stats.missingCounts + ' 件は未読込のため概算）';
-        } else {
-          cardMeta.textContent = stats.fileCount + ' ファイル · 全 ' + stats.total + ' ページ';
-        }
-        var cardOpen = document.createElement('button');
-        cardOpen.type = 'button';
-        cardOpen.className = 'file-btn-meet';
-        cardOpen.style.cssText = 'background:#1a73e8;color:#fff;border:none;';
-        cardOpen.textContent = '開く';
-        cardOpen.onclick = function () {
-          openSeamlessFolder(currentFolderId, {});
-        };
-        card.appendChild(cardTitle);
-        card.appendChild(cardMeta);
-        card.appendChild(cardOpen);
-        container.appendChild(card);
-        var sect = document.createElement('div');
-        sect.style.cssText = 'font-size:12px;font-weight:600;color:#5f6368;margin:8px 0 6px;';
-        sect.textContent = '含まれるファイル（並べ替え・期限）';
-        container.appendChild(sect);
       }
       files.forEach(function (f) {
         var div = document.createElement('div');
@@ -5212,7 +4872,7 @@
         });
         meta.appendChild(dateSpan);
         meta.appendChild(dueLab);
-        if (showPerFileOpen) meta.appendChild(openBtn);
+        meta.appendChild(openBtn);
         meta.appendChild(driveLink);
         div.appendChild(grip);
         div.appendChild(nameEl);
@@ -5253,37 +4913,25 @@
         if (lastStr) {
           try {
             var last = JSON.parse(lastStr);
+            var lastId =
+              last && last.id != null && String(last.id).trim() !== ''
+                ? String(last.id).trim()
+                : last && last.fileId != null && String(last.fileId).trim() !== ''
+                  ? String(last.fileId).trim()
+                  : '';
             lastContainer.innerHTML = '';
-            if (last && last.pdfMode === 'seamless' && last.folderId) {
-              var bSea = document.createElement('button');
-              bSea.type = 'button';
-              bSea.className = 'file-btn-meet';
-              bSea.style.cssText = 'background:#e8f0fe;color:#1a73e8;border-color:#1a73e8;';
-              bSea.textContent = '📚 ' + (last.name || 'シームレス') + '（シームレス）';
-              bSea.onclick = function () {
-                openSeamlessFolder(String(last.folderId).trim(), { startGlobalPage: last.globalPage || 1 });
-              };
-              lastContainer.appendChild(bSea);
+            if (!lastId) {
+              lastContainer.textContent = '（記録が無効です。ファイル一覧から開き直してください）';
             } else {
-              var lastId =
-                last && last.id != null && String(last.id).trim() !== ''
-                  ? String(last.id).trim()
-                  : last && last.fileId != null && String(last.fileId).trim() !== ''
-                    ? String(last.fileId).trim()
-                    : '';
-              if (!lastId) {
-                lastContainer.textContent = '（記録が無効です。ファイル一覧から開き直してください）';
-              } else {
-                var b = document.createElement('button');
-                b.type = 'button';
-                b.className = 'file-btn-meet';
-                b.style.cssText = 'background:#e8f0fe;color:#1a73e8;border-color:#1a73e8;';
-                b.textContent = '📄 ' + (last.name || '');
-                b.onclick = function () {
-                  openFileFromHome(lastId, last.name || 'document.pdf', last.folderId);
-                };
-                lastContainer.appendChild(b);
-              }
+              var b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'file-btn-meet';
+              b.style.cssText = 'background:#e8f0fe;color:#1a73e8;border-color:#1a73e8;';
+              b.textContent = '📄 ' + (last.name || '');
+              b.onclick = function () {
+                openFileFromHome(lastId, last.name || 'document.pdf', last.folderId);
+              };
+              lastContainer.appendChild(b);
             }
           } catch (err) {
             lastContainer.textContent = '（記録がありません）';
@@ -5386,7 +5034,7 @@
 
     function pushMeetingState() {
       if (!nnRealtimeShareEnabled()) return;
-      if (!currentFileId && !nnIsSeamlessActive()) return;
+      if (!currentFileId) return;
       var state = {
         fileId: currentFileId,
         fileName: fileName,
@@ -5395,13 +5043,8 @@
         docY: viewerContainer.scrollTop / currentScale,
         docW: viewerContainer.clientWidth / currentScale,
         docH: viewerContainer.clientHeight / currentScale,
-        strokeTime: lastStrokeTime,
+        strokeTime: lastStrokeTime
       };
-      if (nnIsSeamlessActive()) {
-        state.seamlessFolderId = nnSeamlessCtx.folderId;
-        state.globalPage = nnSeamlessCtx.globalPage;
-        state.folderId = nnSeamlessCtx.folderId;
-      }
       google.script.run.updateMeetingState(JSON.stringify(state));
     }
 
@@ -5410,20 +5053,11 @@
         .withSuccessHandler(async function (res) {
           if (!res) return;
           var state = JSON.parse(res);
-          if (state.seamlessFolderId && nnGetFolderPdfModeForFolder(state.seamlessFolderId) === 'seamless') {
-            if (!nnIsSeamlessActive() || nnSeamlessCtx.folderId !== state.seamlessFolderId) {
-              await openSeamlessFolder(state.seamlessFolderId, {
-                startGlobalPage: state.globalPage || 1,
-              });
-              return;
-            }
-            if (state.globalPage && state.globalPage !== nnSeamlessCtx.globalPage) {
-              await nnSeamlessNavigateToGlobal(state.globalPage);
-            }
-          } else if (state.fileId && state.fileId !== currentFileId) {
+          if (state.fileId && state.fileId !== currentFileId) {
             openFileFromHome(state.fileId, state.fileName || 'document.pdf', state.folderId);
             return;
-          } else if (state.pageNum && state.pageNum !== currentPageNum && currentFileId) {
+          }
+          if (state.pageNum && state.pageNum !== currentPageNum && currentFileId) {
             currentPageNum = state.pageNum;
             await renderPage(currentPageNum);
           }
@@ -5576,10 +5210,7 @@
               nnApplyLocalMemoPayload(savedLocalMemo);
 
               var maxPageGuess = fileType === 'pdf' ? pdfDocJs.numPages : totalPages;
-              if (fileType === 'pdf' && pdfDocJs) nnCacheFilePageCount(currentFileId, pdfDocJs.numPages);
-              if (nnIsSeamlessActive()) {
-                currentPageNum = nnSeamlessPendingLocalPage || 1;
-              } else if (!silent) {
+              if (!silent) {
                 currentPageNum = goToLastPage ? maxPageGuess : 1;
               } else {
                 currentPageNum = Math.min(Math.max(1, currentPageNum), maxPageGuess);
@@ -5594,15 +5225,7 @@
                 }
                 if (fileType === 'pdf') {
                   nnLpEnsurePlanForCurrentFile(pdfDocJs.numPages);
-                  nnCacheFilePageCount(currentFileId, pdfDocJs.numPages);
-                  if (nnIsSeamlessActive()) {
-                    nnRebuildSeamlessPageMapIfActive();
-                    currentPageNum = Math.min(Math.max(1, nnSeamlessPendingLocalPage || 1), totalPages);
-                    var gpFix = nnSeamlessLocalToGlobal(currentFileId, currentPageNum);
-                    if (gpFix > 0) nnSeamlessCtx.globalPage = gpFix;
-                  } else {
-                    currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
-                  }
+                  currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
                 }
                 if (!silent) {
                   currentScale = 1.0;
@@ -5613,11 +5236,10 @@
                 nnShowPdfViewer();
                 nnSetPdfSlotToolbarVisible(true);
                 await renderPage(currentPageNum);
-                if (nnIsSeamlessActive()) nnUpdateSeamlessPageIndicator();
                 hideLoader();
                 updateFavoriteButtonStatus();
                 applyRoleMeet();
-                if (!nnIsSeamlessActive()) savePdfSlotFromGlobals();
+                savePdfSlotFromGlobals();
                 nnSyncLegacyToolsVisibility();
               }
 
@@ -5881,8 +5503,11 @@
         bgCtx.drawImage(currentImageObj, 0, 0, baseWidth, baseHeight);
       }
 
-      if (nnIsSeamlessActive()) {
-        nnUpdateSeamlessPageIndicator();
+      if (legacyFolderNavActive && fileSelect.options.length > 0) {
+        var fileIdx = fileSelect.selectedIndex + 1;
+        var fileTotal = fileSelect.options.length;
+        pageIndicator.innerHTML =
+          '<span style="font-size:10px;">📄 ' + fileIdx + '/' + fileTotal + '</span><br>Pg ' + pageNum + '/' + totalPages;
       } else {
         pageIndicator.innerHTML = 'Pg ' + pageNum + '/' + totalPages;
       }
@@ -5916,24 +5541,11 @@
     }
 
     async function changePage(delta) {
-      if (nnIsSeamlessActive()) {
-        if (nnRealtimeShareEnabled() && currentUserRole !== 'presenter') {
-          statusDiv.textContent = 'ページ送りは発表者モードでのみ利用できます';
-          return;
-        }
-        var gp = nnSeamlessCtx.globalPage + delta;
-        var gt = nnSeamlessCtx.globalTotal || nnSeamlessCtx.pageMap.length;
-        if (gp < 1 || gp > gt) {
-          statusDiv.textContent = gp < 1 ? 'フォルダの最初です' : 'フォルダの最後です';
-          return;
-        }
-        await nnSeamlessNavigateToGlobal(gp);
-        return;
-      }
-
+      var allowLegacyNav = legacyFolderNavActive;
       var newPage = currentPageNum + delta;
+
       if (newPage >= 1 && newPage <= totalPages) {
-        if (nnRealtimeShareEnabled() && currentUserRole !== 'presenter') {
+        if (!allowLegacyNav && nnRealtimeShareEnabled() && currentUserRole !== 'presenter') {
           statusDiv.textContent = 'ページ送りは発表者モードでのみ利用できます';
           return;
         }
@@ -5941,7 +5553,34 @@
         await renderPage(currentPageNum);
         return;
       }
-      statusDiv.textContent = delta > 0 ? '最終ページです' : '先頭ページです';
+
+      if (allowLegacyNav && newPage > totalPages) {
+        var nextIdx = fileSelect.selectedIndex + 1;
+        if (nextIdx < fileSelect.options.length) {
+          autoSaveCurrent(true);
+          fileSelect.selectedIndex = nextIdx;
+          loadSelectedFile(false, false, true);
+        } else {
+          statusDiv.textContent = 'フォルダの最後です';
+        }
+        return;
+      }
+
+      if (allowLegacyNav && newPage < 1) {
+        var prevIdx = fileSelect.selectedIndex - 1;
+        if (prevIdx >= 0) {
+          autoSaveCurrent(true);
+          fileSelect.selectedIndex = prevIdx;
+          loadSelectedFile(true, false, true);
+        } else {
+          statusDiv.textContent = 'フォルダの最初です';
+        }
+        return;
+      }
+
+      if (!allowLegacyNav) {
+        statusDiv.textContent = delta > 0 ? '最終ページです' : '先頭ページです';
+      }
     }
 
     function setTool(tool) {
@@ -6327,7 +5966,6 @@
       if (mode === 'tasks') {
         if (currentFileId) autoSaveCurrent(true);
         savePdfSlotFromGlobals();
-        nnSeamlessCtx = null;
         legacyFolderNavActive = false;
         nnSyncLegacyToolsVisibility();
         stopMeetSync();

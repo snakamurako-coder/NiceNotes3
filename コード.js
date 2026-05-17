@@ -6,16 +6,13 @@ function doGet() {
 
 /**
  * ホーム画面の並び・フォルダ閲覧モード等（JSON を ScriptProperties に保存）。
- * @return {{ folderPdfMode: Object, folderKind: Object, fileLogicalPages: Object, folderFileSort: Object, seamlessResume: Object, filePageCounts: Object, layout: { childrenOrder: Object, fileOrder: Object, fileDue: Object } }}
+ * @return {{ folderPdfMode: Object, folderKind: Object, fileLogicalPages: Object, layout: { childrenOrder: Object, fileOrder: Object, fileDue: Object } }}
  */
 function nn_getWorkspaceMeta_() {
   const def = {
     folderPdfMode: {},
     folderKind: {},
     fileLogicalPages: {},
-    folderFileSort: {},
-    seamlessResume: {},
-    filePageCounts: {},
     layout: { childrenOrder: {}, fileOrder: {}, fileDue: {} },
   };
   try {
@@ -25,9 +22,6 @@ function nn_getWorkspaceMeta_() {
     if (!o.folderPdfMode || typeof o.folderPdfMode !== 'object') o.folderPdfMode = {};
     if (!o.folderKind || typeof o.folderKind !== 'object') o.folderKind = {};
     if (!o.fileLogicalPages || typeof o.fileLogicalPages !== 'object') o.fileLogicalPages = {};
-    if (!o.folderFileSort || typeof o.folderFileSort !== 'object') o.folderFileSort = {};
-    if (!o.seamlessResume || typeof o.seamlessResume !== 'object') o.seamlessResume = {};
-    if (!o.filePageCounts || typeof o.filePageCounts !== 'object') o.filePageCounts = {};
     if (!o.layout || typeof o.layout !== 'object') o.layout = {};
     if (!o.layout.childrenOrder) o.layout.childrenOrder = {};
     if (!o.layout.fileOrder) o.layout.fileOrder = {};
