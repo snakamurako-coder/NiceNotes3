@@ -801,8 +801,10 @@
         <div class="modal-tab" data-tab="pdf" onclick="switchModalTab('pdf')">📄 PDFインポート</div>
       </div>
       <div id="panel-folder" class="modal-panel active">
-        <p style="font-size:14px; color:#555;">共有フォルダや個人のGoogle DriveフォルダのURL（またはID）を入力してワークスペースに登録します。</p>
-        <input type="text" id="input-folder-id" class="input-field-meet" placeholder="フォルダのURL または ID" autocomplete="off">
+        <p style="font-size:14px; color:#555;">共有フォルダや個人の Google ドライブフォルダを、ドライブから選ぶか URL（ID）で登録します。</p>
+        <button type="button" class="btn-meeting-action nn-drive-pick-btn" style="background:#4285f4;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="nnOpenDrivePicker('folder')">📂 Google ドライブからフォルダを選択</button>
+        <p style="font-size:12px;color:#888;margin:0 0 6px;">または共有リンク・URL・ID を入力（貼り付け時に ID を自動抽出）</p>
+        <input type="text" id="input-folder-id" class="input-field-meet" placeholder="例: https://drive.google.com/drive/folders/… または フォルダID" autocomplete="off">
         <div class="radio-group-meet">
           <label><input type="radio" name="folder-type" value="personal" checked> 個人フォルダ（自分だけが見る）</label>
           <label><input type="radio" name="folder-type" value="org"> 組織/共有フォルダ（他者から共有されたもの）</label>
@@ -816,8 +818,10 @@
         <div class="notice-meet">
           ℹ️ オリジナルのPDFは編集されません。<br>指定したPDFは自動的に MyNiceNotes 管理フォルダへ複製され、そちらを安全に編集・共有する仕様となっています。
         </div>
-        <p style="font-size:14px; color:#555;">Google Drive上のPDFのURL（またはID）を入力してください。</p>
-        <input type="text" id="input-pdf-id" class="input-field-meet" placeholder="PDFのURL または ID" autocomplete="off">
+        <p style="font-size:14px; color:#555;">Google ドライブ上の PDF を、ドライブから選ぶか URL（ID）で取り込めます。</p>
+        <button type="button" class="btn-meeting-action nn-drive-pick-btn" style="background:#4285f4;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="nnOpenDrivePicker('pdf')">📄 Google ドライブから PDF を選択</button>
+        <p style="font-size:12px;color:#888;margin:0 0 6px;">または共有リンク・URL・ID を入力（貼り付け時に ID を自動抽出）</p>
+        <input type="text" id="input-pdf-id" class="input-field-meet" placeholder="例: https://drive.google.com/file/d/…/view または ファイルID" autocomplete="off">
         <div style="text-align:right; margin-top:20px;">
           <button type="button" class="file-btn-meet" onclick="closeAddModal()">キャンセル</button>
           <button type="button" class="btn-meeting-action" onclick="submitAddPdf()">複製して取り込む</button>
@@ -2912,8 +2916,65 @@
     }
 
     function nnExtractDriveIdMeet(input) {
-      var m = String(input || '').match(/[-\w]{25,}/);
-      return m ? m[0] : String(input || '').trim();
+      var s = String(input || '')
+        .trim()
+        .replace(/\u3000/g, ' ')
+        .replace(/[\r\n\t]+/g, '')
+        .trim();
+      if (!s) return '';
+      if (/^[a-zA-Z0-9_-]{20,}$/.test(s)) return s;
+      var patterns = [
+        /\/file\/d\/([a-zA-Z0-9_-]+)/i,
+        /\/document\/d\/([a-zA-Z0-9_-]+)/i,
+        /\/presentation\/d\/([a-zA-Z0-9_-]+)/i,
+        /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/i,
+        /\/drive\/folders\/([a-zA-Z0-9_-]+)/i,
+        /\/folders\/([a-zA-Z0-9_-]+)/i,
+        /\/folderview\?[^#]*?[&?]id=([a-zA-Z0-9_-]+)/i,
+        /[?&]id=([a-zA-Z0-9_-]+)/i,
+        /\/open\?id=([a-zA-Z0-9_-]+)/i,
+        /\/uc\?(?:export=[^&]*&)?id=([a-zA-Z0-9_-]+)/i,
+      ];
+      for (var pi = 0; pi < patterns.length; pi++) {
+        var m = s.match(patterns[pi]);
+        if (m && m[1]) return m[1];
+      }
+      var tokens = s.match(/[a-zA-Z0-9_-]{25,}/g);
+      if (tokens && tokens.length) {
+        tokens.sort(function (a, b) {
+          return b.length - a.length;
+        });
+        return tokens[0];
+      }
+      return s;
+    }
+
+    function nnNormalizeDriveInputEl(el) {
+      if (!el) return '';
+      var raw = String(el.value || '').trim();
+      if (!raw) return '';
+      var id = nnExtractDriveIdMeet(raw);
+      if (id) {
+        el.value = id;
+        el.title = raw !== id ? '共有リンクから ID を抽出: ' + id : '';
+      }
+      return id || raw;
+    }
+
+    function nnWireDriveIdInputs() {
+      ['input-folder-id', 'input-pdf-id'].forEach(function (inputId) {
+        var el = document.getElementById(inputId);
+        if (!el || el.dataset.nnDriveNorm === '1') return;
+        el.dataset.nnDriveNorm = '1';
+        el.addEventListener('blur', function () {
+          nnNormalizeDriveInputEl(el);
+        });
+        el.addEventListener('paste', function () {
+          setTimeout(function () {
+            nnNormalizeDriveInputEl(el);
+          }, 0);
+        });
+      });
     }
 
     function nnGetFolderKindForFolderId(folderId) {
@@ -4575,7 +4636,10 @@
     function showLoader(text) { loaderText.textContent = text; loader.style.display = 'flex'; }
     function hideLoader() { loader.style.display = 'none'; }
 
-    function openAddModal() { document.getElementById('add-modal').style.display = 'flex'; }
+    function openAddModal() {
+      document.getElementById('add-modal').style.display = 'flex';
+      nnWireDriveIdInputs();
+    }
     function closeAddModal() { document.getElementById('add-modal').style.display = 'none'; }
     function switchModalTab(tabName) {
       document.querySelectorAll('.modal-tab').forEach(function (t) { t.classList.remove('active'); });
@@ -4585,33 +4649,146 @@
       var panel = document.getElementById('panel-' + tabName);
       if (panel) panel.classList.add('active');
     }
-    function submitAddFolder() {
-      var input = document.getElementById('input-folder-id').value;
+    var nnPickerApiReady = false;
+
+    function nnEnsurePickerApi(callback) {
+      function onReady() {
+        nnPickerApiReady = true;
+        if (callback) callback();
+      }
+      if (nnPickerApiReady && window.google && window.google.picker) {
+        callback();
+        return;
+      }
+      function loadPicker() {
+        if (window.gapi && window.gapi.load) {
+          window.gapi.load('picker', { callback: onReady });
+        } else {
+          alert('Google Picker API を読み込めませんでした。');
+        }
+      }
+      if (window.gapi && window.gapi.load) {
+        loadPicker();
+        return;
+      }
+      var s = document.createElement('script');
+      s.src = 'https://apis.google.com/js/api.js';
+      s.onload = loadPicker;
+      s.onerror = function () {
+        alert('Google API を読み込めませんでした。ネットワークを確認してください。');
+      };
+      document.head.appendChild(s);
+    }
+
+    function nnOpenDrivePicker(mode) {
+      nnEnsurePickerApi(function () {
+        showLoader('Google ドライブを準備中...');
+        google.script.run
+          .withSuccessHandler(function (auth) {
+            hideLoader();
+            if (!auth || !auth.token) {
+              alert('認証トークンを取得できませんでした。ページを再読み込みしてください。');
+              return;
+            }
+            if (!auth.developerKey) {
+              alert(
+                'Google ドライブから選択するには API キーの設定が必要です。\n\n' +
+                  '1. Google Cloud コンソールで「Google Picker API」を有効化\n' +
+                  '2. API キーを作成\n' +
+                  '3. Apps Script のスクリプト プロパティに NN_PICKER_DEVELOPER_KEY を追加\n' +
+                  '   （または コード.js の NN_PICKER_DEVELOPER_KEY に記入）\n\n' +
+                  '設定まで URL / ID の手入力をご利用ください。'
+              );
+              return;
+            }
+            var view;
+            if (mode === 'folder') {
+              view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+                .setIncludeFolders(true)
+                .setSelectFolderEnabled(true);
+            } else {
+              view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+                .setMimeTypes('application/pdf')
+                .setIncludeFolders(false);
+            }
+            var builder = new google.picker.PickerBuilder()
+              .addView(view)
+              .setOAuthToken(auth.token)
+              .setDeveloperKey(auth.developerKey)
+              .setTitle(mode === 'folder' ? 'フォルダを選択' : 'PDF を選択')
+              .setCallback(function (data) {
+                nnOnDrivePickerPicked(data, mode);
+              });
+            if (auth.appId) builder.setAppId(auth.appId);
+            try {
+              if (window.location && window.location.origin) builder.setOrigin(window.location.origin);
+            } catch (eOrigin) {}
+            builder.build().setVisible(true);
+          })
+          .withFailureHandler(function (err) {
+            hideLoader();
+            alert('ドライブ選択の準備に失敗しました: ' + (err && err.message ? err.message : String(err)));
+          })
+          .getDrivePickerAuth();
+      });
+    }
+
+    function nnOnDrivePickerPicked(data, mode) {
+      if (!data || data.action !== google.picker.Action.PICKED) return;
+      var docs = data.docs;
+      if (!docs || !docs.length || !docs[0].id) return;
+      var id = docs[0].id;
+      if (mode === 'folder') {
+        var folderInput = document.getElementById('input-folder-id');
+        if (folderInput) folderInput.value = id;
+        submitAddFolder(id);
+      } else {
+        var pdfInput = document.getElementById('input-pdf-id');
+        if (pdfInput) pdfInput.value = id;
+        submitAddPdf(id);
+      }
+    }
+
+    function submitAddFolder(pickedId) {
+      var folderEl = document.getElementById('input-folder-id');
+      var raw =
+        pickedId != null && String(pickedId).trim() !== ''
+          ? String(pickedId).trim()
+          : folderEl ? folderEl.value : '';
+      if (!raw) return alert('共有リンク・URL または ID を入力してください。');
+      var id = nnExtractDriveIdMeet(raw);
+      if (folderEl && id) folderEl.value = id;
+      if (!id) return alert('フォルダ ID を認識できませんでした。共有リンクの形式を確認してください。');
       var isOrg = document.querySelector('input[name="folder-type"]:checked').value === 'org';
-      if (!input) return alert('URLまたはIDを入力してください。');
-      var folderIdGuess = nnExtractDriveIdMeet(input);
       showLoader('フォルダを確認中...');
       google.script.run
         .withSuccessHandler(function (res) {
           hideLoader();
           if (res && res.success) {
             nnEnsureWorkspaceMeta();
-            var fid = res.folderId || folderIdGuess;
+            var fid = res.folderId || id;
             if (fid) treeData.workspaceMeta.folderKind[fid] = isOrg ? 'org' : 'personal';
             nnSaveWorkspaceMetaToServer();
             alert('✅ フォルダをワークスペースに追加しました！');
             closeAddModal();
-            document.getElementById('input-folder-id').value = '';
+            if (folderEl) folderEl.value = '';
             loadFolderTree(true);
           } else {
             alert((res && res.error) ? res.error : '登録に失敗しました');
           }
         })
-        .registerFolder(input, isOrg);
+        .registerFolder(id, isOrg);
     }
-    function submitAddPdf() {
-      var input = document.getElementById('input-pdf-id').value;
-      if (!input) return alert('URLまたはIDを入力してください。');
+    function submitAddPdf(pickedId) {
+      var pdfEl = document.getElementById('input-pdf-id');
+      var raw =
+        pickedId != null && String(pickedId).trim() !== ''
+          ? String(pickedId).trim()
+          : pdfEl ? pdfEl.value : '';
+      if (!raw) return alert('共有リンク・URL または ID を入力してください。');
+      var id = nnExtractDriveIdMeet(raw);
+      if (pdfEl && id) pdfEl.value = id;
+      if (!id) return alert('PDF の ID を認識できませんでした。共有リンクの形式を確認してください。');
       showLoader('PDFを複製して取り込み中...');
       google.script.run
         .withSuccessHandler(function (res) {
@@ -4619,13 +4796,13 @@
           if (res && res.success) {
             alert('✅ PDFを取り込みました。\n（複製ファイル名: ' + (res.newFileName || '') + '）');
             closeAddModal();
-            document.getElementById('input-pdf-id').value = '';
+            if (pdfEl) pdfEl.value = '';
             loadFolderTree(true);
           } else {
             alert((res && res.error) ? res.error : '取り込みに失敗しました');
           }
         })
-        .importPdf(input);
+        .importPdf(id);
     }
 
     function openColorPalette(e, folderId) {

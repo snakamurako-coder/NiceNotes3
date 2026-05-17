@@ -1,3 +1,24 @@
+/** Google Picker 用 API キー（未設定時は Script Properties の NN_PICKER_DEVELOPER_KEY を参照） */
+var NN_PICKER_DEVELOPER_KEY = '';
+
+/**
+ * Google Picker 表示用の認証情報（クライアントから google.script.run で取得）。
+ * @return {{ token: string, developerKey: string, appId: string }}
+ */
+function getDrivePickerAuth() {
+  const props = PropertiesService.getScriptProperties();
+  const fromProps = props.getProperty('NN_PICKER_DEVELOPER_KEY') || '';
+  const developerKey =
+    (typeof NN_PICKER_DEVELOPER_KEY === 'string' && NN_PICKER_DEVELOPER_KEY.trim()) ||
+    fromProps.trim();
+  const appId = (props.getProperty('NN_PICKER_APP_ID') || '').trim();
+  return {
+    token: ScriptApp.getOAuthToken(),
+    developerKey: developerKey,
+    appId: appId,
+  };
+}
+
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('index')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
@@ -335,9 +356,51 @@ function nnSavePdfPageCopyBesideSource(sourceFileId, base64Pdf, baseNameWithoutE
   }
 }
 
+/**
+ * Google ドライブの共有 URL・各種リンクからファイル/フォルダ ID を抽出する。
+ * @param {string} input URL または ID
+ * @return {string}
+ */
 function extractIdFromUrl(input) {
-  const match = String(input || '').match(/[-\w]{25,}/);
-  return match ? match[0] : String(input || '');
+  let s = String(input || '')
+    .trim()
+    .replace(/\u3000/g, ' ')
+    .replace(/[\r\n\t]+/g, '')
+    .trim();
+  if (!s) return '';
+
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(s)) return s;
+
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/i,
+    /\/document\/d\/([a-zA-Z0-9_-]+)/i,
+    /\/presentation\/d\/([a-zA-Z0-9_-]+)/i,
+    /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/i,
+    /\/drive\/folders\/([a-zA-Z0-9_-]+)/i,
+    /\/folders\/([a-zA-Z0-9_-]+)/i,
+    /\/folderview\?[^#]*?[&?]id=([a-zA-Z0-9_-]+)/i,
+    /[?&]id=([a-zA-Z0-9_-]+)/i,
+    /\/open\?id=([a-zA-Z0-9_-]+)/i,
+    /\/uc\?(?:export=[^&]*&)?id=([a-zA-Z0-9_-]+)/i,
+  ];
+
+  for (let i = 0; i < patterns.length; i++) {
+    const m = s.match(patterns[i]);
+    if (m && m[1]) return m[1];
+  }
+
+  const tokens = s.match(/[a-zA-Z0-9_-]{25,}/g);
+  if (tokens && tokens.length) {
+    tokens.sort((a, b) => b.length - a.length);
+    return tokens[0];
+  }
+
+  return s;
+}
+
+/** クライアントから ID 正規化の確認用（registerFolder / importPdf と同じロジック） */
+function normalizeDriveIdInput(input) {
+  return extractIdFromUrl(input);
 }
 
 function registerFolder(inputData, isOrg) {
