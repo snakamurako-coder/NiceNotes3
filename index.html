@@ -356,6 +356,41 @@
       resize: vertical;
     }
     #nn-partial-ink-modal .nn-partial-ink-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    #nn-drive-browse-modal { z-index: 1600; }
+    #nn-drive-browse-modal .modal-content { max-width: 520px; max-height: 88vh; display: flex; flex-direction: column; padding: 18px 20px; }
+    #nn-drive-browse-modal h3 { margin: 0 0 10px; font-size: 16px; color: #202124; }
+    .nn-drive-browse-crumb { font-size: 12px; color: #5f6368; margin-bottom: 8px; line-height: 1.5; flex-wrap: wrap; display: flex; gap: 2px; align-items: center; }
+    .nn-drive-browse-crumb button { background: none; border: none; color: #1a73e8; cursor: pointer; padding: 2px 4px; font-size: 12px; }
+    .nn-drive-browse-crumb button:hover { text-decoration: underline; }
+    .nn-drive-browse-crumb .nn-crumb-sep { color: #9aa0a6; }
+    .nn-drive-browse-toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .nn-drive-browse-list {
+      flex: 1;
+      min-height: 120px;
+      max-height: min(50vh, 360px);
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .nn-drive-browse-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+      color: #202124;
+      background: #fff;
+    }
+    .nn-drive-browse-row:last-child { border-bottom: none; }
+    .nn-drive-browse-row:hover { background: #e8f0fe; }
+    .nn-drive-browse-row.nn-pdf-row { cursor: pointer; }
+    .nn-drive-browse-row .nn-row-meta { margin-left: auto; font-size: 11px; color: #888; }
+    .nn-drive-browse-empty { padding: 24px; text-align: center; color: #888; font-size: 13px; }
+    .nn-drive-browse-note { font-size: 11px; color: #888; margin: 6px 0 0; }
+    .nn-drive-browse-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; flex-shrink: 0; }
     #nn-text-inspector {
       position: absolute;
       z-index: 1350;
@@ -802,7 +837,7 @@
       </div>
       <div id="panel-folder" class="modal-panel active">
         <p style="font-size:14px; color:#555;">共有フォルダや個人の Google ドライブフォルダを、ドライブから選ぶか URL（ID）で登録します。</p>
-        <button type="button" class="btn-meeting-action nn-drive-pick-btn" style="background:#4285f4;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="nnOpenDrivePicker('folder')">📂 Google ドライブからフォルダを選択</button>
+        <button type="button" class="btn-meeting-action nn-drive-pick-btn" style="background:#4285f4;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="nnOpenDriveBrowse('folder')">📂 ドライブ一覧からフォルダを選択</button>
         <p style="font-size:12px;color:#888;margin:0 0 6px;">または共有リンク・URL・ID を入力（貼り付け時に ID を自動抽出）</p>
         <input type="text" id="input-folder-id" class="input-field-meet" placeholder="例: https://drive.google.com/drive/folders/… または フォルダID" autocomplete="off">
         <div class="radio-group-meet">
@@ -819,13 +854,31 @@
           ℹ️ オリジナルのPDFは編集されません。<br>指定したPDFは自動的に MyNiceNotes 管理フォルダへ複製され、そちらを安全に編集・共有する仕様となっています。
         </div>
         <p style="font-size:14px; color:#555;">Google ドライブ上の PDF を、ドライブから選ぶか URL（ID）で取り込めます。</p>
-        <button type="button" class="btn-meeting-action nn-drive-pick-btn" style="background:#4285f4;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="nnOpenDrivePicker('pdf')">📄 Google ドライブから PDF を選択</button>
+        <button type="button" class="btn-meeting-action nn-drive-pick-btn" style="background:#4285f4;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="nnOpenDriveBrowse('pdf')">📄 ドライブ一覧から PDF を選択</button>
         <p style="font-size:12px;color:#888;margin:0 0 6px;">または共有リンク・URL・ID を入力（貼り付け時に ID を自動抽出）</p>
         <input type="text" id="input-pdf-id" class="input-field-meet" placeholder="例: https://drive.google.com/file/d/…/view または ファイルID" autocomplete="off">
         <div style="text-align:right; margin-top:20px;">
           <button type="button" class="file-btn-meet" onclick="closeAddModal()">キャンセル</button>
           <button type="button" class="btn-meeting-action" onclick="submitAddPdf()">複製して取り込む</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="nn-drive-browse-modal" class="modal-overlay" aria-hidden="true" onclick="if (event.target === this) nnCloseDriveBrowse()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3 id="nn-drive-browse-title">ドライブから選択</h3>
+      <div id="nn-drive-browse-crumb" class="nn-drive-browse-crumb"></div>
+      <div class="nn-drive-browse-toolbar">
+        <button type="button" class="file-btn-meet" id="nn-drive-browse-up" onclick="nnDriveBrowseUp()">↑ 上のフォルダ</button>
+      </div>
+      <div id="nn-drive-browse-list" class="nn-drive-browse-list">
+        <div class="nn-drive-browse-empty">読み込み中...</div>
+      </div>
+      <p id="nn-drive-browse-note" class="nn-drive-browse-note"></p>
+      <div class="nn-drive-browse-actions">
+        <button type="button" class="file-btn-meet" onclick="nnCloseDriveBrowse()">キャンセル</button>
+        <button type="button" class="btn-meeting-action" id="nn-drive-browse-select-folder" style="display:none;background:#0f9d58;color:#fff;border:none;" onclick="nnDriveBrowseConfirmFolder()">このフォルダを登録</button>
       </div>
     </div>
   </div>
@@ -4649,104 +4702,150 @@
       var panel = document.getElementById('panel-' + tabName);
       if (panel) panel.classList.add('active');
     }
-    var nnPickerApiReady = false;
+    var nnDriveBrowse = { mode: 'folder', folderId: null, parentId: null, currentId: null };
 
-    function nnEnsurePickerApi(callback) {
-      function onReady() {
-        nnPickerApiReady = true;
-        if (callback) callback();
+    function nnOpenDriveBrowse(mode) {
+      nnDriveBrowse.mode = mode === 'pdf' ? 'pdf' : 'folder';
+      nnDriveBrowse.folderId = null;
+      var modal = document.getElementById('nn-drive-browse-modal');
+      var title = document.getElementById('nn-drive-browse-title');
+      var btnFolder = document.getElementById('nn-drive-browse-select-folder');
+      if (title) {
+        title.textContent = mode === 'pdf' ? 'PDF を選択（ドライブ一覧）' : 'フォルダを選択（ドライブ一覧）';
       }
-      if (nnPickerApiReady && window.google && window.google.picker) {
-        callback();
-        return;
+      if (btnFolder) btnFolder.style.display = mode === 'folder' ? 'inline-block' : 'none';
+      if (modal) {
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
       }
-      function loadPicker() {
-        if (window.gapi && window.gapi.load) {
-          window.gapi.load('picker', { callback: onReady });
-        } else {
-          alert('Google Picker API を読み込めませんでした。');
-        }
-      }
-      if (window.gapi && window.gapi.load) {
-        loadPicker();
-        return;
-      }
-      var s = document.createElement('script');
-      s.src = 'https://apis.google.com/js/api.js';
-      s.onload = loadPicker;
-      s.onerror = function () {
-        alert('Google API を読み込めませんでした。ネットワークを確認してください。');
-      };
-      document.head.appendChild(s);
+      nnLoadDriveBrowse(null);
     }
 
-    function nnOpenDrivePicker(mode) {
-      nnEnsurePickerApi(function () {
-        showLoader('Google ドライブを準備中...');
-        google.script.run
-          .withSuccessHandler(function (auth) {
-            hideLoader();
-            if (!auth || !auth.token) {
-              alert('認証トークンを取得できませんでした。ページを再読み込みしてください。');
-              return;
-            }
-            if (!auth.developerKey) {
-              alert(
-                'Google ドライブから選択するには API キーの設定が必要です。\n\n' +
-                  '1. Google Cloud コンソールで「Google Picker API」を有効化\n' +
-                  '2. API キーを作成\n' +
-                  '3. Apps Script のスクリプト プロパティに NN_PICKER_DEVELOPER_KEY を追加\n' +
-                  '   （または コード.js の NN_PICKER_DEVELOPER_KEY に記入）\n\n' +
-                  '設定まで URL / ID の手入力をご利用ください。'
-              );
-              return;
-            }
-            var view;
-            if (mode === 'folder') {
-              view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
-                .setIncludeFolders(true)
-                .setSelectFolderEnabled(true);
-            } else {
-              view = new google.picker.DocsView(google.picker.ViewId.DOCS)
-                .setMimeTypes('application/pdf')
-                .setIncludeFolders(false);
-            }
-            var builder = new google.picker.PickerBuilder()
-              .addView(view)
-              .setOAuthToken(auth.token)
-              .setDeveloperKey(auth.developerKey)
-              .setTitle(mode === 'folder' ? 'フォルダを選択' : 'PDF を選択')
-              .setCallback(function (data) {
-                nnOnDrivePickerPicked(data, mode);
-              });
-            if (auth.appId) builder.setAppId(auth.appId);
-            try {
-              if (window.location && window.location.origin) builder.setOrigin(window.location.origin);
-            } catch (eOrigin) {}
-            builder.build().setVisible(true);
-          })
-          .withFailureHandler(function (err) {
-            hideLoader();
-            alert('ドライブ選択の準備に失敗しました: ' + (err && err.message ? err.message : String(err)));
-          })
-          .getDrivePickerAuth();
-      });
+    function nnCloseDriveBrowse() {
+      var modal = document.getElementById('nn-drive-browse-modal');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+      }
     }
 
-    function nnOnDrivePickerPicked(data, mode) {
-      if (!data || data.action !== google.picker.Action.PICKED) return;
-      var docs = data.docs;
-      if (!docs || !docs.length || !docs[0].id) return;
-      var id = docs[0].id;
-      if (mode === 'folder') {
-        var folderInput = document.getElementById('input-folder-id');
-        if (folderInput) folderInput.value = id;
-        submitAddFolder(id);
+    function nnLoadDriveBrowse(folderId) {
+      var list = document.getElementById('nn-drive-browse-list');
+      var note = document.getElementById('nn-drive-browse-note');
+      var upBtn = document.getElementById('nn-drive-browse-up');
+      if (list) list.innerHTML = '<div class="nn-drive-browse-empty">読み込み中...</div>';
+      if (note) note.textContent = '';
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (!res || !res.success) {
+            if (list) {
+              list.innerHTML =
+                '<div class="nn-drive-browse-empty">' +
+                (res && res.error ? String(res.error).replace(/</g, '&lt;') : '取得に失敗しました') +
+                '</div>';
+            }
+            return;
+          }
+          nnDriveBrowse.folderId = res.current.id;
+          nnDriveBrowse.parentId = res.parentId;
+          nnDriveBrowse.currentId = res.current.id;
+          if (upBtn) upBtn.disabled = !res.parentId;
+          nnRenderDriveBrowse(res);
+        })
+        .withFailureHandler(function (err) {
+          if (list) {
+            list.innerHTML =
+              '<div class="nn-drive-browse-empty">エラー: ' +
+              (err && err.message ? err.message : String(err)) +
+              '</div>';
+          }
+        })
+        .browseDriveForAdd(folderId);
+    }
+
+    function nnRenderDriveBrowse(res) {
+      var crumb = document.getElementById('nn-drive-browse-crumb');
+      var list = document.getElementById('nn-drive-browse-list');
+      var note = document.getElementById('nn-drive-browse-note');
+      if (crumb) {
+        crumb.innerHTML = '';
+        var crumbs = res.breadcrumbs || [];
+        crumbs.forEach(function (c, i) {
+          if (i > 0) {
+            var sep = document.createElement('span');
+            sep.className = 'nn-crumb-sep';
+            sep.textContent = ' › ';
+            crumb.appendChild(sep);
+          }
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = c.name || 'フォルダ';
+          btn.onclick = function () {
+            nnLoadDriveBrowse(c.id);
+          };
+          crumb.appendChild(btn);
+        });
+      }
+      if (!list) return;
+      list.innerHTML = '';
+      var hasAny = false;
+      if (nnDriveBrowse.mode === 'folder') {
+        (res.folders || []).forEach(function (f) {
+          hasAny = true;
+          var row = document.createElement('div');
+          row.className = 'nn-drive-browse-row';
+          row.innerHTML = '📁 ' + (f.name || '（名称なし）');
+          row.onclick = function () {
+            nnLoadDriveBrowse(f.id);
+          };
+          list.appendChild(row);
+        });
       } else {
-        var pdfInput = document.getElementById('input-pdf-id');
-        if (pdfInput) pdfInput.value = id;
-        submitAddPdf(id);
+        (res.folders || []).forEach(function (f) {
+          hasAny = true;
+          var row = document.createElement('div');
+          row.className = 'nn-drive-browse-row';
+          row.innerHTML = '📁 ' + (f.name || '（名称なし）') + '<span class="nn-row-meta">開く</span>';
+          row.onclick = function () {
+            nnLoadDriveBrowse(f.id);
+          };
+          list.appendChild(row);
+        });
+        (res.pdfs || []).forEach(function (p) {
+          hasAny = true;
+          var row = document.createElement('div');
+          row.className = 'nn-drive-browse-row nn-pdf-row';
+          var when = p.updated ? new Date(p.updated).toLocaleDateString() : '';
+          row.innerHTML =
+            '📄 ' + (p.name || 'document.pdf') + (when ? '<span class="nn-row-meta">' + when + '</span>' : '');
+          row.onclick = function () {
+            nnCloseDriveBrowse();
+            submitAddPdf(p.id);
+          };
+          list.appendChild(row);
+        });
       }
+      if (!hasAny) {
+        list.innerHTML = '<div class="nn-drive-browse-empty">このフォルダには表示できる項目がありません</div>';
+      }
+      if (note) {
+        var parts = [];
+        if (res.foldersTruncated) parts.push('フォルダは200件まで表示');
+        if (res.pdfsTruncated) parts.push('PDFは100件まで表示');
+        note.textContent = parts.length ? parts.join(' · ') : '';
+      }
+    }
+
+    function nnDriveBrowseUp() {
+      if (nnDriveBrowse.parentId) nnLoadDriveBrowse(nnDriveBrowse.parentId);
+    }
+
+    function nnDriveBrowseConfirmFolder() {
+      if (!nnDriveBrowse.currentId) return;
+      nnCloseDriveBrowse();
+      var folderInput = document.getElementById('input-folder-id');
+      if (folderInput) folderInput.value = nnDriveBrowse.currentId;
+      submitAddFolder(nnDriveBrowse.currentId);
     }
 
     function submitAddFolder(pickedId) {

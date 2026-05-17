@@ -1,24 +1,3 @@
-/** Google Picker 用 API キー（未設定時は Script Properties の NN_PICKER_DEVELOPER_KEY を参照） */
-var NN_PICKER_DEVELOPER_KEY = '';
-
-/**
- * Google Picker 表示用の認証情報（クライアントから google.script.run で取得）。
- * @return {{ token: string, developerKey: string, appId: string }}
- */
-function getDrivePickerAuth() {
-  const props = PropertiesService.getScriptProperties();
-  const fromProps = props.getProperty('NN_PICKER_DEVELOPER_KEY') || '';
-  const developerKey =
-    (typeof NN_PICKER_DEVELOPER_KEY === 'string' && NN_PICKER_DEVELOPER_KEY.trim()) ||
-    fromProps.trim();
-  const appId = (props.getProperty('NN_PICKER_APP_ID') || '').trim();
-  return {
-    token: ScriptApp.getOAuthToken(),
-    developerKey: developerKey,
-    appId: appId,
-  };
-}
-
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('index')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
@@ -401,6 +380,89 @@ function extractIdFromUrl(input) {
 /** クライアントから ID 正規化の確認用（registerFolder / importPdf と同じロジック） */
 function normalizeDriveIdInput(input) {
   return extractIdFromUrl(input);
+}
+
+/**
+ * フォルダのパンくず（ルート→現在）を構築。
+ * @param {GoogleAppsScript.Drive.Folder} folder
+ * @return {Array<{ id: string, name: string }>}
+ */
+function nn_buildFolderBreadcrumbs_(folder) {
+  const chain = [];
+  let f = folder;
+  for (let guard = 0; f && guard < 40; guard++) {
+    chain.unshift({ id: f.getId(), name: f.getName() });
+    const parents = f.getParents();
+    if (!parents.hasNext()) break;
+    f = parents.next();
+  }
+  if (chain.length) chain[0].name = 'マイドライブ';
+  return chain;
+}
+
+/**
+ * 追加用ドライブブラウザ（ユーザー権限・DriveApp）。Picker / Cloud API キー不要。
+ * @param {string|null|undefined} folderId 省略時はマイドライブ直下
+ * @return {Object}
+ */
+function browseDriveForAdd(folderId) {
+  const MAX_FOLDERS = 200;
+  const MAX_PDFS = 100;
+  try {
+    let folder;
+    if (folderId == null || String(folderId).trim() === '' || folderId === '__root__') {
+      folder = DriveApp.getRootFolder();
+    } else {
+      folder = DriveApp.getFolderById(String(folderId).trim());
+    }
+
+    const parents = folder.getParents();
+    const parentId = parents.hasNext() ? parents.next().getId() : null;
+    const breadcrumbs = nn_buildFolderBreadcrumbs_(folder);
+
+    let folders = [];
+    const dIter = folder.getFolders();
+    while (dIter.hasNext()) {
+      const d = dIter.next();
+      folders.push({ id: d.getId(), name: d.getName() });
+    }
+    folders.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
+    const folderTotal = folders.length;
+    const foldersTruncated = folderTotal > MAX_FOLDERS;
+    if (foldersTruncated) folders = folders.slice(0, MAX_FOLDERS);
+
+    const pdfsAll = [];
+    const fIter = folder.getFiles();
+    while (fIter.hasNext()) {
+      const f = fIter.next();
+      if (f.getMimeType() !== MimeType.PDF) continue;
+      pdfsAll.push({
+        id: f.getId(),
+        name: f.getName(),
+        updated: f.getLastUpdated().getTime(),
+      });
+    }
+    pdfsAll.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
+    const pdfTotal = pdfsAll.length;
+    const pdfs = pdfTotal > MAX_PDFS ? pdfsAll.slice(0, MAX_PDFS) : pdfsAll;
+    pdfs.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
+
+    return {
+      success: true,
+      current: { id: folder.getId(), name: folder.getName() },
+      parentId: parentId,
+      breadcrumbs: breadcrumbs,
+      folders: folders,
+      pdfs: pdfs,
+      foldersTruncated: foldersTruncated,
+      pdfsTruncated: pdfTotal > MAX_PDFS,
+    };
+  } catch (e) {
+    return {
+      success: false,
+      error: 'ドライブの一覧を取得できませんでした。アクセス権限を確認してください。\n' + e.toString(),
+    };
+  }
 }
 
 function registerFolder(inputData, isOrg) {
