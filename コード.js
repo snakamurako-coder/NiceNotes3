@@ -73,6 +73,78 @@ function getFileData(fileId) {
   }
 }
 
+/** 取り込み前の MIME・サイズ確認用（巨大ファイルの getFileData を避ける） */
+function getFileMeta(fileId) {
+  try {
+    const file = DriveApp.getFileById(String(fileId || '').trim());
+    return {
+      success: true,
+      mimeType: file.getMimeType(),
+      name: file.getName(),
+      size: file.getSize(),
+    };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+const NN_IMAGE_MAX_IMPORT_BYTES_ = 18 * 1024 * 1024;
+
+/**
+ * クライアントで最適化した画像を MyNiceNotes 管理フォルダへ保存。
+ * @param {{ base64: string, mimeType: string, originalName: string, sourceFileId?: string }} payload
+ */
+function importImageOptimized(payload) {
+  try {
+    const p = payload || {};
+    const b64 = String(p.base64 || '').trim();
+    if (!b64) return { success: false, error: '画像データが空です。' };
+
+    const bytes = Utilities.base64Decode(b64);
+    if (bytes.length > NN_IMAGE_MAX_IMPORT_BYTES_) {
+      return {
+        success: false,
+        error:
+          'ファイルが大きすぎます（上限 18MB）。Drive で縮小するか、解像度の低い画像をご利用ください。',
+      };
+    }
+
+    const mimeIn = String(p.mimeType || '').toLowerCase();
+    const mimeType = mimeIn === MimeType.PNG || mimeIn === 'image/png' ? MimeType.PNG : MimeType.JPEG;
+
+    const props = PropertiesService.getScriptProperties();
+    const mainFolderId = nn_getMainFolderIdForCurrentUser_(props);
+    if (!mainFolderId) {
+      return { success: false, error: '管理フォルダが未初期化です。' };
+    }
+    const mainFolder = DriveApp.getFolderById(mainFolderId);
+
+    let baseName = String(p.originalName || 'image.jpg')
+      .replace(/^\[編集用\]\s*/i, '')
+      .trim();
+    if (!baseName) baseName = 'image.jpg';
+    const ext = mimeType === MimeType.PNG ? '.png' : '.jpg';
+    if (!/\.(png|jpe?g)$/i.test(baseName)) {
+      baseName = baseName.replace(/\.[^/.]+$/, '') + ext;
+    } else if (mimeType === MimeType.JPEG && /\.png$/i.test(baseName)) {
+      baseName = baseName.replace(/\.png$/i, '.jpg');
+    } else if (mimeType === MimeType.PNG && /\.jpe?g$/i.test(baseName)) {
+      baseName = baseName.replace(/\.jpe?g$/i, '.png');
+    }
+
+    const copyName = '[編集用] ' + baseName;
+    const blob = Utilities.newBlob(bytes, mimeType, copyName);
+    const copyFile = mainFolder.createFile(blob);
+
+    return { success: true, newFileId: copyFile.getId(), newFileName: copyFile.getName() };
+  } catch (e) {
+    return {
+      success: false,
+      error: '❌ 画像の取り込みに失敗しました。権限やURLを確認してください。\n詳細: ' + e.toString(),
+    };
+  }
+}
+
 /**
  * 共有 PDF 注釈 JSON の保存先。共有フォルダではなく、ユーザーの MyNiceNotes 配下に集約する。
  * @param {GoogleAppsScript.Properties.Properties} props ScriptProperties
@@ -408,6 +480,7 @@ function nn_buildFolderBreadcrumbs_(folder) {
 function browseDriveForAdd(folderId) {
   const MAX_FOLDERS = 200;
   const MAX_PDFS = 100;
+  const MAX_IMAGES = 100;
   try {
     let folder;
     if (folderId == null || String(folderId).trim() === '' || folderId === '__root__') {
@@ -432,20 +505,33 @@ function browseDriveForAdd(folderId) {
     if (foldersTruncated) folders = folders.slice(0, MAX_FOLDERS);
 
     const pdfsAll = [];
+    const imagesAll = [];
     const fIter = folder.getFiles();
     while (fIter.hasNext()) {
       const f = fIter.next();
-      if (f.getMimeType() !== MimeType.PDF) continue;
-      pdfsAll.push({
-        id: f.getId(),
-        name: f.getName(),
-        updated: f.getLastUpdated().getTime(),
-      });
+      const mime = f.getMimeType();
+      if (mime === MimeType.PDF) {
+        pdfsAll.push({
+          id: f.getId(),
+          name: f.getName(),
+          updated: f.getLastUpdated().getTime(),
+        });
+      } else if (mime === MimeType.JPEG || mime === MimeType.PNG) {
+        imagesAll.push({
+          id: f.getId(),
+          name: f.getName(),
+          mimeType: mime,
+          updated: f.getLastUpdated().getTime(),
+        });
+      }
     }
     pdfsAll.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
     const pdfTotal = pdfsAll.length;
     const pdfs = pdfTotal > MAX_PDFS ? pdfsAll.slice(0, MAX_PDFS) : pdfsAll;
-    pdfs.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
+
+    imagesAll.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ja'));
+    const imageTotal = imagesAll.length;
+    const images = imageTotal > MAX_IMAGES ? imagesAll.slice(0, MAX_IMAGES) : imagesAll;
 
     return {
       success: true,
@@ -454,8 +540,10 @@ function browseDriveForAdd(folderId) {
       breadcrumbs: breadcrumbs,
       folders: folders,
       pdfs: pdfs,
+      images: images,
       foldersTruncated: foldersTruncated,
       pdfsTruncated: pdfTotal > MAX_PDFS,
+      imagesTruncated: imageTotal > MAX_IMAGES,
     };
   } catch (e) {
     return {

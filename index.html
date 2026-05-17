@@ -833,7 +833,7 @@
     <div class="modal-content">
       <div class="modal-tabs">
         <div class="modal-tab active" data-tab="folder" onclick="switchModalTab('folder')">📁 フォルダ追加</div>
-        <div class="modal-tab" data-tab="pdf" onclick="switchModalTab('pdf')">📄 PDFインポート</div>
+        <div class="modal-tab" data-tab="pdf" onclick="switchModalTab('pdf')">📄 PDF・画像インポート</div>
       </div>
       <div id="panel-folder" class="modal-panel active">
         <p style="font-size:14px; color:#555;">共有フォルダや個人の Google ドライブフォルダを、ドライブから選ぶか URL（ID）で登録します。</p>
@@ -851,15 +851,15 @@
       </div>
       <div id="panel-pdf" class="modal-panel">
         <div class="notice-meet">
-          ℹ️ オリジナルのPDFは編集されません。<br>指定したPDFは自動的に MyNiceNotes 管理フォルダへ複製され、そちらを安全に編集・共有する仕様となっています。
+          ℹ️ オリジナルは編集されません。<br>PDF・画像（PNG/JPEG）は MyNiceNotes 管理フォルダへ複製されます。画像は取り込み時に高品質で最適化して保存します（処理に時間がかかる場合があります）。
         </div>
-        <p style="font-size:14px; color:#555;">Google ドライブ上の PDF を、ドライブから選ぶか URL（ID）で取り込めます。</p>
-        <button type="button" class="btn-meeting-action nn-drive-pick-btn" style="background:#4285f4;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="nnOpenDriveBrowse('pdf')">📄 ドライブ一覧から PDF を選択</button>
+        <p style="font-size:14px; color:#555;">Google ドライブ上の PDF または PNG/JPEG を、ドライブから選ぶか URL（ID）で取り込めます。</p>
+        <button type="button" class="btn-meeting-action nn-drive-pick-btn" style="background:#4285f4;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="nnOpenDriveBrowse('media')">📂 ドライブ一覧から PDF・画像を選択</button>
         <p style="font-size:12px;color:#888;margin:0 0 6px;">または共有リンク・URL・ID を入力（貼り付け時に ID を自動抽出）</p>
-        <input type="text" id="input-pdf-id" class="input-field-meet" placeholder="例: https://drive.google.com/file/d/…/view または ファイルID" autocomplete="off">
+        <input type="text" id="input-media-id" class="input-field-meet" placeholder="例: https://drive.google.com/file/d/…/view または ファイルID" autocomplete="off">
         <div style="text-align:right; margin-top:20px;">
           <button type="button" class="file-btn-meet" onclick="closeAddModal()">キャンセル</button>
-          <button type="button" class="btn-meeting-action" onclick="submitAddPdf()">複製して取り込む</button>
+          <button type="button" class="btn-meeting-action" onclick="submitAddMedia()">複製して取り込む</button>
         </div>
       </div>
     </div>
@@ -1268,6 +1268,9 @@
       underline: false,
     };
     var NN_DEFAULT_PEN_PALETTE = ['#212121', '#1a73e8', '#d93025', '#0f9d58', '#f4511e', '#6a1b9a'];
+    var NN_IMAGE_MAX_IMPORT_BYTES = 18 * 1024 * 1024;
+    var NN_IMAGE_WORK_LONG_EDGE = 4096;
+    var NN_IMAGE_JPEG_QUALITY = 0.92;
     var nnPenPalette = NN_DEFAULT_PEN_PALETTE.slice();
     var nnPenColorIndex = 0;
     var nnPresenterPenToShared = true;
@@ -3014,8 +3017,148 @@
       return id || raw;
     }
 
+    function nnIsImageMime(mime) {
+      return mime === 'image/jpeg' || mime === 'image/png';
+    }
+
+    function nnPreferPngForImage(fileName, mimeType) {
+      if (mimeType === 'image/png') return true;
+      if (mimeType === 'image/jpeg') return false;
+      return /\.png$/i.test(fileName || '');
+    }
+
+    function nnDrawSourceToCanvas(ctx, source, w, h) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(source, 0, 0, w, h);
+    }
+
+    function nnResizeSourceOnceCanvas(source, tw, th) {
+      var canvas = document.createElement('canvas');
+      canvas.width = tw;
+      canvas.height = th;
+      var ctx = canvas.getContext('2d');
+      nnDrawSourceToCanvas(ctx, source, tw, th);
+      return canvas;
+    }
+
+    function nnResizeSourceOnce(source, tw, th) {
+      if (typeof createImageBitmap === 'function') {
+        return createImageBitmap(source, { resizeWidth: tw, resizeHeight: th, resizeQuality: 'high' }).catch(
+          function () {
+            return nnResizeSourceOnceCanvas(source, tw, th);
+          }
+        );
+      }
+      return Promise.resolve(nnResizeSourceOnceCanvas(source, tw, th));
+    }
+
+    function nnCloseImageBitmap(bmp) {
+      if (bmp && typeof bmp.close === 'function') {
+        try {
+          bmp.close();
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    }
+
+    /**
+     * 高品質ダウンスケール。戻り値: { image, width, height, dataUrl, mimeType }
+     */
+    async function nnDownscaleImageHighQuality(source, maxLongEdge, preferPng) {
+      maxLongEdge = maxLongEdge || NN_IMAGE_WORK_LONG_EDGE;
+      var sw = source.naturalWidth || source.width;
+      var sh = source.naturalHeight || source.height;
+      if (!sw || !sh) throw new Error('画像サイズを読み取れません。');
+
+      var longEdge = Math.max(sw, sh);
+      var targetW = sw;
+      var targetH = sh;
+      if (longEdge > maxLongEdge) {
+        var scale = maxLongEdge / longEdge;
+        targetW = Math.max(1, Math.round(sw * scale));
+        targetH = Math.max(1, Math.round(sh * scale));
+      }
+
+      var usePng = preferPng === true;
+      var cur = source;
+      var cw = sw;
+      var ch = sh;
+
+      while (Math.max(cw, ch) > Math.max(targetW, targetH) * 2) {
+        var nw = Math.max(targetW, Math.round(cw / 2));
+        var nh = Math.max(targetH, Math.round(ch / 2));
+        var next = await nnResizeSourceOnce(cur, nw, nh);
+        if (cur !== source && cur !== next) nnCloseImageBitmap(cur);
+        cur = next;
+        cw = nw;
+        ch = nh;
+      }
+
+      if (cw !== targetW || ch !== targetH) {
+        var finalSrc = await nnResizeSourceOnce(cur, targetW, targetH);
+        if (cur !== source && cur !== finalSrc) nnCloseImageBitmap(cur);
+        cur = finalSrc;
+      }
+
+      var outCanvas = document.createElement('canvas');
+      outCanvas.width = targetW;
+      outCanvas.height = targetH;
+      var outCtx = outCanvas.getContext('2d');
+      nnDrawSourceToCanvas(outCtx, cur, targetW, targetH);
+      if (cur !== source) nnCloseImageBitmap(cur);
+
+      var mimeType = usePng ? 'image/png' : 'image/jpeg';
+      var dataUrl =
+        mimeType === 'image/png'
+          ? outCanvas.toDataURL('image/png')
+          : outCanvas.toDataURL('image/jpeg', NN_IMAGE_JPEG_QUALITY);
+
+      var img = new Image();
+      await new Promise(function (resolve, reject) {
+        img.onload = resolve;
+        img.onerror = function () {
+          reject(new Error('最適化画像の読み込みに失敗しました。'));
+        };
+        img.src = dataUrl;
+      });
+
+      return { image: img, width: targetW, height: targetH, dataUrl: dataUrl, mimeType: mimeType };
+    }
+
+    async function nnApplyImageWorkingSize(img, fileName, mimeType, options) {
+      options = options || {};
+      var preferPng = nnPreferPngForImage(fileName, mimeType);
+      var longEdge = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
+      var needsOpt = longEdge > NN_IMAGE_WORK_LONG_EDGE;
+      if (needsOpt && options.showLoader !== false) {
+        showLoader('画像を最適化しています…');
+      }
+      try {
+        var result = await nnDownscaleImageHighQuality(img, NN_IMAGE_WORK_LONG_EDGE, preferPng);
+        currentImageObj = result.image;
+        baseWidth = result.width;
+        baseHeight = result.height;
+        return result;
+      } catch (e) {
+        if (e && e.message && e.message.indexOf('memory') >= 0) {
+          throw new Error('画像の解像度が高すぎます。取り込み前に長辺を 8000px 以下にしてください。');
+        }
+        throw e;
+      }
+    }
+
+    function nnBase64ByteLength(b64) {
+      if (!b64 || typeof b64 !== 'string') return 0;
+      var pad = 0;
+      if (b64.endsWith('==')) pad = 2;
+      else if (b64.endsWith('=')) pad = 1;
+      return Math.floor((b64.length * 3) / 4) - pad;
+    }
+
     function nnWireDriveIdInputs() {
-      ['input-folder-id', 'input-pdf-id'].forEach(function (inputId) {
+      ['input-folder-id', 'input-media-id', 'input-pdf-id'].forEach(function (inputId) {
         var el = document.getElementById(inputId);
         if (!el || el.dataset.nnDriveNorm === '1') return;
         el.dataset.nnDriveNorm = '1';
@@ -4546,13 +4689,23 @@
           currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
           await renderPage(currentPageNum);
         } else if (s.imageDataUrl) {
-          currentImageObj = new Image();
+          var tmpSlotImg = new Image();
           await new Promise(function (resolve, reject) {
-            currentImageObj.onload = resolve;
-            currentImageObj.onerror = reject;
-            currentImageObj.src = s.imageDataUrl;
+            tmpSlotImg.onload = resolve;
+            tmpSlotImg.onerror = reject;
+            tmpSlotImg.src = s.imageDataUrl;
           });
           if (restoreGen !== __pdfLoadGeneration) return;
+          var extSlot = (fileName.split('.').pop() || '').toLowerCase();
+          var mimeSlot = extSlot === 'png' ? 'image/png' : 'image/jpeg';
+          var longSlot = Math.max(tmpSlotImg.naturalWidth || tmpSlotImg.width, tmpSlotImg.naturalHeight || tmpSlotImg.height);
+          if (longSlot > NN_IMAGE_WORK_LONG_EDGE) {
+            await nnApplyImageWorkingSize(tmpSlotImg, fileName, mimeSlot, { showLoader: false });
+          } else {
+            currentImageObj = tmpSlotImg;
+            baseWidth = tmpSlotImg.naturalWidth || tmpSlotImg.width;
+            baseHeight = tmpSlotImg.naturalHeight || tmpSlotImg.height;
+          }
           totalPages = 1;
           currentPageNum = 1;
           await renderPage(1);
@@ -4705,13 +4858,16 @@
     var nnDriveBrowse = { mode: 'folder', folderId: null, parentId: null, currentId: null };
 
     function nnOpenDriveBrowse(mode) {
-      nnDriveBrowse.mode = mode === 'pdf' ? 'pdf' : 'folder';
+      nnDriveBrowse.mode = mode === 'folder' ? 'folder' : 'media';
       nnDriveBrowse.folderId = null;
       var modal = document.getElementById('nn-drive-browse-modal');
       var title = document.getElementById('nn-drive-browse-title');
       var btnFolder = document.getElementById('nn-drive-browse-select-folder');
       if (title) {
-        title.textContent = mode === 'pdf' ? 'PDF を選択（ドライブ一覧）' : 'フォルダを選択（ドライブ一覧）';
+        title.textContent =
+          nnDriveBrowse.mode === 'media'
+            ? 'PDF・画像を選択（ドライブ一覧）'
+            : 'フォルダを選択（ドライブ一覧）';
       }
       if (btnFolder) btnFolder.style.display = mode === 'folder' ? 'inline-block' : 'none';
       if (modal) {
@@ -4824,6 +4980,19 @@
           };
           list.appendChild(row);
         });
+        (res.images || []).forEach(function (im) {
+          hasAny = true;
+          var rowImg = document.createElement('div');
+          rowImg.className = 'nn-drive-browse-row nn-image-row';
+          var whenImg = im.updated ? new Date(im.updated).toLocaleDateString() : '';
+          rowImg.innerHTML =
+            '🖼 ' + (im.name || 'image') + (whenImg ? '<span class="nn-row-meta">' + whenImg + '</span>' : '');
+          rowImg.onclick = function () {
+            nnCloseDriveBrowse();
+            nnImportImageFromDriveId(im.id, { mimeType: im.mimeType, name: im.name });
+          };
+          list.appendChild(rowImg);
+        });
       }
       if (!hasAny) {
         list.innerHTML = '<div class="nn-drive-browse-empty">このフォルダには表示できる項目がありません</div>';
@@ -4832,6 +5001,7 @@
         var parts = [];
         if (res.foldersTruncated) parts.push('フォルダは200件まで表示');
         if (res.pdfsTruncated) parts.push('PDFは100件まで表示');
+        if (res.imagesTruncated) parts.push('画像は100件まで表示');
         note.textContent = parts.length ? parts.join(' · ') : '';
       }
     }
@@ -4878,8 +5048,121 @@
         })
         .registerFolder(id, isOrg);
     }
+
+    function nnImportImageFromDriveId(fileId, meta) {
+      meta = meta || {};
+      showLoader('画像を最適化しています…');
+      google.script.run
+        .withFailureHandler(function (err) {
+          hideLoader();
+          alert(
+            '画像の取得に失敗しました。\n' + (err && err.message ? err.message : String(err))
+          );
+        })
+        .withSuccessHandler(async function (base64Data) {
+          try {
+            if (base64Data && base64Data.error) throw new Error(base64Data.error);
+            if (typeof base64Data !== 'string' || !base64Data.length) {
+              throw new Error('ファイルデータが空です。');
+            }
+            var byteLen = nnBase64ByteLength(base64Data);
+            if (byteLen > NN_IMAGE_MAX_IMPORT_BYTES) {
+              hideLoader();
+              alert(
+                'ファイルが大きすぎます（上限 18MB）。Drive で縮小するか、解像度の低い画像をご利用ください。'
+              );
+              return;
+            }
+            var mimeType = meta.mimeType || 'image/jpeg';
+            var tmpImg = new Image();
+            await new Promise(function (resolve, reject) {
+              tmpImg.onload = resolve;
+              tmpImg.onerror = function () {
+                reject(new Error('画像の読み込みに失敗しました。'));
+              };
+              tmpImg.src = 'data:' + mimeType + ';base64,' + base64Data;
+            });
+            var preferPng = nnPreferPngForImage(meta.name, mimeType);
+            var optimized = await nnDownscaleImageHighQuality(
+              tmpImg,
+              NN_IMAGE_WORK_LONG_EDGE,
+              preferPng
+            );
+            var outB64 = optimized.dataUrl.split(',')[1];
+            google.script.run
+              .withSuccessHandler(function (res) {
+                hideLoader();
+                if (res && res.success) {
+                  alert('✅ 画像を取り込みました。\n（複製ファイル名: ' + (res.newFileName || '') + '）');
+                  closeAddModal();
+                  var mediaEl = document.getElementById('input-media-id');
+                  if (mediaEl) mediaEl.value = '';
+                  loadFolderTree(true);
+                } else {
+                  alert((res && res.error) ? res.error : '取り込みに失敗しました');
+                }
+              })
+              .withFailureHandler(function (err) {
+                hideLoader();
+                alert('取り込みに失敗しました: ' + (err && err.message ? err.message : String(err)));
+              })
+              .importImageOptimized({
+                base64: outB64,
+                mimeType: optimized.mimeType,
+                originalName: meta.name || 'image.jpg',
+                sourceFileId: fileId,
+              });
+          } catch (e) {
+            hideLoader();
+            alert(e && e.message ? e.message : String(e));
+          }
+        })
+        .getFileData(fileId);
+    }
+
+    function submitAddMedia(pickedId) {
+      var mediaEl = document.getElementById('input-media-id') || document.getElementById('input-pdf-id');
+      var raw =
+        pickedId != null && String(pickedId).trim() !== ''
+          ? String(pickedId).trim()
+          : mediaEl ? mediaEl.value : '';
+      if (!raw) return alert('共有リンク・URL または ID を入力してください。');
+      var id = nnExtractDriveIdMeet(raw);
+      if (mediaEl && id) mediaEl.value = id;
+      if (!id) return alert('ファイル ID を認識できませんでした。共有リンクの形式を確認してください。');
+      showLoader('ファイルを確認中...');
+      google.script.run
+        .withSuccessHandler(function (meta) {
+          hideLoader();
+          if (!meta || !meta.success) {
+            alert((meta && meta.error) ? meta.error : 'ファイル情報を取得できませんでした');
+            return;
+          }
+          if (meta.mimeType === 'application/pdf') {
+            submitAddPdf(id);
+            return;
+          }
+          if (nnIsImageMime(meta.mimeType)) {
+            if (meta.size > NN_IMAGE_MAX_IMPORT_BYTES) {
+              alert(
+                'ファイルが大きすぎます（上限 18MB）。Drive で縮小するか、解像度の低い画像をご利用ください。'
+              );
+              return;
+            }
+            nnImportImageFromDriveId(id, meta);
+            return;
+          }
+          alert('PDF または PNG/JPEG を指定してください。');
+        })
+        .withFailureHandler(function (err) {
+          hideLoader();
+          alert('ファイル確認に失敗しました: ' + (err && err.message ? err.message : String(err)));
+        })
+        .getFileMeta(id);
+    }
+
     function submitAddPdf(pickedId) {
-      var pdfEl = document.getElementById('input-pdf-id');
+      var pdfEl = document.getElementById('input-media-id') || document.getElementById('input-pdf-id');
       var raw =
         pickedId != null && String(pickedId).trim() !== ''
           ? String(pickedId).trim()
@@ -5101,7 +5384,9 @@
         grip.title = 'ドラッグで順番変更（並び: 通し番号）';
         var nameEl = document.createElement('div');
         nameEl.className = 'file-name';
-        nameEl.textContent = '📄 ' + (f.name || '');
+        var extMeet = (f.name || '').split('.').pop().toLowerCase();
+        var fileIcon = extMeet === 'png' || extMeet === 'jpg' || extMeet === 'jpeg' ? '🖼 ' : '📄 ';
+        nameEl.textContent = fileIcon + (f.name || '');
         var meta = document.createElement('div');
         meta.className = 'file-meta';
         var dateSpan = document.createElement('span');
@@ -5473,12 +5758,23 @@
                 if (loadGen !== __pdfLoadGeneration) return;
                 var physPages = pdfDocJs.numPages;
               } else {
+                var imgByteLen = nnBase64ByteLength(base64Data);
+                if (imgByteLen > NN_IMAGE_MAX_IMPORT_BYTES) {
+                  throw new Error(
+                    'ファイルが大きすぎます（上限 18MB）。Drive で縮小するか、取り込み機能で最適化してから開いてください。'
+                  );
+                }
                 var mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-                currentImageObj = new Image();
-                await new Promise(function (resolve) {
-                  currentImageObj.onload = resolve;
-                  currentImageObj.src = 'data:' + mimeType + ';base64,' + base64Data;
+                var tmpLoadImg = new Image();
+                await new Promise(function (resolve, reject) {
+                  tmpLoadImg.onload = resolve;
+                  tmpLoadImg.onerror = function () {
+                    reject(new Error('画像の読み込みに失敗しました。'));
+                  };
+                  tmpLoadImg.src = 'data:' + mimeType + ';base64,' + base64Data;
                 });
+                if (loadGen !== __pdfLoadGeneration) return;
+                await nnApplyImageWorkingSize(tmpLoadImg, fileName, mimeType);
                 totalPages = 1;
               }
 
