@@ -89,6 +89,7 @@ function getFileMeta(fileId) {
 }
 
 const NN_IMAGE_MAX_IMPORT_BYTES_ = 18 * 1024 * 1024;
+const NN_PDF_MAX_IMPORT_BYTES_ = 18 * 1024 * 1024;
 
 /**
  * クライアントで最適化した画像を MyNiceNotes 管理フォルダへ保存。
@@ -712,6 +713,56 @@ function importPdf(inputData) {
     return {
       success: false,
       error: '❌ ファイルの取り込みに失敗しました。権限やURLを確認してください。\n詳細: ' + e.toString(),
+    };
+  }
+}
+
+/**
+ * PC からアップロードした PDF を MyNiceNotes 管理フォルダへ保存。
+ * @param {{ base64: string, originalName: string }} payload
+ */
+function importPdfFromUpload(payload) {
+  try {
+    const p = payload || {};
+    const b64 = String(p.base64 || '').trim();
+    if (!b64) return { success: false, error: 'PDFデータが空です。' };
+
+    const bytes = Utilities.base64Decode(b64);
+    if (bytes.length > NN_PDF_MAX_IMPORT_BYTES_) {
+      return {
+        success: false,
+        error:
+          'ファイルが大きすぎます（上限 18MB）。Drive で分割するか、サイズの小さい PDF をご利用ください。',
+      };
+    }
+    if (bytes.length < 4 || String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== '%PDF') {
+      return { success: false, error: '有効な PDF ファイルではありません。' };
+    }
+
+    const props = PropertiesService.getScriptProperties();
+    const mainFolderId = nn_getMainFolderIdForCurrentUser_(props);
+    if (!mainFolderId) {
+      return { success: false, error: '管理フォルダが未初期化です。' };
+    }
+    const mainFolder = DriveApp.getFolderById(mainFolderId);
+
+    let baseName = String(p.originalName || 'document.pdf')
+      .replace(/^\[編集用\]\s*/i, '')
+      .trim();
+    if (!baseName) baseName = 'document.pdf';
+    if (!/\.pdf$/i.test(baseName)) {
+      baseName = baseName.replace(/\.[^/.]+$/, '') + '.pdf';
+    }
+
+    const copyName = '[編集用] ' + baseName;
+    const blob = Utilities.newBlob(bytes, MimeType.PDF, copyName);
+    const copyFile = mainFolder.createFile(blob);
+
+    return { success: true, newFileId: copyFile.getId(), newFileName: copyFile.getName() };
+  } catch (e) {
+    return {
+      success: false,
+      error: '❌ PDF の取り込みに失敗しました。\n詳細: ' + e.toString(),
     };
   }
 }

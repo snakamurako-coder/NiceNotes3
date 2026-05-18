@@ -882,7 +882,10 @@
         <div class="notice-meet">
           ℹ️ オリジナルは編集されません。<br>PDF・画像（PNG/JPEG）は MyNiceNotes 管理フォルダへ複製されます。画像は取り込み時に高品質で最適化して保存します（処理に時間がかかる場合があります）。
         </div>
-        <p style="font-size:14px; color:#555;">Google ドライブ上の PDF または PNG/JPEG を、ドライブから選ぶか URL（ID）で取り込めます。</p>
+        <p style="font-size:14px; color:#555;">PDF・PNG/JPEG を、PC からアップロードするか、Google ドライブから選ぶか、URL（ID）で取り込めます。</p>
+        <input type="file" id="input-local-media" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" style="display:none" />
+        <button type="button" class="btn-meeting-action" style="background:#9334e6;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="document.getElementById('input-local-media').click()">💻 PC からファイルを選択（PDF / PNG / JPEG）</button>
+        <p style="font-size:12px;color:#888;margin:0 0 12px;">1ファイルあたり上限 18MB</p>
         <button type="button" class="btn-meeting-action nn-drive-pick-btn" style="background:#4285f4;color:#fff;border:none;width:100%;margin-bottom:10px;" onclick="nnOpenDriveBrowse('media')">📂 ドライブ一覧から PDF・画像を選択</button>
         <p style="font-size:12px;color:#888;margin:0 0 6px;">または共有リンク・URL・ID を入力（貼り付け時に ID を自動抽出）</p>
         <input type="text" id="input-media-id" class="input-field-meet" placeholder="例: https://drive.google.com/file/d/…/view または ファイルID" autocomplete="off">
@@ -4894,6 +4897,7 @@
     function openAddModal() {
       document.getElementById('add-modal').style.display = 'flex';
       nnWireDriveIdInputs();
+      nnWireLocalMediaUpload();
     }
     function closeAddModal() { document.getElementById('add-modal').style.display = 'none'; }
     function switchModalTab(tabName) {
@@ -5369,6 +5373,149 @@
       var folderInput = document.getElementById('input-folder-id');
       if (folderInput) folderInput.value = nnDriveBrowse.currentId;
       submitAddFolder(nnDriveBrowse.currentId);
+    }
+
+    function nnReadFileAsBase64(file) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () {
+          var result = reader.result;
+          if (typeof result !== 'string') {
+            reject(new Error('ファイルの読み込みに失敗しました。'));
+            return;
+          }
+          var idx = result.indexOf(',');
+          resolve(idx >= 0 ? result.slice(idx + 1) : result);
+        };
+        reader.onerror = function () {
+          reject(new Error('ファイルの読み込みに失敗しました。'));
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function nnWireLocalMediaUpload() {
+      var input = document.getElementById('input-local-media');
+      if (!input || input.dataset.nnWired === '1') return;
+      input.dataset.nnWired = '1';
+      input.addEventListener('change', function () {
+        var file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        nnImportLocalMediaFile(file);
+      });
+    }
+
+    function nnOnLocalMediaImportDone(res, kindLabel) {
+      hideLoader();
+      if (res && res.success) {
+        alert('✅ ' + kindLabel + 'を取り込みました。\n（複製ファイル名: ' + (res.newFileName || '') + '）');
+        closeAddModal();
+        var mediaEl = document.getElementById('input-media-id');
+        if (mediaEl) mediaEl.value = '';
+        loadFolderTree(true);
+      } else {
+        alert((res && res.error) ? res.error : '取り込みに失敗しました');
+      }
+    }
+
+    async function nnImportLocalImageFile(file) {
+      if (file.size > NN_IMAGE_MAX_IMPORT_BYTES) {
+        alert(
+          'ファイルが大きすぎます（上限 18MB）。解像度の低い画像をご利用ください。'
+        );
+        return;
+      }
+      showLoader('画像を最適化しています…');
+      try {
+        var mimeType = (file.type || '').toLowerCase();
+        if (!mimeType) {
+          mimeType = /\.png$/i.test(file.name || '') ? 'image/png' : 'image/jpeg';
+        }
+        if (!nnIsImageMime(mimeType)) {
+          throw new Error('PNG または JPEG を指定してください。');
+        }
+        var b64 = await nnReadFileAsBase64(file);
+        var tmpImg = new Image();
+        await new Promise(function (resolve, reject) {
+          tmpImg.onload = resolve;
+          tmpImg.onerror = function () {
+            reject(new Error('画像の読み込みに失敗しました。'));
+          };
+          tmpImg.src = 'data:' + mimeType + ';base64,' + b64;
+        });
+        var preferPng = nnPreferPngForImage(file.name, mimeType);
+        var optimized = await nnDownscaleImageHighQuality(
+          tmpImg,
+          NN_IMAGE_WORK_LONG_EDGE,
+          preferPng
+        );
+        var outB64 = optimized.dataUrl.split(',')[1];
+        google.script.run
+          .withSuccessHandler(function (res) {
+            nnOnLocalMediaImportDone(res, '画像');
+          })
+          .withFailureHandler(function (err) {
+            hideLoader();
+            alert('取り込みに失敗しました: ' + (err && err.message ? err.message : String(err)));
+          })
+          .importImageOptimized({
+            base64: outB64,
+            mimeType: optimized.mimeType,
+            originalName: file.name || 'image.jpg',
+          });
+      } catch (e) {
+        hideLoader();
+        alert(e && e.message ? e.message : String(e));
+      }
+    }
+
+    async function nnImportLocalPdfFile(file) {
+      if (file.size > NN_IMAGE_MAX_IMPORT_BYTES) {
+        alert(
+          'ファイルが大きすぎます（上限 18MB）。Drive で分割するか、サイズの小さい PDF をご利用ください。'
+        );
+        return;
+      }
+      showLoader('PDFを取り込み中...');
+      try {
+        var b64 = await nnReadFileAsBase64(file);
+        google.script.run
+          .withSuccessHandler(function (res) {
+            nnOnLocalMediaImportDone(res, 'PDF');
+          })
+          .withFailureHandler(function (err) {
+            hideLoader();
+            alert('取り込みに失敗しました: ' + (err && err.message ? err.message : String(err)));
+          })
+          .importPdfFromUpload({
+            base64: b64,
+            originalName: file.name || 'document.pdf',
+          });
+      } catch (e) {
+        hideLoader();
+        alert(e && e.message ? e.message : String(e));
+      }
+    }
+
+    function nnImportLocalMediaFile(file) {
+      var name = file.name || '';
+      var mime = (file.type || '').toLowerCase();
+      var ext = (name.split('.').pop() || '').toLowerCase();
+      if (mime === 'application/pdf' || ext === 'pdf') {
+        nnImportLocalPdfFile(file);
+        return;
+      }
+      if (
+        nnIsImageMime(mime) ||
+        ext === 'png' ||
+        ext === 'jpg' ||
+        ext === 'jpeg'
+      ) {
+        nnImportLocalImageFile(file);
+        return;
+      }
+      alert('PDF または PNG/JPEG を指定してください。');
     }
 
     function submitAddFolder(pickedId) {
