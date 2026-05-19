@@ -4555,7 +4555,8 @@
       return __pdfFileOpenChain;
     }
 
-    async function nnOpenPdfSlotInViewer(slotIdx) {
+    async function nnOpenPdfSlotInViewer(slotIdx, opts) {
+      opts = opts || {};
       if (slotIdx < 0 || slotIdx >= NN_PDF_SLOT_COUNT) return;
       var s = pdfSlots[slotIdx];
       if (!s || !s.fileId) {
@@ -4566,7 +4567,31 @@
       s.lastOpenedAt = Date.now();
       nnPersistPdfSessionMeta();
       nnUpdatePdfSlotTabButtons();
-      await restorePdfSlotToGlobals(slotIdx);
+
+      var loadGen = opts.loadGeneration != null ? opts.loadGeneration : ++__pdfLoadGeneration;
+      __pdfLoadGeneration = loadGen;
+
+      var hasCached =
+        !!s.originalPdfBytes || !!(s.imageDataUrl && String(s.imageDataUrl).length > 0);
+      if (hasCached) {
+        await restorePdfSlotToGlobals(slotIdx, { loadGeneration: loadGen });
+        if (fileType === 'pdf' && !pdfDocJs) {
+          currentFileId = s.fileId;
+          fileName = s.fileName || 'document.pdf';
+          fileType = s.fileType || nnInferFileTypeFromName(fileName);
+          if (s.folderId) currentFolderId = s.folderId;
+          legacyFolderNavActive = !!s.legacyFolderNavActive;
+          await loadSelectedFile(false, false);
+        }
+        return;
+      }
+
+      currentFileId = s.fileId;
+      fileName = s.fileName || 'document.pdf';
+      fileType = s.fileType || nnInferFileTypeFromName(fileName);
+      if (s.folderId) currentFolderId = s.folderId;
+      legacyFolderNavActive = !!s.legacyFolderNavActive;
+      await loadSelectedFile(false, false);
     }
 
     function nnResumePdfWriting() {
@@ -4604,7 +4629,8 @@
         showHomeMeet();
         return Promise.resolve(false);
       }
-      if (currentFileId) {
+      var homeVisible = homeScreen && homeScreen.style.display === 'flex';
+      if (currentFileId && !homeVisible) {
         try {
           autoSaveCurrent(true);
         } catch (e0) {
@@ -4660,12 +4686,11 @@
         pdfBtn.classList.add('active-mode');
       }
       updateFavoriteButtonStatus();
-      __pdfLoadGeneration++;
-      __pdfFileOpenChain = Promise.resolve();
+      var openGen = ++__pdfLoadGeneration;
       if (!s.originalPdfBytes && !s.imageDataUrl) {
         showLoader(s.fileType === 'image' ? '画像を開いています...' : 'PDFを開いています...');
       }
-      return nnOpenPdfSlotInViewer(slotIdx)
+      return nnOpenPdfSlotInViewer(slotIdx, { loadGeneration: openGen })
         .then(function () {
           hideLoader();
           return true;
@@ -4673,6 +4698,7 @@
         .catch(function (e) {
           hideLoader();
           console.error('nnOpenPdfFile', e);
+          alert('ファイルを開けませんでした: ' + (e && e.message ? e.message : String(e)));
           return false;
         });
     }
@@ -4759,14 +4785,16 @@
       nnSyncLegacyToolsVisibility();
     }
 
-    async function restorePdfSlotToGlobals(idx) {
+    async function restorePdfSlotToGlobals(idx, opts) {
+      opts = opts || {};
       var s = pdfSlots[idx];
       if (!s || !s.fileId) {
         await nnClearViewerForEmptySlot();
         nnUpdatePdfSlotTabButtons();
         return;
       }
-      var restoreGen = ++__pdfLoadGeneration;
+      var restoreGen = opts.loadGeneration != null ? opts.loadGeneration : ++__pdfLoadGeneration;
+      if (opts.loadGeneration == null) __pdfLoadGeneration = restoreGen;
       stopMeetSync();
       nnResetPdfViewerBinary_();
       currentFileId = s.fileId;
@@ -4782,10 +4810,17 @@
       currentScale = s.currentScale > 0 ? s.currentScale : 1;
       originalPdfBytes = nnClonePdfBytes(s.originalPdfBytes);
       currentImageObj = null;
-      var needFetch = fileType === 'pdf' && !originalPdfBytes && currentFileId;
+      var needFetch =
+        !originalPdfBytes &&
+        !(s.imageDataUrl && String(s.imageDataUrl).length > 0) &&
+        !!currentFileId &&
+        fileType === 'pdf';
       if (needFetch) showLoader('PDFを読み込み中...');
       try {
-        if (needFetch && typeof google !== 'undefined' && google.script && google.script.run) {
+        if (needFetch) {
+          if (typeof google === 'undefined' || !google.script || !google.script.run) {
+            throw new Error('Google Apps Script からファイルを取得できません。アプリを開き直してください。');
+          }
           var b64re = await new Promise(function (resolve, reject) {
             google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getFileData(currentFileId);
           });
