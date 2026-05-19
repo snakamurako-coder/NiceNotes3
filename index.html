@@ -3966,11 +3966,14 @@
       fs.selectedIndex = idx;
       autoSaveCurrent(true);
       savePdfSlotFromGlobals();
+      var seamlessStartId = files[idx].id;
+      var seamlessStartName = files[idx].name || startFileName || 'document.pdf';
+      nnAssignPdfToSlotLru(seamlessStartId, seamlessStartName, folderId);
       __pdfLoadGeneration++;
       nnResetPdfViewerBinary_();
       legacyFolderNavActive = true;
-      currentFileId = files[idx].id;
-      fileName = files[idx].name || startFileName || 'document.pdf';
+      currentFileId = seamlessStartId;
+      fileName = seamlessStartName;
       try {
         localStorage.setItem(
           'last_opened_file',
@@ -4208,7 +4211,7 @@
         b.title = s && s.fileId ? s.fileName : '空のタブ';
         b.onclick = function () {
           var si = parseInt(this.getAttribute('data-slot-index'), 10);
-          if (!isNaN(si)) switchPdfSlotIndex(si);
+          if (!isNaN(si)) nnOnPdfSlotTabClick(si);
         };
       }
     }
@@ -4256,6 +4259,7 @@
         s.legacyFolderNavActive = false;
       }
       pdfActiveSlot = idx;
+      nnEvictFileIdFromOtherSlots(fid, idx);
       nnPersistPdfSessionMeta();
       nnUpdatePdfSlotTabButtons();
       return idx;
@@ -4444,6 +4448,7 @@
           sl.scrollTop = m.scrollTop || 0;
           sl.legacyFolderNavActive = !!m.legacyFolderNavActive;
         }
+        nnDeduplicatePdfSlots();
         nnUpdatePdfSlotTabButtons();
       } catch (e) {}
     }
@@ -4454,6 +4459,39 @@
         if (pdfSlots[i] && pdfSlots[i].fileId === fileId) return i;
       }
       return -1;
+    }
+
+    /** 同一 fileId を他スロットから外し、1タブにだけ載せる */
+    function nnEvictFileIdFromOtherSlots(fileId, keepSlotIdx) {
+      if (!fileId) return;
+      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) {
+        if (i === keepSlotIdx) continue;
+        if (pdfSlots[i] && pdfSlots[i].fileId === fileId) {
+          pdfSlots[i] = nnEmptyPdfSlot();
+        }
+      }
+    }
+
+    /** セッション復元などで重複した fileId を解消（新しい方のスロットを残す） */
+    function nnDeduplicatePdfSlots() {
+      var seen = {};
+      for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) {
+        var fid = pdfSlots[i] && pdfSlots[i].fileId;
+        if (!fid) continue;
+        if (seen[fid] === undefined) {
+          seen[fid] = i;
+          continue;
+        }
+        var keepIdx = seen[fid];
+        var keepAt = (pdfSlots[keepIdx].lastOpenedAt || 0);
+        var dupAt = (pdfSlots[i].lastOpenedAt || 0);
+        if (dupAt > keepAt) {
+          pdfSlots[keepIdx] = nnEmptyPdfSlot();
+          seen[fid] = i;
+        } else {
+          pdfSlots[i] = nnEmptyPdfSlot();
+        }
+      }
     }
 
     function nnPrepareActiveSlotForNewFile(fid, name, folderId) {
@@ -4648,6 +4686,9 @@
       s.scrollLeft = viewerContainer ? viewerContainer.scrollLeft : 0;
       s.scrollTop = viewerContainer ? viewerContainer.scrollTop : 0;
       s.legacyFolderNavActive = !!legacyFolderNavActive;
+      if (currentFileId && fileType === 'pdf') {
+        nnEvictFileIdFromOtherSlots(currentFileId, pdfActiveSlot);
+      }
       nnUpdatePdfSlotTabButtons();
       nnPersistPdfSessionMeta();
     }
@@ -4804,6 +4845,44 @@
       applyRoleMeet();
       nnUpdatePdfSlotTabButtons();
       nnSyncLegacyToolsVisibility();
+    }
+
+    window.nnOnPdfSlotTabClick = function nnOnPdfSlotTabClick(slotIdx) {
+      if (slotIdx < 0 || slotIdx >= NN_PDF_SLOT_COUNT) return;
+      if (slotIdx === pdfActiveSlot) {
+        var activeSlot = pdfSlots[slotIdx];
+        if (!activeSlot || !activeSlot.fileId) return;
+        if (!confirm('タブを空欄にしますか？')) return;
+        __pdfSlotSwitchChain = __pdfSlotSwitchChain
+          .then(function () {
+            return nnClearPdfSlotDo(slotIdx);
+          })
+          .catch(function (e) {
+            console.error('nnClearPdfSlot', e);
+          });
+        return;
+      }
+      switchPdfSlotIndex(slotIdx);
+    };
+
+    async function nnClearPdfSlotDo(slotIdx) {
+      if (slotIdx < 0 || slotIdx >= NN_PDF_SLOT_COUNT) return;
+      var s = pdfSlots[slotIdx];
+      if (!s || !s.fileId) return;
+      __pdfLoadGeneration++;
+      if (slotIdx === pdfActiveSlot) {
+        try {
+          autoSaveCurrent(true);
+        } catch (e0) {
+          console.warn(e0);
+        }
+      }
+      pdfSlots[slotIdx] = nnEmptyPdfSlot();
+      nnPersistPdfSessionMeta();
+      nnUpdatePdfSlotTabButtons();
+      if (slotIdx === pdfActiveSlot) {
+        await nnClearViewerForEmptySlot();
+      }
     }
 
     window.switchPdfSlotIndex = function switchPdfSlotIndex(nextIdx) {
@@ -6155,6 +6234,23 @@
     function onFileDropdownChanged() {
       autoSaveCurrent(true);
       savePdfSlotFromGlobals();
+      var newId = fileSelect.value;
+      if (!newId) return;
+      var pickName = fileSelect.options[fileSelect.selectedIndex].text;
+      var existingIdx = nnFindSlotIndexByFileId(newId);
+      if (existingIdx >= 0) {
+        if (existingIdx !== pdfActiveSlot) {
+          pdfActiveSlot = existingIdx;
+          nnPersistPdfSessionMeta();
+          nnUpdatePdfSlotTabButtons();
+        }
+        restorePdfSlotToGlobals(existingIdx).then(function () {
+          legacyFolderNavActive = true;
+          nnSyncLegacyToolsVisibility();
+        });
+        return;
+      }
+      nnAssignPdfToSlotLru(newId, pickName, currentFolderId);
       loadSelectedFile(false, false, true);
     }
 
