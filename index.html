@@ -4273,10 +4273,11 @@
         s.sharedStrokesByPage = {};
         s.localTextByPage = {};
         s.sharedTextByPage = {};
-        s.currentPageNum = 1;
-        s.currentScale = 1;
-        s.scrollLeft = 0;
-        s.scrollTop = 0;
+        var resumeView = nnResolveResumeViewForSlot({ fileId: fid, currentPageNum: 0, currentScale: 1, scrollLeft: 0, scrollTop: 0 });
+        s.currentPageNum = resumeView.page;
+        s.currentScale = resumeView.scale;
+        s.scrollLeft = resumeView.scrollLeft;
+        s.scrollTop = resumeView.scrollTop;
         s.legacyFolderNavActive = false;
       }
       pdfActiveSlot = idx;
@@ -4372,6 +4373,10 @@
       var last = nnGetLastOpenedFileMeta();
       if (!last) return;
       nnAssignPdfToSlotLru(last.id, last.name, last.folderId);
+      var migIdx = nnFindSlotIndexByFileId(last.id);
+      if (migIdx >= 0 && last.currentPageNum > 0) {
+        pdfSlots[migIdx].currentPageNum = last.currentPageNum;
+      }
     }
 
     function nnWarmStartupBehindGate() {
@@ -4393,6 +4398,83 @@
     }
 
     var NN_PDF_SLOTS_META_KEY = 'nn_pdf_slots_meta';
+    var NN_PDF_FILE_VIEW_KEY = 'nn_pdf_file_view_state';
+
+    function nnLoadPdfFileViewStateMap() {
+      try {
+        var raw = localStorage.getItem(NN_PDF_FILE_VIEW_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function nnGetPdfFileViewState(fileId) {
+      if (!fileId) return null;
+      var map = nnLoadPdfFileViewStateMap();
+      return map[fileId] || null;
+    }
+
+    function nnSavePdfFileViewState(fileId, state) {
+      if (!fileId || !state) return;
+      var map = nnLoadPdfFileViewStateMap();
+      map[fileId] = {
+        page: Math.max(1, parseInt(state.page, 10) || 1),
+        scale: state.scale > 0 ? state.scale : 1,
+        scrollLeft: state.scrollLeft || 0,
+        scrollTop: state.scrollTop || 0,
+        at: Date.now(),
+      };
+      try {
+        localStorage.setItem(NN_PDF_FILE_VIEW_KEY, JSON.stringify(map));
+      } catch (e) {}
+    }
+
+    function nnRememberCurrentPdfViewState() {
+      if (!currentFileId) return;
+      nnSavePdfFileViewState(currentFileId, {
+        page: currentPageNum,
+        scale: currentScale,
+        scrollLeft: viewerContainer ? viewerContainer.scrollLeft : 0,
+        scrollTop: viewerContainer ? viewerContainer.scrollTop : 0,
+      });
+    }
+
+    function nnResolveResumeViewForSlot(slot) {
+      var page = 1;
+      var scale = 1;
+      var scrollLeft = 0;
+      var scrollTop = 0;
+      if (slot && slot.fileId) {
+        var vs = nnGetPdfFileViewState(slot.fileId);
+        page = slot.currentPageNum > 0 ? slot.currentPageNum : 1;
+        scale = slot.currentScale > 0 ? slot.currentScale : 1;
+        scrollLeft = slot.scrollLeft || 0;
+        scrollTop = slot.scrollTop || 0;
+        if (vs && vs.page > 0) {
+          page = vs.page;
+          if (vs.scale > 0) scale = vs.scale;
+          scrollLeft = vs.scrollLeft || scrollLeft;
+          scrollTop = vs.scrollTop || scrollTop;
+        }
+      }
+      return { page: page, scale: scale, scrollLeft: scrollLeft, scrollTop: scrollTop };
+    }
+
+    function nnPersistLastOpenedFileRecord(id, name, folderId, pdfMode, pageNum) {
+      try {
+        localStorage.setItem(
+          'last_opened_file',
+          JSON.stringify({
+            id: id,
+            name: name || 'document.pdf',
+            folderId: folderId != null ? folderId : null,
+            pdfMode: pdfMode || 'individual',
+            currentPageNum: pageNum > 0 ? pageNum : 1,
+          })
+        );
+      } catch (e) {}
+    }
 
     function nnGetLastOpenedFileMeta() {
       var s = localStorage.getItem('last_opened_file');
@@ -4410,6 +4492,7 @@
           id: lid,
           name: last.name || 'document.pdf',
           folderId: last.folderId != null ? last.folderId : null,
+          currentPageNum: last.currentPageNum > 0 ? last.currentPageNum : 1,
         };
       } catch (e) {
         return null;
@@ -4671,17 +4754,8 @@
       }
       var slotIdx = nnAssignPdfToSlotLru(fileId, name || 'document.pdf', currentFolderId);
       var s = pdfSlots[slotIdx];
-      try {
-        localStorage.setItem(
-          'last_opened_file',
-          JSON.stringify({
-            id: fileId,
-            name: s.fileName,
-            folderId: currentFolderId,
-            pdfMode: 'individual',
-          })
-        );
-      } catch (e) {}
+      var resumeOpen = nnResolveResumeViewForSlot(s);
+      nnPersistLastOpenedFileRecord(fileId, s.fileName, currentFolderId, 'individual', resumeOpen.page);
       legacyFolderNavActive = false;
       nnSyncLegacyToolsVisibility();
       homeScreen.style.display = 'none';
@@ -4703,6 +4777,12 @@
       fileName = s.fileName;
       fileType = s.fileType || nnInferFileTypeFromName(fileName);
       if (s.folderId) currentFolderId = s.folderId;
+      currentPageNum = resumeOpen.page;
+      currentScale = resumeOpen.scale;
+      s.currentPageNum = resumeOpen.page;
+      s.currentScale = resumeOpen.scale;
+      s.scrollLeft = resumeOpen.scrollLeft;
+      s.scrollTop = resumeOpen.scrollTop;
 
       var openGen = ++__pdfLoadGeneration;
       var loaderMsg =
@@ -4714,10 +4794,10 @@
       var loadPromise;
       if (nnSlotHasReadableCache(s)) {
         loadPromise = restorePdfSlotToGlobals(slotIdx, { loadGeneration: openGen }).then(function () {
-          if (fileType === 'pdf' && !pdfDocJs) return loadSelectedFile(false, false);
+          if (fileType === 'pdf' && !pdfDocJs) return loadSelectedFile(false, true);
         });
       } else {
-        loadPromise = loadSelectedFile(false, false);
+        loadPromise = loadSelectedFile(false, true);
       }
 
       return loadPromise
@@ -4775,6 +4855,7 @@
       if (currentFileId && fileType === 'pdf') {
         nnEvictFileIdFromOtherSlots(currentFileId, pdfActiveSlot);
       }
+      nnRememberCurrentPdfViewState();
       nnUpdatePdfSlotTabButtons();
       nnPersistPdfSessionMeta();
     }
@@ -5890,7 +5971,10 @@
     }
 
     function showHomeMeet() {
-      if (currentFileId) autoSaveCurrent(true);
+      if (currentFileId) {
+        autoSaveCurrent(true);
+        nnRememberCurrentPdfViewState();
+      }
       savePdfSlotFromGlobals();
       legacyFolderNavActive = false;
       nnSyncLegacyToolsVisibility();
@@ -6492,10 +6576,17 @@
               nnApplyLocalMemoPayload(savedLocalMemo);
 
               var maxPageGuess = fileType === 'pdf' ? pdfDocJs.numPages : totalPages;
-              if (!silent) {
-                currentPageNum = goToLastPage ? maxPageGuess : 1;
+              if (goToLastPage) {
+                currentPageNum = maxPageGuess;
               } else {
-                currentPageNum = Math.min(Math.max(1, currentPageNum), maxPageGuess);
+                var remembered = nnGetPdfFileViewState(currentFileId);
+                var basePage =
+                  currentPageNum > 0
+                    ? currentPageNum
+                    : remembered && remembered.page > 0
+                      ? remembered.page
+                      : 1;
+                currentPageNum = Math.min(Math.max(1, basePage), maxPageGuess);
               }
 
               async function nnAfterAnnotation_(res) {
@@ -6515,11 +6606,30 @@
                     viewerContainer.scrollLeft = 0;
                     viewerContainer.scrollTop = 0;
                   }
+                } else {
+                  var slotResume = pdfSlots[pdfActiveSlot];
+                  var viewResume = nnGetPdfFileViewState(currentFileId);
+                  if (slotResume && slotResume.fileId === currentFileId && slotResume.currentScale > 0) {
+                    currentScale = slotResume.currentScale;
+                  } else if (viewResume && viewResume.scale > 0) {
+                    currentScale = viewResume.scale;
+                  }
                 }
                 if (homeScreen) homeScreen.style.display = 'none';
                 nnShowPdfViewer();
                 nnSetPdfSlotToolbarVisible(true);
                 await renderPage(currentPageNum);
+                if (silent && viewerContainer) {
+                  var slotScr = pdfSlots[pdfActiveSlot];
+                  var viewScr = nnGetPdfFileViewState(currentFileId);
+                  if (slotScr && slotScr.fileId === currentFileId) {
+                    viewerContainer.scrollLeft = slotScr.scrollLeft || 0;
+                    viewerContainer.scrollTop = slotScr.scrollTop || 0;
+                  } else if (viewScr) {
+                    viewerContainer.scrollLeft = viewScr.scrollLeft || 0;
+                    viewerContainer.scrollTop = viewScr.scrollTop || 0;
+                  }
+                }
                 hideLoader();
                 updateFavoriteButtonStatus();
                 try {
@@ -6613,24 +6723,18 @@
         alert('PDFデータがありません。');
         return;
       }
-      nnAssignPdfToSlotLru(id, name || 'document.pdf', currentFolderId);
+      var slotIdxB64 = nnAssignPdfToSlotLru(id, name || 'document.pdf', currentFolderId);
+      var slotB64 = pdfSlots[slotIdxB64];
+      var resumeB64 = nnResolveResumeViewForSlot(slotB64);
       currentFileId = id;
       fileName = name || 'document.pdf';
       legacyFolderNavActive = false;
       nnSyncLegacyToolsVisibility();
       fileType = 'pdf';
+      currentPageNum = resumeB64.page;
+      currentScale = resumeB64.scale;
       var baseName = fileName.replace(/\.[^/.]+$/, '');
-      try {
-        localStorage.setItem(
-          'last_opened_file',
-          JSON.stringify({
-            id: currentFileId,
-            name: fileName,
-            folderId: currentFolderId || null,
-            pdfMode: 'individual',
-          })
-        );
-      } catch (e) {}
+      nnPersistLastOpenedFileRecord(currentFileId, fileName, currentFolderId, 'individual', currentPageNum);
       __pdfLoadGeneration++;
       nnResetPdfViewerBinary_();
       var loadGenB64 = __pdfLoadGeneration;
@@ -6656,12 +6760,8 @@
                 sharedTextByPage = {};
               }
               nnLpEnsurePlanForCurrentFile(physPages2);
-              currentPageNum = 1;
-              currentScale = 1.0;
-              if (viewerContainer) {
-                viewerContainer.scrollLeft = 0;
-                viewerContainer.scrollTop = 0;
-              }
+              currentPageNum = Math.min(Math.max(1, resumeB64.page), totalPages);
+              currentScale = resumeB64.scale > 0 ? resumeB64.scale : 1;
               if (homeScreen) homeScreen.style.display = 'none';
               nnShowPdfViewer();
               nnSetPdfSlotToolbarVisible(true);
@@ -6674,6 +6774,10 @@
                 pdfBtn.classList.add('active-mode');
               }
               await renderPage(currentPageNum);
+              if (viewerContainer) {
+                viewerContainer.scrollLeft = resumeB64.scrollLeft || 0;
+                viewerContainer.scrollTop = resumeB64.scrollTop || 0;
+              }
               hideLoader();
               updateFavoriteButtonStatus();
               try {
@@ -6851,6 +6955,8 @@
         }
         currentPageNum = newPage;
         await renderPage(currentPageNum);
+        nnRememberCurrentPdfViewState();
+        savePdfSlotFromGlobals();
         return;
       }
 
