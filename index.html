@@ -25,7 +25,19 @@
     
     .page-nav { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 12px; color: #333; }
     .page-nav button { padding: 4px 10px; background: #f1f3f4; border: none; font-size: 16px; border-radius: 4px; }
-    #page-indicator { min-width: 60px; text-align: center; }
+    .page-indicator-btn {
+      min-width: 60px;
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid #dadce0;
+      background: #f8f9fa;
+      cursor: pointer;
+      text-align: center;
+      color: #202124;
+      line-height: 1.3;
+    }
+    .page-indicator-btn:hover { background: #e8f0fe; border-color: #1a73e8; }
 
     #status { margin-left: auto; font-size: 12px; color: #888; text-align: right; flex-shrink: 0; padding-left: 10px; }
     /* viewer-container: 表示は #viewer-shell 経由（PDF注釈モード） */
@@ -126,7 +138,30 @@
     #nn-editor textarea { min-height: 64px; resize: vertical; }
     #nn-editor-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     #nn-task-list { flex: 1; overflow: auto; padding: 12px 14px 24px; }
-    .nn-group-title { font-size: 12px; font-weight: 700; color: #5f6368; text-transform: uppercase; letter-spacing: 0.03em; margin: 16px 0 8px; }
+    .nn-group-title,
+    .nn-group-title-btn {
+      font-size: 12px;
+      font-weight: 700;
+      color: #5f6368;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin: 16px 0 8px;
+    }
+    .nn-group-title-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px dashed #dadce0;
+      background: #f8f9fa;
+      cursor: pointer;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 13px;
+      color: #1a73e8;
+    }
+    .nn-group-title-btn:hover { background: #e8f0fe; border-color: #1a73e8; border-style: solid; }
     .nn-task-card {
       background: #fff; border: 1px solid #dadce0; border-radius: 10px; padding: 10px 12px; margin-bottom: 0;
       display: flex; align-items: flex-start; gap: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.06);
@@ -177,7 +212,18 @@
     #pdf-slot-tabs.nn-show { display: flex; }
     #nn-pdf-save-export { display: none; align-items: center; gap: 6px; flex-shrink: 0; }
     #nn-pdf-save-export.nn-show { display: flex; }
-    .pdf-slot-btn { padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #dadce0; background: #f8f9fa; cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pdf-slot-btn {
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid #dadce0;
+      background: #f8f9fa;
+      cursor: pointer;
+      width: auto;
+      max-width: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
     .pdf-slot-btn.active-slot { background: #e8f0fe; border-color: #1a73e8; font-weight: 600; }
 
     .nn-editor-toggle-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
@@ -833,6 +879,18 @@
 
   <div id="color-palette-popover"></div>
 
+  <div id="nn-goto-page-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseGotoPageModal()">
+    <div role="dialog" aria-modal="true" aria-labelledby="nn-goto-page-modal-title" style="background:#fff;padding:20px;border-radius:12px;max-width:360px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+      <div id="nn-goto-page-modal-title" style="font-weight:600;margin-bottom:12px;font-size:15px;color:#202124;">何ページ目を開きますか？</div>
+      <p id="nn-goto-page-hint" style="font-size:13px;color:#5f6368;margin:0 0 10px 0;"></p>
+      <input type="number" id="nn-goto-page-input" min="1" step="1" inputmode="numeric" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #dadce0;border-radius:8px;font-size:16px;margin-bottom:14px;" />
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="file-btn-meet" onclick="nnCloseGotoPageModal()">キャンセル</button>
+        <button type="button" class="btn-meeting-action" onclick="nnConfirmGotoPage()">開く</button>
+      </div>
+    </div>
+  </div>
+
   <div id="nn-dup-pdf-page-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseDuplicateCurrentPdfPageModal()">
     <div role="dialog" aria-modal="true" aria-labelledby="nn-dup-pdf-page-modal-title" style="background:#fff;padding:20px;border-radius:12px;max-width:400px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
       <div id="nn-dup-pdf-page-modal-title" style="font-weight:600;margin-bottom:12px;font-size:15px;color:#202124;">現在ページの複製</div>
@@ -1021,7 +1079,7 @@
 
     <div class="tool-group page-nav">
       <button onclick="changePage(-1)">＜</button>
-      <span id="page-indicator">0/0</span>
+      <button type="button" id="page-indicator" class="page-indicator-btn" onclick="nnOpenGotoPageModal()" title="ページ番号を指定して移動">Pg 1/1</button>
       <button onclick="changePage(1)">＞</button>
     </div>
     <div class="tool-group" id="nn-dup-pdf-page-btn-wrap" style="display:none;max-width:280px;">
@@ -3808,6 +3866,73 @@
       if (m) m.style.display = 'none';
     }
 
+    function nnRefreshPageIndicatorDisplay(pageNum, total) {
+      if (!pageIndicator) return;
+      var p = pageNum != null ? pageNum : currentPageNum;
+      var t = total != null ? total : totalPages;
+      if (legacyFolderNavActive && fileSelect && fileSelect.options.length > 0) {
+        var fileIdx = fileSelect.selectedIndex + 1;
+        var fileTotal = fileSelect.options.length;
+        pageIndicator.textContent = '📄 ' + fileIdx + '/' + fileTotal + ' · Pg ' + p + '/' + t;
+      } else {
+        pageIndicator.textContent = 'Pg ' + p + '/' + t;
+      }
+    }
+
+    window.nnOpenGotoPageModal = function nnOpenGotoPageModal() {
+      if (!currentFileId || totalPages < 1) {
+        alert('ページがありません。PDFまたは画像を開いてください。');
+        return;
+      }
+      var m = document.getElementById('nn-goto-page-modal');
+      var inp = document.getElementById('nn-goto-page-input');
+      var hint = document.getElementById('nn-goto-page-hint');
+      if (hint) hint.textContent = '1 ～ ' + totalPages + ' の範囲で指定してください。';
+      if (inp) {
+        inp.min = '1';
+        inp.max = String(totalPages);
+        inp.value = String(currentPageNum);
+      }
+      if (m) m.style.display = 'flex';
+      if (inp) {
+        inp.onkeydown = function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            nnConfirmGotoPage();
+          }
+        };
+        setTimeout(function () {
+          inp.focus();
+          inp.select();
+        }, 50);
+      }
+    };
+
+    window.nnCloseGotoPageModal = function nnCloseGotoPageModal() {
+      var m = document.getElementById('nn-goto-page-modal');
+      if (m) m.style.display = 'none';
+    };
+
+    window.nnConfirmGotoPage = async function nnConfirmGotoPage() {
+      var inp = document.getElementById('nn-goto-page-input');
+      if (!inp) return;
+      var n = parseInt(inp.value, 10);
+      if (isNaN(n) || n < 1 || n > totalPages) {
+        alert('1 ～ ' + totalPages + ' のページ番号を入力してください。');
+        return;
+      }
+      nnCloseGotoPageModal();
+      if (n === currentPageNum) return;
+      if (!legacyFolderNavActive && nnRealtimeShareEnabled() && currentUserRole !== 'presenter') {
+        alert('ページ移動は発表者モードでのみ利用できます。');
+        return;
+      }
+      currentPageNum = n;
+      await renderPage(currentPageNum);
+      nnRememberCurrentPdfViewState();
+      savePdfSlotFromGlobals();
+    };
+
     function nnDuplicateCurrentPdfPagePick(mode) {
       nnCloseDuplicateCurrentPdfPageModal();
       if (mode === 'after') nnLpDuplicateCurrentLogicalPage('after');
@@ -4178,7 +4303,7 @@
     function nnPdfSlotLabel(name) {
       var n = (name || '').trim();
       if (!n) return '空';
-      return n.length > 10 ? n.slice(0, 9) + '…' : n;
+      return n.length > 25 ? n.slice(0, 25) + '…' : n;
     }
 
     function nnInferFileTypeFromName(name) {
@@ -6903,16 +7028,7 @@
         bgCtx.drawImage(currentImageObj, 0, 0, baseWidth, baseHeight);
       }
 
-      if (legacyFolderNavActive && fileSelect && fileSelect.options.length > 0) {
-        var fileIdx = fileSelect.selectedIndex + 1;
-        var fileTotal = fileSelect.options.length;
-        if (pageIndicator) {
-          pageIndicator.innerHTML =
-            '<span style="font-size:10px;">📄 ' + fileIdx + '/' + fileTotal + '</span><br>Pg ' + pageNum + '/' + totalPages;
-        }
-      } else if (pageIndicator) {
-        pageIndicator.innerHTML = 'Pg ' + pageNum + '/' + totalPages;
-      }
+      nnRefreshPageIndicatorDisplay(pageNum, totalPages);
       if (statusDiv) statusDiv.textContent = '書込み可 (x' + currentScale.toFixed(1) + ')';
       redraw();
       nnSyncDupCurrentPdfPageButton();
@@ -8139,7 +8255,12 @@
             }
           }
           if (!sg) {
-            sg = { key: subKey, items: [] };
+            sg = {
+              key: subKey,
+              project: (t.project || '').trim() || NN_INBOX_NAME,
+              heading: (t.heading || '').trim(),
+              items: []
+            };
             bg.subgroups.push(sg);
           }
           sg.items.push(t);
@@ -8155,9 +8276,20 @@
           bh.textContent = nnBucketTitle(bucketGroup.bucket);
           host.appendChild(bh);
           bucketGroup.subgroups.forEach(function (sg) {
-            const th = document.createElement('div');
-            th.className = 'nn-group-title';
+            const th = document.createElement('button');
+            th.type = 'button';
+            th.className = 'nn-group-title-btn';
             th.textContent = sg.key;
+            th.title = 'このプロジェクト・見出しで新規タスクを作成';
+            th.addEventListener('click', function () {
+              var p = sg.project;
+              var h = sg.heading;
+              if (p == null && sg.items && sg.items[0]) {
+                p = (sg.items[0].project || '').trim() || NN_INBOX_NAME;
+                h = (sg.items[0].heading || '').trim();
+              }
+              nnShowNewTaskFormWithTag(p || NN_INBOX_NAME, h || '');
+            });
             host.appendChild(th);
             const wrap = document.createElement('div');
             wrap.className = 'nn-task-sg-wrap';
@@ -8671,6 +8803,10 @@
       }
 
       window.nnShowNewTaskForm = async function nnShowNewTaskForm() {
+        await nnShowNewTaskFormWithTag(NN_INBOX_NAME, '');
+      };
+
+      window.nnShowNewTaskFormWithTag = async function nnShowNewTaskFormWithTag(project, heading) {
         nnBindEditorUiOnce();
         nnEditingId = null;
         document.getElementById('nn-f-title').value = '';
@@ -8681,13 +8817,18 @@
         document.getElementById('nn-f-due').value = '';
         nnLoadRepeatToUi('');
         nnEditorCollapseAll();
-        await nnRefreshProjectHeadingSelects(NN_INBOX_NAME, '');
+        const proj = (project || '').trim() || NN_INBOX_NAME;
+        const head = (heading || '').trim();
+        await nnRefreshProjectHeadingSelects(proj, head);
         const pn = document.getElementById('nn-f-project-new');
         const hn = document.getElementById('nn-f-heading-new');
         if (pn) pn.value = '';
         if (hn) hn.value = '';
+        if (proj !== NN_INBOX_NAME || head) nnEditorSetSection('nn-sec-tag', true);
         nnUpdateRepeatPreview();
         document.getElementById('nn-editor').style.display = 'flex';
+        const titleEl = document.getElementById('nn-f-title');
+        if (titleEl) titleEl.focus();
       };
 
       window.nnHideEditor = function nnHideEditor() {
