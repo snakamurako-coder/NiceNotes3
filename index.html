@@ -4181,6 +4181,16 @@
       return n.length > 10 ? n.slice(0, 9) + '…' : n;
     }
 
+    function nnInferFileTypeFromName(name) {
+      var ext = (name || '').split('.').pop().toLowerCase();
+      return ext === 'jpg' || ext === 'jpeg' || ext === 'png' ? 'image' : 'pdf';
+    }
+
+    function nnIsOpenableFromHome(name) {
+      var ext = (name || '').split('.').pop().toLowerCase();
+      return ext === 'pdf' || ext === 'png' || ext === 'jpg' || ext === 'jpeg';
+    }
+
     function nnGetSlotOrderByRecency() {
       var order = [];
       for (var i = 0; i < NN_PDF_SLOT_COUNT; i++) order.push(i);
@@ -4242,7 +4252,7 @@
       var sameFile = s.fileId === fid;
       s.fileId = fid;
       s.fileName = name || 'document.pdf';
-      s.fileType = 'pdf';
+      s.fileType = nnInferFileTypeFromName(s.fileName);
       s.folderId = folderId != null && String(folderId).trim() !== '' ? String(folderId).trim() : null;
       s.lastOpenedAt = now;
       if (isNewInSlots || !sameFile) {
@@ -4650,11 +4660,21 @@
         pdfBtn.classList.add('active-mode');
       }
       updateFavoriteButtonStatus();
-      return nnChainPdfFileOp(function () {
-        return nnOpenPdfSlotInViewer(slotIdx);
-      }).then(function () {
-        return true;
-      });
+      __pdfLoadGeneration++;
+      __pdfFileOpenChain = Promise.resolve();
+      if (!s.originalPdfBytes && !s.imageDataUrl) {
+        showLoader(s.fileType === 'image' ? '画像を開いています...' : 'PDFを開いています...');
+      }
+      return nnOpenPdfSlotInViewer(slotIdx)
+        .then(function () {
+          hideLoader();
+          return true;
+        })
+        .catch(function (e) {
+          hideLoader();
+          console.error('nnOpenPdfFile', e);
+          return false;
+        });
     }
 
     function savePdfSlotFromGlobals() {
@@ -6005,7 +6025,8 @@
         openBtn.type = 'button';
         openBtn.className = 'file-btn-meet';
         openBtn.textContent = '開く';
-        openBtn.onclick = function () {
+        openBtn.onclick = function (e) {
+          e.stopPropagation();
           openFileFromHome(f.id, f.name, f.folderId);
         };
         var driveLink = document.createElement('a');
@@ -6052,6 +6073,13 @@
           if (!dragId || dragId === f.id) return;
           nnReorderFileRow(dragId, f.id);
         });
+        if (nnIsOpenableFromHome(f.name)) {
+          div.title = 'クリックで注釈モードで開く';
+          div.addEventListener('click', function (e) {
+            if (e.target.closest('.file-btn-meet, .meet-drag-grip, input, label, a, button')) return;
+            openFileFromHome(f.id, f.name, f.folderId);
+          });
+        }
         container.appendChild(div);
       });
     }
