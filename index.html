@@ -4934,7 +4934,11 @@
         viewerContainer.scrollTop = s.scrollTop || 0;
       }
       updateFavoriteButtonStatus();
-      applyRoleMeet();
+      try {
+        applyRoleMeet();
+      } catch (roleErr2) {
+        console.warn('applyRoleMeet after restore', roleErr2);
+      }
       nnUpdatePdfSlotTabButtons();
       nnSyncLegacyToolsVisibility();
     }
@@ -5907,10 +5911,14 @@
 
     function closeHome() {
       if (!currentFileId) return;
-      homeScreen.style.display = 'none';
+      if (homeScreen) homeScreen.style.display = 'none';
       nnShowPdfViewer();
       nnSetPdfSlotToolbarVisible(true);
-      applyRoleMeet();
+      try {
+        applyRoleMeet();
+      } catch (roleErr3) {
+        console.warn('applyRoleMeet closeHome', roleErr3);
+      }
       nnSyncDupCurrentPdfPageButton();
     }
 
@@ -6251,22 +6259,22 @@
         }
         currentUserRole = 'participant';
         if (roleSelect) roleSelect.className = 'role-participant';
-        drawCanvas.style.pointerEvents = 'auto';
-        hostFrame.style.display = 'none';
-        statusDiv.textContent = '📝 メモ（リアルタイム共有オフ）';
+        if (drawCanvas) drawCanvas.style.pointerEvents = 'auto';
+        if (hostFrame) hostFrame.style.display = 'none';
+        if (statusDiv) statusDiv.textContent = '📝 メモ（リアルタイム共有オフ）';
         nnSyncPresenterTargetUi();
         return;
       }
       if (rs) rs.style.display = '';
       currentUserRole = roleSelect ? roleSelect.value : 'participant';
       if (roleSelect) roleSelect.className = 'role-' + currentUserRole;
-      drawCanvas.style.pointerEvents = 'auto';
-      hostFrame.style.display = 'none';
+      if (drawCanvas) drawCanvas.style.pointerEvents = 'auto';
+      if (hostFrame) hostFrame.style.display = 'none';
       if (currentUserRole === 'presenter') {
-        statusDiv.textContent = '📢 共有モード';
+        if (statusDiv) statusDiv.textContent = '📢 共有モード';
         syncIntervalTimer = setInterval(pushMeetingState, 2000);
       } else {
-        statusDiv.textContent = '📝 個人メモモード';
+        if (statusDiv) statusDiv.textContent = '📝 個人メモモード';
         syncIntervalTimer = setInterval(pullMeetingState, 2500);
       }
       nnSyncPresenterTargetUi();
@@ -6301,7 +6309,7 @@
             currentPageNum = state.pageNum;
             await renderPage(currentPageNum);
           }
-          if (baseWidth > 0 && baseHeight > 0 && homeScreen.style.display === 'none') {
+          if (baseWidth > 0 && baseHeight > 0 && hostFrame && (!homeScreen || homeScreen.style.display === 'none')) {
             hostFrame.style.display = 'block';
             hostFrame.style.left = state.docX + 'px';
             hostFrame.style.top = state.docY + 'px';
@@ -6497,22 +6505,28 @@
                   sharedStrokesByPage = {};
                   sharedTextByPage = {};
                 }
-                if (fileType === 'pdf') {
+                if (fileType === 'pdf' && pdfDocJs) {
                   nnLpEnsurePlanForCurrentFile(pdfDocJs.numPages);
                   currentPageNum = Math.min(Math.max(1, currentPageNum), totalPages);
                 }
                 if (!silent) {
                   currentScale = 1.0;
-                  viewerContainer.scrollLeft = 0;
-                  viewerContainer.scrollTop = 0;
+                  if (viewerContainer) {
+                    viewerContainer.scrollLeft = 0;
+                    viewerContainer.scrollTop = 0;
+                  }
                 }
-                homeScreen.style.display = 'none';
+                if (homeScreen) homeScreen.style.display = 'none';
                 nnShowPdfViewer();
                 nnSetPdfSlotToolbarVisible(true);
                 await renderPage(currentPageNum);
                 hideLoader();
                 updateFavoriteButtonStatus();
-                applyRoleMeet();
+                try {
+                  applyRoleMeet();
+                } catch (roleErr) {
+                  console.warn('applyRoleMeet after open', roleErr);
+                }
                 savePdfSlotFromGlobals();
                 nnSyncLegacyToolsVisibility();
               }
@@ -6543,10 +6557,12 @@
                     .catch(function (e) {
                       console.error(e);
                       hideLoader();
-                      if (loadGen === __pdfLoadGeneration) {
+                      if (loadGen === __pdfLoadGeneration && (!pdfDocJs && fileType === 'pdf')) {
                         alert('表示に失敗しました: ' + (e && e.message ? e.message : String(e)));
+                        rejectOpen(e);
+                      } else {
+                        resolveOpen();
                       }
-                      rejectOpen(e);
                     });
                 })
                 .loadAnnotation(currentFileId, baseName);
@@ -6642,9 +6658,11 @@
               nnLpEnsurePlanForCurrentFile(physPages2);
               currentPageNum = 1;
               currentScale = 1.0;
-              viewerContainer.scrollLeft = 0;
-              viewerContainer.scrollTop = 0;
-              homeScreen.style.display = 'none';
+              if (viewerContainer) {
+                viewerContainer.scrollLeft = 0;
+                viewerContainer.scrollTop = 0;
+              }
+              if (homeScreen) homeScreen.style.display = 'none';
               nnShowPdfViewer();
               nnSetPdfSlotToolbarVisible(true);
               var nnPanel = document.getElementById('nn-panel');
@@ -6658,7 +6676,11 @@
               await renderPage(currentPageNum);
               hideLoader();
               updateFavoriteButtonStatus();
-              applyRoleMeet();
+              try {
+                applyRoleMeet();
+              } catch (roleErr4) {
+                console.warn('applyRoleMeet loadPdfFromBase64', roleErr4);
+              }
               savePdfSlotFromGlobals();
               nnSyncLegacyToolsVisibility();
             })
@@ -6750,7 +6772,7 @@
     }
 
     async function renderPage(pageNum) {
-      statusDiv.textContent = 'レンダリング中...';
+      if (statusDiv) statusDiv.textContent = 'レンダリング中...';
       var lid = nnLpGetLogicalIdAt(pageNum);
       nnClearTextSelection();
       nnTextCreateDrag = null;
@@ -6777,15 +6799,17 @@
         bgCtx.drawImage(currentImageObj, 0, 0, baseWidth, baseHeight);
       }
 
-      if (legacyFolderNavActive && fileSelect.options.length > 0) {
+      if (legacyFolderNavActive && fileSelect && fileSelect.options.length > 0) {
         var fileIdx = fileSelect.selectedIndex + 1;
         var fileTotal = fileSelect.options.length;
-        pageIndicator.innerHTML =
-          '<span style="font-size:10px;">📄 ' + fileIdx + '/' + fileTotal + '</span><br>Pg ' + pageNum + '/' + totalPages;
-      } else {
+        if (pageIndicator) {
+          pageIndicator.innerHTML =
+            '<span style="font-size:10px;">📄 ' + fileIdx + '/' + fileTotal + '</span><br>Pg ' + pageNum + '/' + totalPages;
+        }
+      } else if (pageIndicator) {
         pageIndicator.innerHTML = 'Pg ' + pageNum + '/' + totalPages;
       }
-      statusDiv.textContent = '書込み可 (x' + currentScale.toFixed(1) + ')';
+      if (statusDiv) statusDiv.textContent = '書込み可 (x' + currentScale.toFixed(1) + ')';
       redraw();
       nnSyncDupCurrentPdfPageButton();
     }
@@ -6799,12 +6823,14 @@
     }
 
     function setSizeAndScale(bgCtx) {
+      if (!scrollSpacer || !pageWrapper || !bgCanvas || !drawCanvas || !bgCtx || !drawCtx) return;
       scrollSpacer.style.width = (baseWidth * currentScale) + 'px';
       scrollSpacer.style.height = (baseHeight * currentScale) + 'px';
       pageWrapper.style.width = baseWidth + 'px';
       pageWrapper.style.height = baseHeight + 'px';
 
       [bgCanvas, drawCanvas].forEach(function (canvas) {
+        if (!canvas) return;
         canvas.width = baseWidth * dpr;
         canvas.height = baseHeight * dpr;
         canvas.style.width = baseWidth + 'px';
