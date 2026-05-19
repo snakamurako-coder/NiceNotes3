@@ -4555,8 +4555,31 @@
       return __pdfFileOpenChain;
     }
 
-    async function nnOpenPdfSlotInViewer(slotIdx, opts) {
-      opts = opts || {};
+    /** タブ登録済みスロットの PDF/画像をビューアに読み込む（世代番号はここで1回だけ制御） */
+    async function nnLoadPdfForSlot(slotIdx) {
+      var s = pdfSlots[slotIdx];
+      if (!s || !s.fileId) {
+        await nnClearViewerForEmptySlot();
+        return;
+      }
+      pdfActiveSlot = slotIdx;
+      currentFileId = s.fileId;
+      fileName = s.fileName || 'document.pdf';
+      fileType = s.fileType || nnInferFileTypeFromName(fileName);
+      if (s.folderId) currentFolderId = s.folderId;
+      legacyFolderNavActive = !!s.legacyFolderNavActive;
+
+      var hasCached =
+        !!s.originalPdfBytes || !!(s.imageDataUrl && String(s.imageDataUrl).length > 0);
+      if (hasCached) {
+        await restorePdfSlotToGlobals(slotIdx);
+        return;
+      }
+      __pdfLoadGeneration++;
+      await loadSelectedFile(false, false);
+    }
+
+    async function nnOpenPdfSlotInViewer(slotIdx) {
       if (slotIdx < 0 || slotIdx >= NN_PDF_SLOT_COUNT) return;
       var s = pdfSlots[slotIdx];
       if (!s || !s.fileId) {
@@ -4567,31 +4590,7 @@
       s.lastOpenedAt = Date.now();
       nnPersistPdfSessionMeta();
       nnUpdatePdfSlotTabButtons();
-
-      var loadGen = opts.loadGeneration != null ? opts.loadGeneration : ++__pdfLoadGeneration;
-      __pdfLoadGeneration = loadGen;
-
-      var hasCached =
-        !!s.originalPdfBytes || !!(s.imageDataUrl && String(s.imageDataUrl).length > 0);
-      if (hasCached) {
-        await restorePdfSlotToGlobals(slotIdx, { loadGeneration: loadGen });
-        if (fileType === 'pdf' && !pdfDocJs) {
-          currentFileId = s.fileId;
-          fileName = s.fileName || 'document.pdf';
-          fileType = s.fileType || nnInferFileTypeFromName(fileName);
-          if (s.folderId) currentFolderId = s.folderId;
-          legacyFolderNavActive = !!s.legacyFolderNavActive;
-          await loadSelectedFile(false, false);
-        }
-        return;
-      }
-
-      currentFileId = s.fileId;
-      fileName = s.fileName || 'document.pdf';
-      fileType = s.fileType || nnInferFileTypeFromName(fileName);
-      if (s.folderId) currentFolderId = s.folderId;
-      legacyFolderNavActive = !!s.legacyFolderNavActive;
-      await loadSelectedFile(false, false);
+      await nnLoadPdfForSlot(slotIdx);
     }
 
     function nnResumePdfWriting() {
@@ -4672,6 +4671,11 @@
           })
         );
       } catch (e) {}
+      pdfActiveSlot = slotIdx;
+      s.lastOpenedAt = Date.now();
+      nnPersistPdfSessionMeta();
+
+      /* ① タブへ装填し、注釈画面を先に表示する */
       legacyFolderNavActive = false;
       nnSyncLegacyToolsVisibility();
       homeScreen.style.display = 'none';
@@ -4686,21 +4690,28 @@
         pdfBtn.classList.add('active-mode');
       }
       updateFavoriteButtonStatus();
-      var openGen = ++__pdfLoadGeneration;
+      nnUpdatePdfSlotTabButtons();
+
       if (!s.originalPdfBytes && !s.imageDataUrl) {
         showLoader(s.fileType === 'image' ? '画像を開いています...' : 'PDFを開いています...');
       }
-      return nnOpenPdfSlotInViewer(slotIdx, { loadGeneration: openGen })
-        .then(function () {
-          hideLoader();
-          return true;
-        })
-        .catch(function (e) {
-          hideLoader();
-          console.error('nnOpenPdfFile', e);
-          alert('ファイルを開けませんでした: ' + (e && e.message ? e.message : String(e)));
-          return false;
+
+      /* ② 注釈画面が出た直後に、該当 PDF を開く */
+      return new Promise(function (resolve) {
+        requestAnimationFrame(function () {
+          nnLoadPdfForSlot(slotIdx)
+            .then(function () {
+              hideLoader();
+              resolve(true);
+            })
+            .catch(function (e) {
+              hideLoader();
+              console.error('nnOpenPdfFile', e);
+              alert('ファイルを開けませんでした: ' + (e && e.message ? e.message : String(e)));
+              resolve(false);
+            });
         });
+      });
     }
 
     function savePdfSlotFromGlobals() {
@@ -4785,16 +4796,14 @@
       nnSyncLegacyToolsVisibility();
     }
 
-    async function restorePdfSlotToGlobals(idx, opts) {
-      opts = opts || {};
+    async function restorePdfSlotToGlobals(idx) {
       var s = pdfSlots[idx];
       if (!s || !s.fileId) {
         await nnClearViewerForEmptySlot();
         nnUpdatePdfSlotTabButtons();
         return;
       }
-      var restoreGen = opts.loadGeneration != null ? opts.loadGeneration : ++__pdfLoadGeneration;
-      if (opts.loadGeneration == null) __pdfLoadGeneration = restoreGen;
+      var restoreGen = ++__pdfLoadGeneration;
       stopMeetSync();
       nnResetPdfViewerBinary_();
       currentFileId = s.fileId;
@@ -4810,17 +4819,10 @@
       currentScale = s.currentScale > 0 ? s.currentScale : 1;
       originalPdfBytes = nnClonePdfBytes(s.originalPdfBytes);
       currentImageObj = null;
-      var needFetch =
-        !originalPdfBytes &&
-        !(s.imageDataUrl && String(s.imageDataUrl).length > 0) &&
-        !!currentFileId &&
-        fileType === 'pdf';
+      var needFetch = fileType === 'pdf' && !originalPdfBytes && currentFileId;
       if (needFetch) showLoader('PDFを読み込み中...');
       try {
-        if (needFetch) {
-          if (typeof google === 'undefined' || !google.script || !google.script.run) {
-            throw new Error('Google Apps Script からファイルを取得できません。アプリを開き直してください。');
-          }
+        if (needFetch && typeof google !== 'undefined' && google.script && google.script.run) {
           var b64re = await new Promise(function (resolve, reject) {
             google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getFileData(currentFileId);
           });
