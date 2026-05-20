@@ -69,14 +69,11 @@
     .folder-tree { width: 30%; min-width: 160px; border-right: 1px solid #e0e0e0; overflow-y: auto; padding: 10px; background: #fdfdfd; }
     .folder-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; cursor: pointer; border-radius: 4px; font-size: 14px; color: #333; }
     .folder-item:hover { background: #e8eaed; }
-    .folder-item.selected { background: #e8f0fe; color: var(--primary); font-weight: bold; }
-    .folder-label { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .color-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #ccc; flex-shrink: 0; }
-    .btn-palette { background: transparent; border: none; cursor: pointer; font-size: 14px; opacity: 0; transition: opacity 0.2s; padding: 2px 4px; }
-    .folder-item:hover .btn-palette { opacity: 1; }
-    #color-palette-popover { display: none; position: fixed; background: #fff; border: 1px solid #ddd; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 2000; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .palette-color { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #aaa; cursor: pointer; transition: transform 0.1s; }
-    .palette-color:hover { transform: scale(1.15); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .folder-item.selected { background: transparent; font-weight: bold; }
+    .folder-item.selected .folder-label { outline: 2px solid #1a73e8; color: #174ea6; }
+    .folder-label { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; padding: 6px 10px; border-radius: 6px; box-sizing: border-box; border: 1px solid transparent; }
+    .btn-folder-settings { background: #f1f3f4; border: 1px solid #dadce0; cursor: pointer; font-size: 12px; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; opacity: 0; transition: opacity 0.2s; }
+    .folder-item:hover .btn-folder-settings { opacity: 1; }
     .file-list { flex: 1; overflow-y: auto; padding: 10px; }
     .file-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px; border-bottom: 1px solid #f1f3f4; cursor: pointer; }
     .file-item:hover { background: #f8f9fa; }
@@ -84,10 +81,14 @@
     .file-item.meet-drag-over { background: #e8f0fe; outline: 1px dashed #1a73e8; }
     .folder-item.meet-f-drag-over { outline: 2px dashed #1a73e8; background: #f8fbff; }
     .folder-item .meet-folder-indent { display: inline-block; }
-    #meet-folder-mode { display: none; padding: 10px 14px; background: #fafafa; border-bottom: 1px solid #e0e0e0; font-size: 13px; align-items: center; gap: 12px; flex-wrap: wrap; }
-    #meet-folder-mode.nn-show { display: flex; }
-    #meet-folder-mode label { display: inline-flex; align-items: center; gap: 6px; margin: 0 12px 0 0; cursor: pointer; }
-    .file-name { font-weight: bold; color: #1a73e8; font-size: 14px; display: flex; align-items: center; gap: 8px;}
+    .file-name-row { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .file-name-text { font-weight: bold; color: #1a73e8; font-size: 14px; display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-file-favorite { flex-shrink: 0; background: transparent; border: none; cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+    .btn-file-favorite:hover { background: #e8eaed; }
+    #nn-folder-settings-modal, #nn-file-favorite-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 20000; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+    .nn-pastel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0 12px; }
+    .nn-pastel-swatch { width: 100%; aspect-ratio: 1; max-width: 36px; border-radius: 50%; border: 2px solid #dadce0; cursor: pointer; box-sizing: border-box; }
+    .nn-pastel-swatch.nn-sel { outline: 2px solid #1a73e8; border-color: #1a73e8; }
     .file-meta { font-size: 12px; color: #888; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
     .btn-meeting-action { padding: 8px 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
     .btn-meeting-action:hover { opacity: 0.9; }
@@ -877,7 +878,76 @@
     </div>
   </div>
 
-  <div id="color-palette-popover"></div>
+  <div id="nn-folder-settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseFolderSettingsModal()">
+    <div role="dialog" aria-modal="true" aria-labelledby="nn-folder-settings-title" style="background:#fff;padding:20px;border-radius:12px;max-width:420px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+      <div id="nn-folder-settings-title" style="font-weight:600;margin-bottom:8px;font-size:15px;color:#202124;">フォルダの設定</div>
+      <p id="nn-folder-settings-name" style="font-size:13px;color:#5f6368;margin:0 0 14px 0;"></p>
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#202124;">フォルダの色</div>
+      <div id="nn-folder-settings-color-grid" class="nn-pastel-grid"></div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:#202124;">PDFの開き方</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="nn-folder-fp-mode" value="individual"> 個別ビューア（1ファイルずつ）
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="nn-folder-fp-mode" value="seamless"> シームレス（フォルダ内を1冊のように連続）
+        </label>
+      </div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:#202124;">フォルダの種類</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="nn-folder-kind" value="personal"> 個人フォルダ（自分だけが見る・リアルタイム共有は注釈画面ではオフ）
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="nn-folder-kind" value="org"> チーム共有フォルダ（リアルタイム共有・発表者モードが利用可能）
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="file-btn-meet" onclick="nnCloseFolderSettingsModal()">キャンセル</button>
+        <button type="button" class="btn-meeting-action" onclick="nnSaveFolderSettings()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="nn-file-favorite-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseFileFavoriteModal()">
+    <div role="dialog" aria-modal="true" aria-labelledby="nn-file-fav-title" style="background:#fff;padding:20px;border-radius:12px;max-width:380px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+      <div id="nn-file-fav-title" style="font-weight:600;margin-bottom:8px;font-size:15px;color:#202124;">お気に入り</div>
+      <p id="nn-file-fav-status" style="font-size:13px;color:#5f6368;margin:0 0 12px 0;"></p>
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#202124;">星の色</div>
+      <div id="nn-file-fav-color-grid" class="nn-pastel-grid"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+        <button type="button" class="file-btn-meet" id="nn-file-fav-toggle-btn" onclick="nnToggleFavoriteFromModal()">お気に入りに追加</button>
+        <button type="button" class="file-btn-meet" onclick="nnCloseFileFavoriteModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="nn-export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseExportModal()">
+    <div role="dialog" aria-modal="true" aria-labelledby="nn-export-modal-title" style="background:#fff;padding:20px;border-radius:12px;max-width:440px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+      <div id="nn-export-modal-title" style="font-weight:600;margin-bottom:8px;font-size:15px;color:#202124;">PDF・画像の出力</div>
+      <p style="font-size:12px;color:#5f6368;margin:0 0 12px;line-height:1.55;">ツールバーの<strong>レイヤー</strong>（共有レイヤー・共有テキスト・自分のペン・自分のテキスト）のチェックが<strong>そのまま出力内容</strong>に反映されます。☑を外したレイヤーは出力されません。</p>
+      <div id="nn-export-range-section">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:#202124;">出力するページ（PDF）</div>
+        <p id="nn-export-page-hint" style="font-size:12px;color:#5f6368;margin:0 0 10px;"></p>
+        <div id="nn-export-range-radios" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;"><input type="radio" name="nn-export-range" value="all" checked> すべて</label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;"><input type="radio" name="nn-export-range" value="current"> 現在表示中のページのみ</label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;"><input type="radio" name="nn-export-range" value="range"> 範囲を指定</label>
+        </div>
+        <div id="nn-export-range-inputs" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <span style="font-size:13px;">ページ</span>
+          <input type="number" id="nn-export-from" min="1" step="1" style="width:72px;padding:8px;border:1px solid #dadce0;border-radius:6px;" />
+          <span style="font-size:13px;">〜</span>
+          <input type="number" id="nn-export-to" min="1" step="1" style="width:72px;padding:8px;border:1px solid #dadce0;border-radius:6px;" />
+        </div>
+      </div>
+      <p id="nn-export-image-note" style="display:none;font-size:12px;color:#5f6368;margin:0 0 12px;">画像は1枚のみ出力します（ページ指定はありません）。レイヤーのチェックは上記どおり反映されます。</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="file-btn-meet" onclick="nnCloseExportModal()">キャンセル</button>
+        <button type="button" class="btn-meeting-action" style="background:#0f9d58;border:none;color:#fff;" onclick="nnConfirmExport()">出力する</button>
+      </div>
+    </div>
+  </div>
 
   <div id="nn-goto-page-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseGotoPageModal()">
     <div role="dialog" aria-modal="true" aria-labelledby="nn-goto-page-modal-title" style="background:#fff;padding:20px;border-radius:12px;max-width:360px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
@@ -1029,13 +1099,6 @@
           <button type="button" onclick="toggleSortOrderMeet()" id="btn-sort-order-meet">🔽</button>
           <span id="tree-status" style="margin-left: auto; font-size: 12px; color: #888;"></span>
         </div>
-        <div id="meet-folder-mode" aria-label="フォルダのPDF閲覧モード">
-          <strong style="margin-right:8px;">このフォルダ:</strong>
-          <label><input type="radio" name="meet-fp-mode" value="individual" checked onchange="nnSetFolderPdfMode('individual')"> 個別ビューア（1ファイルずつ）</label>
-          <label><input type="radio" name="meet-fp-mode" value="seamless" onchange="nnSetFolderPdfMode('seamless')"> シームレス（フォルダ内を1冊のように連続）</label>
-          <span style="font-size:12px;color:#5f6368;">※ 書き込み画面のプルダウンは廃止。ここで切り替えます。</span>
-        </div>
-        <div class="explorer-body">
           <div class="folder-tree" id="folder-tree-container"></div>
           <div class="file-list" id="file-list-container">
             <div style="padding: 20px; color: #888;">← 左のフォルダを選択してください</div>
@@ -1068,7 +1131,7 @@
     </div>
     <div class="tool-group" id="nn-pdf-save-export" aria-label="PDF保存と出力">
       <button type="button" style="background:#1a73e8;color:white;border:none;" onclick="saveToServer()">手動保存</button>
-      <button type="button" style="background:#0f9d58;color:white;border:none;" onclick="exportFile()">出力</button>
+      <button type="button" style="background:#0f9d58;color:white;border:none;" onclick="nnOpenExportModal()">出力</button>
     </div>
     <div class="tool-group" id="pdf-slot-tabs" aria-label="PDFスロット">
       <span style="font-size:11px;color:#5f6368;">PDF</span>
@@ -1352,7 +1415,6 @@
     const homeScreen = document.getElementById('home-screen');
     const btnFavorite = document.getElementById('btn-favorite');
     const btnCloseHome = document.getElementById('btn-close-home');
-    const colorPopover = document.getElementById('color-palette-popover');
 
     let sharedStrokesByPage = {};
     let localStrokesByPage = {};
@@ -3018,32 +3080,21 @@
       return files;
     }
 
-    window.nnSetFolderPdfMode = function (mode) {
-      if (!currentFolderId) return;
+    function nnSetFolderPdfModeForFolder(folderId, mode) {
+      if (!folderId) return;
       nnEnsureWorkspaceMeta();
-      treeData.workspaceMeta.folderPdfMode[currentFolderId] = mode === 'seamless' ? 'seamless' : 'individual';
+      treeData.workspaceMeta.folderPdfMode[folderId] = mode === 'seamless' ? 'seamless' : 'individual';
       nnSaveWorkspaceMetaToServer();
+    }
+
+    window.nnSetFolderPdfMode = function (mode) {
+      nnSetFolderPdfModeForFolder(currentFolderId, mode);
     };
 
     function nnGetFolderPdfModeForFolder(folderId) {
       nnEnsureWorkspaceMeta();
       var m = treeData.workspaceMeta.folderPdfMode[folderId];
       return m === 'seamless' ? 'seamless' : 'individual';
-    }
-
-    function nnUpdateMeetFolderModeBar() {
-      var bar = document.getElementById('meet-folder-mode');
-      if (!bar) return;
-      if (!currentFolderId) {
-        bar.classList.remove('nn-show');
-        return;
-      }
-      bar.classList.add('nn-show');
-      var mode = nnGetFolderPdfModeForFolder(currentFolderId);
-      var ind = bar.querySelector('input[name="meet-fp-mode"][value="individual"]');
-      var sea = bar.querySelector('input[name="meet-fp-mode"][value="seamless"]');
-      if (ind) ind.checked = mode === 'individual';
-      if (sea) sea.checked = mode === 'seamless';
     }
 
     function nnSyncLegacyToolsVisibility() {
@@ -6077,32 +6128,219 @@
         .importPdf(id);
     }
 
-    function openColorPalette(e, folderId) {
-      e.stopPropagation();
-      colorPopover.innerHTML = '';
-      PASTEL_PALETTE.forEach(function (color) {
-        var btn = document.createElement('div');
-        btn.className = 'palette-color';
-        btn.style.backgroundColor = color;
-        btn.onclick = function (event) {
-          event.stopPropagation();
-          changeFolderColor(folderId, color);
-          colorPopover.style.display = 'none';
-        };
-        colorPopover.appendChild(btn);
-      });
-      colorPopover.style.display = 'grid';
-      colorPopover.style.left = e.clientX + 10 + 'px';
-      colorPopover.style.top = e.clientY + 'px';
-    }
-    window.addEventListener('click', function () { colorPopover.style.display = 'none'; });
-
     function changeFolderColor(folderId, color) {
       if (!treeData.folderColors) treeData.folderColors = {};
       treeData.folderColors[folderId] = color;
       renderFolders();
       google.script.run.setFolderColor(folderId, color);
     }
+
+    var NN_DEFAULT_FAV_STAR_COLOR = '#f4b400';
+    var __nnFolderSettingsFolderId = null;
+    var __nnFolderSettingsPickColor = '#f1f3f4';
+    var __nnFileFavCtx = null;
+    var __nnFileFavPickColor = NN_DEFAULT_FAV_STAR_COLOR;
+
+    function nnFindFolderNameById(folderId) {
+      var arr = treeData.folders || [];
+      for (var fi = 0; fi < arr.length; fi++) {
+        if (arr[fi].id === folderId) return arr[fi].name || '';
+      }
+      return '';
+    }
+
+    function nnNormalizeFavoriteEntry(e) {
+      if (!e || e.id == null || String(e.id).trim() === '') return null;
+      return {
+        id: String(e.id).trim(),
+        name: e.name || '',
+        folderId: e.folderId != null ? e.folderId : null,
+        starColor: e.starColor && String(e.starColor).trim() ? String(e.starColor).trim() : NN_DEFAULT_FAV_STAR_COLOR,
+      };
+    }
+
+    function nnGetFavoriteFilesArray() {
+      try {
+        var raw = JSON.parse(localStorage.getItem('favorite_files') || '[]');
+        if (!Array.isArray(raw)) return [];
+        return raw.map(nnNormalizeFavoriteEntry).filter(Boolean);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function nnSaveFavoriteFilesArray(arr) {
+      localStorage.setItem('favorite_files', JSON.stringify(arr));
+    }
+
+    function nnPopulateFolderSettingsColorGrid() {
+      var grid = document.getElementById('nn-folder-settings-color-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      PASTEL_PALETTE.forEach(function (c) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'nn-pastel-swatch';
+        b.setAttribute('data-color', c);
+        b.style.backgroundColor = c;
+        b.title = c;
+        if (c === __nnFolderSettingsPickColor) b.classList.add('nn-sel');
+        b.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          __nnFolderSettingsPickColor = c;
+          grid.querySelectorAll('.nn-pastel-swatch').forEach(function (el) {
+            el.classList.toggle('nn-sel', el.getAttribute('data-color') === c);
+          });
+        });
+        grid.appendChild(b);
+      });
+    }
+
+    window.nnOpenFolderSettingsModal = function nnOpenFolderSettingsModal(folderId) {
+      if (!folderId) return;
+      __nnFolderSettingsFolderId = folderId;
+      var cols = treeData.folderColors || {};
+      __nnFolderSettingsPickColor = cols[folderId] || '#f1f3f4';
+      nnPopulateFolderSettingsColorGrid();
+      var nameEl = document.getElementById('nn-folder-settings-name');
+      var fn = nnFindFolderNameById(folderId);
+      if (nameEl) nameEl.textContent = fn ? '📁 ' + fn : String(folderId);
+      var mode = nnGetFolderPdfModeForFolder(folderId);
+      document.querySelectorAll('input[name="nn-folder-fp-mode"]').forEach(function (r) {
+        r.checked = r.value === mode;
+      });
+      var kind = nnGetFolderKindForFolderId(folderId);
+      document.querySelectorAll('input[name="nn-folder-kind"]').forEach(function (r) {
+        r.checked = r.value === (kind === 'org' ? 'org' : 'personal');
+      });
+      var m = document.getElementById('nn-folder-settings-modal');
+      if (m) m.style.display = 'flex';
+    };
+
+    window.nnCloseFolderSettingsModal = function nnCloseFolderSettingsModal() {
+      var m = document.getElementById('nn-folder-settings-modal');
+      if (m) m.style.display = 'none';
+      __nnFolderSettingsFolderId = null;
+    };
+
+    window.nnSaveFolderSettings = function nnSaveFolderSettings() {
+      var fid = __nnFolderSettingsFolderId;
+      if (!fid) return;
+      changeFolderColor(fid, __nnFolderSettingsPickColor);
+      var modeEl = document.querySelector('input[name="nn-folder-fp-mode"]:checked');
+      var mode = modeEl && modeEl.value === 'seamless' ? 'seamless' : 'individual';
+      nnSetFolderPdfModeForFolder(fid, mode);
+      var kindEl = document.querySelector('input[name="nn-folder-kind"]:checked');
+      var isOrg = kindEl && kindEl.value === 'org';
+      nnEnsureWorkspaceMeta();
+      treeData.workspaceMeta.folderKind[fid] = isOrg ? 'org' : 'personal';
+      nnSaveWorkspaceMetaToServer();
+      nnCloseFolderSettingsModal();
+      renderFolders();
+      renderFilesMeet();
+      if (currentFileId && nnFindFolderIdForFile(currentFileId) === fid) {
+        try {
+          applyRoleMeet();
+        } catch (roleErrFs) {
+          console.warn('applyRoleMeet nnSaveFolderSettings', roleErrFs);
+        }
+      }
+    };
+
+    function nnPopulateFileFavColorGrid() {
+      var grid = document.getElementById('nn-file-fav-color-grid');
+      if (!grid || !__nnFileFavCtx) return;
+      grid.innerHTML = '';
+      PASTEL_PALETTE.forEach(function (c) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'nn-pastel-swatch';
+        b.setAttribute('data-color', c);
+        b.style.backgroundColor = c;
+        b.title = c;
+        if (c === __nnFileFavPickColor) b.classList.add('nn-sel');
+        b.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          __nnFileFavPickColor = c;
+          grid.querySelectorAll('.nn-pastel-swatch').forEach(function (el) {
+            el.classList.toggle('nn-sel', el.getAttribute('data-color') === c);
+          });
+          var favs = nnGetFavoriteFilesArray();
+          var fid = String(__nnFileFavCtx.id);
+          var ix = favs.findIndex(function (x) {
+            return x.id === fid;
+          });
+          if (ix >= 0) {
+            favs[ix].starColor = c;
+            nnSaveFavoriteFilesArray(favs);
+            renderQuickAccess();
+            var rowBtn = document.querySelector('.btn-file-favorite[data-file-id="' + fid + '"]');
+            if (rowBtn) nnSyncFileFavoriteStarUi(rowBtn, __nnFileFavCtx.id);
+          }
+        });
+        grid.appendChild(b);
+      });
+    }
+
+    function nnSyncFileFavoriteStarUi(btn, fileId) {
+      var sid = String(fileId);
+      var favs = nnGetFavoriteFilesArray();
+      var e = favs.find(function (x) {
+        return x.id === sid;
+      });
+      var col = e ? e.starColor : '#9aa0a6';
+      btn.textContent = e ? '★' : '☆';
+      btn.style.color = col;
+    }
+
+    window.nnOpenFileFavoriteModal = function nnOpenFileFavoriteModal(ctx) {
+      if (!ctx || ctx.id == null) return;
+      var fid = String(ctx.id).trim();
+      __nnFileFavCtx = { id: fid, name: ctx.name || '', folderId: ctx.folderId };
+      var favs = nnGetFavoriteFilesArray();
+      var e = favs.find(function (x) {
+        return x.id === fid;
+      });
+      __nnFileFavPickColor = e && e.starColor ? e.starColor : NN_DEFAULT_FAV_STAR_COLOR;
+      nnPopulateFileFavColorGrid();
+      var st = document.getElementById('nn-file-fav-status');
+      if (st) st.textContent = e ? 'このファイルはお気に入りに登録されています。' : 'まだお気に入りに登録されていません。';
+      var tb = document.getElementById('nn-file-fav-toggle-btn');
+      if (tb) tb.textContent = e ? 'お気に入りを解除' : 'お気に入りに追加';
+      var m = document.getElementById('nn-file-favorite-modal');
+      if (m) m.style.display = 'flex';
+    };
+
+    window.nnCloseFileFavoriteModal = function nnCloseFileFavoriteModal() {
+      var m = document.getElementById('nn-file-favorite-modal');
+      if (m) m.style.display = 'none';
+      __nnFileFavCtx = null;
+    };
+
+    window.nnToggleFavoriteFromModal = function nnToggleFavoriteFromModal() {
+      if (!__nnFileFavCtx || __nnFileFavCtx.id == null) return;
+      var favs = nnGetFavoriteFilesArray();
+      var idx = favs.findIndex(function (x) {
+        return x.id === String(__nnFileFavCtx.id);
+      });
+      if (idx >= 0) {
+        favs.splice(idx, 1);
+      } else {
+        favs.push({
+          id: String(__nnFileFavCtx.id),
+          name: __nnFileFavCtx.name,
+          folderId: __nnFileFavCtx.folderId,
+          starColor: __nnFileFavPickColor,
+        });
+      }
+      nnSaveFavoriteFilesArray(favs);
+      var ctx = __nnFileFavCtx;
+      nnOpenFileFavoriteModal(ctx);
+      renderQuickAccess();
+      var btn = document.querySelector('.btn-file-favorite[data-file-id="' + ctx.id + '"]');
+      if (btn) nnSyncFileFavoriteStarUi(btn, ctx.id);
+      updateFavoriteButtonStatus();
+    };
 
     function showHomeMeet() {
       if (currentFileId) {
@@ -6170,18 +6408,15 @@
         div.dataset.folderId = f.id;
         div.draggable = true;
         div.style.paddingLeft = 6 + depth * 16 + 'px';
-        var folderColor = colors[f.id] || '#ccc';
+        var folderColor = colors[f.id] || '#f1f3f4';
         var label = document.createElement('div');
         label.className = 'folder-label';
+        label.style.backgroundColor = folderColor;
         var grip = document.createElement('span');
         grip.className = 'meet-drag-grip';
         grip.textContent = '⋮⋮';
         grip.title = 'ドラッグで並べ替え / 別フォルダへドロップで移動';
         label.appendChild(grip);
-        var dot = document.createElement('span');
-        dot.className = 'color-dot';
-        dot.style.backgroundColor = folderColor;
-        label.appendChild(dot);
         label.appendChild(document.createTextNode(' 📁 ' + (f.name || '')));
         label.addEventListener('click', function () {
           selectFolderMeet(f.id);
@@ -6211,16 +6446,17 @@
           if (!dragF || dragF === f.id) return;
           nnApplyFolderDrop(dragF, f.id);
         });
-        var palBtn = document.createElement('button');
-        palBtn.type = 'button';
-        palBtn.className = 'btn-palette';
-        palBtn.title = '色を変更';
-        palBtn.textContent = '🎨';
-        palBtn.addEventListener('click', function (ev) {
-          openColorPalette(ev, f.id);
+        var setBtn = document.createElement('button');
+        setBtn.type = 'button';
+        setBtn.className = 'btn-folder-settings';
+        setBtn.title = 'フォルダの設定（色・閲覧モード・共有）';
+        setBtn.textContent = '設定';
+        setBtn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          nnOpenFolderSettingsModal(f.id);
         });
         div.appendChild(label);
-        div.appendChild(palBtn);
+        div.appendChild(setBtn);
         container.appendChild(div);
         var kids = nnOrderedFolderChildren(f.id);
         for (var i = 0; i < kids.length; i++) {
@@ -6242,7 +6478,6 @@
       currentFolderId = id;
       renderFolders();
       renderFilesMeet();
-      nnUpdateMeetFolderModeBar();
     }
 
     function toggleSortOrderMeet() {
@@ -6256,7 +6491,6 @@
       var container = document.getElementById('file-list-container');
       if (!container) return;
       container.innerHTML = '';
-      nnUpdateMeetFolderModeBar();
       if (!currentFolderId) {
         container.innerHTML = '<div style="padding: 20px; color: #888;">← 左のフォルダを選択してください</div>';
         return;
@@ -6279,11 +6513,27 @@
         grip.className = 'meet-drag-grip';
         grip.textContent = '⋮⋮';
         grip.title = 'ドラッグで順番変更（並び: 通し番号）';
-        var nameEl = document.createElement('div');
-        nameEl.className = 'file-name';
+        var nameRow = document.createElement('div');
+        nameRow.className = 'file-name-row';
         var extMeet = (f.name || '').split('.').pop().toLowerCase();
         var fileIcon = extMeet === 'png' || extMeet === 'jpg' || extMeet === 'jpeg' ? '🖼 ' : '📄 ';
-        nameEl.textContent = fileIcon + (f.name || '');
+        var nameText = document.createElement('span');
+        nameText.className = 'file-name-text';
+        nameText.textContent = fileIcon + (f.name || '');
+        nameRow.appendChild(nameText);
+        if (nnIsOpenableFromHome(f.name)) {
+          var favBtn = document.createElement('button');
+          favBtn.type = 'button';
+          favBtn.className = 'btn-file-favorite';
+          favBtn.title = 'お気に入り';
+          favBtn.setAttribute('data-file-id', f.id);
+          favBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            nnOpenFileFavoriteModal({ id: f.id, name: f.name, folderId: f.folderId });
+          });
+          nnSyncFileFavoriteStarUi(favBtn, f.id);
+          nameRow.appendChild(favBtn);
+        }
         var meta = document.createElement('div');
         meta.className = 'file-meta';
         var dateSpan = document.createElement('span');
@@ -6334,7 +6584,7 @@
         meta.appendChild(openBtn);
         meta.appendChild(driveLink);
         div.appendChild(grip);
-        div.appendChild(nameEl);
+        div.appendChild(nameRow);
         div.appendChild(meta);
         div.addEventListener('dragstart', function (e) {
           meetFileDragId = f.id;
@@ -6364,7 +6614,7 @@
         if (nnIsOpenableFromHome(f.name)) {
           div.title = 'クリックで注釈モードで開く';
           div.addEventListener('click', function (e) {
-            if (e.target.closest('.file-btn-meet, .meet-drag-grip, input, label, a, button')) return;
+            if (e.target.closest('.file-btn-meet, .meet-drag-grip, .btn-file-favorite, input, label, a, button')) return;
             openFileFromHome(f.id, f.name, f.folderId);
           });
         }
@@ -6409,27 +6659,23 @@
       var favStr = localStorage.getItem('favorite_files');
       var favContainer = document.getElementById('favorites-container');
       if (!favContainer) return;
-      if (favStr) {
-        try {
-          var favs = JSON.parse(favStr);
-          if (favs.length > 0) {
-            favContainer.innerHTML = '';
-            favs.forEach(function (f) {
-              var btn = document.createElement('button');
-              btn.type = 'button';
-              btn.className = 'file-btn-meet';
-              btn.textContent = '⭐ ' + (f.name || '');
-              btn.onclick = function () {
-                openFileFromHome(f.id, f.name, f.folderId);
-              };
-              favContainer.appendChild(btn);
-            });
-          } else {
-            favContainer.textContent = '（お気に入りはありません）';
-          }
-        } catch (err2) {
-          favContainer.textContent = '（お気に入りはありません）';
-        }
+      var favs = nnGetFavoriteFilesArray();
+      if (favs.length > 0) {
+        favContainer.innerHTML = '';
+        favs.forEach(function (f) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'file-btn-meet';
+          var sym = document.createElement('span');
+          sym.textContent = '⭐ ';
+          sym.style.color = f.starColor || NN_DEFAULT_FAV_STAR_COLOR;
+          btn.appendChild(sym);
+          btn.appendChild(document.createTextNode(f.name || ''));
+          btn.onclick = function () {
+            openFileFromHome(f.id, f.name, f.folderId);
+          };
+          favContainer.appendChild(btn);
+        });
       } else {
         favContainer.textContent = '（お気に入りはありません）';
       }
@@ -6437,28 +6683,44 @@
 
     function toggleFavoriteMeet() {
       if (!currentFileId) return;
-      var favs = JSON.parse(localStorage.getItem('favorite_files') || '[]');
-      var idx = favs.findIndex(function (f) { return f.id === currentFileId; });
+      var favs = nnGetFavoriteFilesArray();
+      var cid = String(currentFileId);
+      var idx = favs.findIndex(function (f) {
+        return f.id === cid;
+      });
       if (idx >= 0) {
         favs.splice(idx, 1);
-        btnFavorite.style.color = '#ccc';
-        btnFavorite.innerHTML = '☆';
       } else {
         favs.push({
-          id: currentFileId,
+          id: cid,
           name: fileName,
           folderId: nnFindFolderIdForFile(currentFileId) || currentFolderId || null,
+          starColor: NN_DEFAULT_FAV_STAR_COLOR,
         });
-        btnFavorite.style.color = '#f4b400';
-        btnFavorite.innerHTML = '⭐';
       }
-      localStorage.setItem('favorite_files', JSON.stringify(favs));
+      nnSaveFavoriteFilesArray(favs);
+      if (btnFavorite) {
+        var isFav = favs.some(function (f) {
+          return f.id === cid;
+        });
+        var e = favs.find(function (f) {
+          return f.id === cid;
+        });
+        btnFavorite.style.color = isFav ? (e && e.starColor ? e.starColor : NN_DEFAULT_FAV_STAR_COLOR) : '#ccc';
+        btnFavorite.innerHTML = isFav ? '⭐' : '☆';
+      }
+      renderQuickAccess();
     }
 
     function updateFavoriteButtonStatus() {
-      var favs = JSON.parse(localStorage.getItem('favorite_files') || '[]');
-      var isFav = favs.some(function (f) { return f.id === currentFileId; });
-      btnFavorite.style.color = isFav ? '#f4b400' : '#ccc';
+      if (!btnFavorite) return;
+      var cid = currentFileId != null ? String(currentFileId) : '';
+      var favs = nnGetFavoriteFilesArray();
+      var e = favs.find(function (f) {
+        return f.id === cid;
+      });
+      var isFav = !!e;
+      btnFavorite.style.color = isFav ? (e.starColor || NN_DEFAULT_FAV_STAR_COLOR) : '#ccc';
       btnFavorite.innerHTML = isFav ? '⭐' : '☆';
     }
 
@@ -7386,10 +7648,137 @@
       return { ew: ew, eh: eh };
     }
 
-    async function exportFile() {
+    function nnGetLayerVisForExport() {
+      var sp = document.getElementById('nn-lay-sp');
+      var st = document.getElementById('nn-lay-st');
+      var lp = document.getElementById('nn-lay-lp');
+      var lt = document.getElementById('nn-lay-lt');
+      return {
+        sharedPen: sp ? !!sp.checked : true,
+        sharedText: st ? !!st.checked : true,
+        localPen: lp ? !!lp.checked : true,
+        localText: lt ? !!lt.checked : true,
+      };
+    }
+
+    function nnDrawExportOverlayToContext(offCtx, sk, ew, eh, vis, clearFirst) {
+      if (clearFirst) offCtx.clearRect(0, 0, ew, eh);
+      if (vis.sharedPen && sharedStrokesByPage[sk]) drawStrokesToContext(offCtx, sharedStrokesByPage[sk], false);
+      if (vis.sharedText && sharedTextByPage[sk]) nnDrawTextBoxesToContext(offCtx, sharedTextByPage[sk]);
+      if (vis.localPen && localStrokesByPage[sk]) drawStrokesToContext(offCtx, localStrokesByPage[sk], false);
+      if (vis.localText && localTextByPage[sk]) nnDrawTextBoxesToContext(offCtx, localTextByPage[sk]);
+    }
+
+    function nnExportHasAnnotationsForVis(sk, vis) {
+      if (vis.sharedPen && (sharedStrokesByPage[sk] || []).length) return true;
+      if (vis.localPen && (localStrokesByPage[sk] || []).length) return true;
+      if (vis.sharedText && (sharedTextByPage[sk] || []).length) return true;
+      if (vis.localText && (localTextByPage[sk] || []).length) return true;
+      return false;
+    }
+
+    function nnExportPageIncluded(page1Based, rangeMode, rFrom, rTo, total, curPage) {
+      if (!total || total < 1) return false;
+      var p = page1Based;
+      if (p < 1 || p > total) return false;
+      if (rangeMode === 'all') return true;
+      if (rangeMode === 'current') return p === curPage;
+      if (rangeMode === 'range') return p >= rFrom && p <= rTo;
+      return true;
+    }
+
+    var __nnExportRangeWired = false;
+    function nnWireExportModalOnce() {
+      if (__nnExportRangeWired) return;
+      __nnExportRangeWired = true;
+      var sec = document.getElementById('nn-export-range-radios');
+      if (!sec) return;
+      sec.addEventListener('change', function (e) {
+        if (e.target && e.target.name === 'nn-export-range') nnSyncExportRangeInputsDisabled();
+      });
+    }
+
+    function nnSyncExportRangeInputsDisabled() {
+      var r = document.querySelector('input[name="nn-export-range"]:checked');
+      var dis = !(r && r.value === 'range');
+      var f = document.getElementById('nn-export-from');
+      var t = document.getElementById('nn-export-to');
+      if (f) f.disabled = dis;
+      if (t) t.disabled = dis;
+    }
+
+    window.nnOpenExportModal = function nnOpenExportModal() {
+      nnWireExportModalOnce();
+      if (fileType === 'pdf' && !originalPdfBytes) return alert('PDFがありません。');
+      if (fileType === 'image' && !currentImageObj) return alert('画像がありません。');
+      var tp = Math.max(1, totalPages || 1);
+      var rangeSec = document.getElementById('nn-export-range-section');
+      var imgNote = document.getElementById('nn-export-image-note');
       if (fileType === 'pdf') {
-        if (!originalPdfBytes) return alert("PDFがありません。");
-        showLoader("PDFを合成・生成中...");
+        if (rangeSec) rangeSec.style.display = 'block';
+        if (imgNote) imgNote.style.display = 'none';
+        var hint = document.getElementById('nn-export-page-hint');
+        var cur = Math.min(Math.max(1, currentPageNum || 1), tp);
+        if (hint) hint.textContent = '合計 ' + tp + ' ページを基準とします。（現在 ' + cur + ' ページ目を表示）';
+        var fi = document.getElementById('nn-export-from');
+        var ti = document.getElementById('nn-export-to');
+        if (fi) {
+          fi.value = 1;
+          fi.setAttribute('max', String(tp));
+        }
+        if (ti) {
+          ti.value = tp;
+          ti.setAttribute('max', String(tp));
+        }
+        var ra = document.querySelector('input[name="nn-export-range"][value="all"]');
+        if (ra) ra.checked = true;
+      } else {
+        if (rangeSec) rangeSec.style.display = 'none';
+        if (imgNote) imgNote.style.display = 'block';
+      }
+      nnSyncExportRangeInputsDisabled();
+      var m = document.getElementById('nn-export-modal');
+      if (m) m.style.display = 'flex';
+    };
+
+    window.nnCloseExportModal = function nnCloseExportModal() {
+      var m = document.getElementById('nn-export-modal');
+      if (m) m.style.display = 'none';
+    };
+
+    window.nnConfirmExport = async function nnConfirmExport() {
+      var rangeEl = document.querySelector('input[name="nn-export-range"]:checked');
+      var mode = rangeEl ? rangeEl.value : 'all';
+      var tp = Math.max(1, totalPages || 1);
+      var fromEl = document.getElementById('nn-export-from');
+      var toEl = document.getElementById('nn-export-to');
+      var fromNum = fromEl ? parseInt(fromEl.value, 10) : NaN;
+      var toNum = toEl ? parseInt(toEl.value, 10) : NaN;
+      if (fileType === 'pdf' && mode === 'range') {
+        if (isNaN(fromNum) || isNaN(toNum)) {
+          alert('範囲は数値で指定してください。');
+          return;
+        }
+        if (fromNum < 1 || toNum < 1 || fromNum > tp || toNum > tp || fromNum > toNum) {
+          alert('ページは 1 〜 ' + tp + ' の範囲で、開始ページは終了ページ以下にしてください。');
+          return;
+        }
+      }
+      nnCloseExportModal();
+      await nnExecuteExport({ mode: mode, from: fromNum, to: toNum });
+    };
+
+    async function nnExecuteExport(rangeOpts) {
+      var vis = nnGetLayerVisForExport();
+      var tpTot = Math.max(1, totalPages || 1);
+      var cur = Math.min(Math.max(1, currentPageNum || 1), tpTot);
+      var rMode = fileType === 'pdf' ? rangeOpts.mode || 'all' : 'all';
+      var rFrom = rangeOpts.from;
+      var rTo = rangeOpts.to;
+
+      if (fileType === 'pdf') {
+        if (!originalPdfBytes) return alert('PDFがありません。');
+        showLoader('PDFを合成・生成中...');
         try {
           const { PDFDocument } = PDFLib;
           const rawBytes = nnBytesForPdfLibLoad(originalPdfBytes);
@@ -7404,55 +7793,68 @@
           nnEnsureWorkspaceMeta();
           var plan = currentFileId && treeData.workspaceMeta.fileLogicalPages && treeData.workspaceMeta.fileLogicalPages[currentFileId];
           var order = plan && plan.order && plan.order.length ? plan.order : null;
+          var logTotal = order && plan.sources ? order.length : nSrcPages;
 
+          var addedPages = 0;
           if (order && plan.sources) {
             const newPdf = await PDFDocument.create();
             for (let li = 0; li < order.length; li++) {
+              if (!nnExportPageIncluded(li + 1, rMode, rFrom, rTo, logTotal, cur)) continue;
               var lid = order[li];
               var physRaw = plan.sources[lid] && plan.sources[lid].sourcePdfPage ? plan.sources[lid].sourcePdfPage : 1;
               var phys = Math.min(Math.max(1, parseInt(physRaw, 10) || 1), nSrcPages);
               var copiedPages = await newPdf.copyPages(srcPdf, [phys - 1]);
               newPdf.addPage(copiedPages[0]);
-              var pages = newPdf.getPages();
-              var pdfPage = pages[pages.length - 1];
-              var pageStrokes = (sharedStrokesByPage[lid] || []).concat(localStrokesByPage[lid] || []);
-              var pageTexts = (sharedTextByPage[lid] || []).concat(localTextByPage[lid] || []);
-              if (!pageStrokes.length && !pageTexts.length) continue;
+              addedPages++;
+              var pagesArr = newPdf.getPages();
+              var pdfPage = pagesArr[pagesArr.length - 1];
+              if (!nnExportHasAnnotationsForVis(lid, vis)) continue;
               var dim = await nnExportViewportSizeForPhysicalPage(phys);
               offCanvas.width = dim.ew * dpr;
               offCanvas.height = dim.eh * dpr;
               offCtx.setTransform(1, 0, 0, 1, 0, 0);
               offCtx.scale(dpr, dpr);
-              drawStrokesToContext(offCtx, pageStrokes, true);
-              nnDrawTextBoxesToContext(offCtx, pageTexts);
+              nnDrawExportOverlayToContext(offCtx, lid, dim.ew, dim.eh, vis, true);
               var pngImage = await newPdf.embedPng(offCanvas.toDataURL('image/png'));
               var pw = pdfPage.getWidth();
               var ph = pdfPage.getHeight();
               pdfPage.drawImage(pngImage, { x: 0, y: 0, width: pw, height: ph });
             }
+            if (addedPages === 0) {
+              hideLoader();
+              return alert('出力するページがありません。範囲を確認してください。');
+            }
             var pdfBytesNew = await newPdf.save();
             triggerDownload(new Blob([pdfBytesNew], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, '') + '_annotated.pdf');
           } else {
-            var pdfDoc = srcPdf;
-            var nPhys = pdfDoc.getPageCount();
+            var pdfDocLegacy = srcPdf;
+            var nPhys = pdfDocLegacy.getPageCount();
+            const newPdfLegacyOut = await PDFDocument.create();
+            var addedPhysCount = 0;
             for (let i = 1; i <= nPhys; i++) {
-              var pageStrokes2 = (sharedStrokesByPage[String(i)] || []).concat(localStrokesByPage[String(i)] || []);
-              var pageTexts2 = (sharedTextByPage[String(i)] || []).concat(localTextByPage[String(i)] || []);
-              if ((!pageStrokes2 || pageStrokes2.length === 0) && (!pageTexts2 || pageTexts2.length === 0)) continue;
+              if (!nnExportPageIncluded(i, rMode, rFrom, rTo, logTotal, cur)) continue;
+              var copiedL = await newPdfLegacyOut.copyPages(pdfDocLegacy, [i - 1]);
+              newPdfLegacyOut.addPage(copiedL[0]);
+              addedPhysCount++;
+              var pagesLeg = newPdfLegacyOut.getPages();
+              var pdfPage2 = pagesLeg[pagesLeg.length - 1];
+              if (!nnExportHasAnnotationsForVis(String(i), vis)) continue;
               var dim2 = await nnExportViewportSizeForPhysicalPage(i);
               offCanvas.width = dim2.ew * dpr;
               offCanvas.height = dim2.eh * dpr;
               offCtx.setTransform(1, 0, 0, 1, 0, 0);
               offCtx.scale(dpr, dpr);
-              drawStrokesToContext(offCtx, pageStrokes2, true);
-              nnDrawTextBoxesToContext(offCtx, pageTexts2);
-              var pngImage2 = await pdfDoc.embedPng(offCanvas.toDataURL('image/png'));
-              var pdfPage2 = pdfDoc.getPage(i - 1);
+              nnDrawExportOverlayToContext(offCtx, String(i), dim2.ew, dim2.eh, vis, true);
+              var pngImage2 = await newPdfLegacyOut.embedPng(offCanvas.toDataURL('image/png'));
               var pw2 = pdfPage2.getWidth();
               var ph2 = pdfPage2.getHeight();
               pdfPage2.drawImage(pngImage2, { x: 0, y: 0, width: pw2, height: ph2 });
             }
-            var pdfBytesLeg = await pdfDoc.save();
+            if (addedPhysCount === 0) {
+              hideLoader();
+              return alert('出力するページがありません。範囲を確認してください。');
+            }
+            var pdfBytesLeg = await newPdfLegacyOut.save();
             triggerDownload(new Blob([pdfBytesLeg], { type: 'application/pdf' }), fileName.replace(/\.[^/.]+$/, '') + '_annotated.pdf');
           }
           hideLoader();
@@ -7462,24 +7864,30 @@
           hideLoader();
         }
       } else {
-        showLoader("画像を合成・生成中...");
+        showLoader('画像を合成・生成中...');
         try {
-          const offCanvas = document.createElement('canvas'); const offCtx = offCanvas.getContext('2d');
-          offCanvas.width = baseWidth * dpr; offCanvas.height = baseHeight * dpr; offCtx.scale(dpr, dpr);
+          const offCanvas = document.createElement('canvas');
+          const offCtx = offCanvas.getContext('2d');
+          offCanvas.width = baseWidth * dpr;
+          offCanvas.height = baseHeight * dpr;
+          offCtx.scale(dpr, dpr);
           offCtx.drawImage(currentImageObj, 0, 0, baseWidth, baseHeight);
-          
-          const imgCombined = (sharedStrokesByPage[1] || []).concat(localStrokesByPage[1] || []);
-          const imgTexts = (sharedTextByPage[1] || []).concat(localTextByPage[1] || []);
-          if (imgCombined.length > 0) drawStrokesToContext(offCtx, imgCombined, false);
-          if (imgTexts.length > 0) nnDrawTextBoxesToContext(offCtx, imgTexts);
-
+          nnDrawExportOverlayToContext(offCtx, '1', baseWidth, baseHeight, vis, false);
           const outMime = fileName.toLowerCase().endsWith('png') ? 'image/png' : 'image/jpeg';
-          offCanvas.toBlob((blob) => {
-            triggerDownload(blob, fileName.replace(/\.[^/.]+$/, "") + "_annotated." + outMime.split('/')[1]);
+          offCanvas.toBlob(function (blob) {
+            triggerDownload(blob, fileName.replace(/\.[^/.]+$/, '') + '_annotated.' + outMime.split('/')[1]);
             hideLoader();
           }, outMime, 0.95);
-        } catch (error) { console.error(error); alert("生成失敗: " + error.message); hideLoader(); }
+        } catch (error) {
+          console.error(error);
+          alert('生成失敗: ' + (error && error.message ? error.message : String(error)));
+          hideLoader();
+        }
       }
+    }
+
+    function exportFile() {
+      nnOpenExportModal();
     }
 
     function triggerDownload(blob, downloadName) {
