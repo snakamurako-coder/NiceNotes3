@@ -1128,6 +1128,8 @@
       <select id="file-select" onchange="onFileDropdownChanged()" style="max-width:220px;"></select>
     </div>
     <div class="tool-group" id="nn-pdf-save-export" aria-label="PDF保存と出力">
+      <button type="button" id="nn-pdf-ann-undo" title="書き込みを1手戻す（最大5手）" disabled onclick="nnPdfAnnUndo()">戻す</button>
+      <button type="button" id="nn-pdf-ann-redo" title="戻した操作をやり直す" disabled onclick="nnPdfAnnRedo()">やり直し</button>
       <button type="button" style="background:#1a73e8;color:white;border:none;" onclick="saveToServer()">手動保存</button>
       <button type="button" style="background:#0f9d58;color:white;border:none;" onclick="nnOpenExportModal()">出力</button>
     </div>
@@ -1539,21 +1541,24 @@
     function nnApplyLocalMemoPayload(str) {
       localStrokesByPage = {};
       localTextByPage = {};
-      if (!str || !String(str).trim()) return;
+      if (!str || !String(str).trim()) {
+        nnPdfAnnResetUndoRedo();
+        return;
+      }
       var d;
       try {
         d = JSON.parse(str);
       } catch (e) {
+        nnPdfAnnResetUndoRedo();
         return;
       }
       if (d && d.v === 2 && d.pen && typeof d.pen === 'object') {
         localStrokesByPage = d.pen;
         localTextByPage = d.text && typeof d.text === 'object' ? d.text : {};
-        return;
-      }
-      if (d && typeof d === 'object') {
+      } else if (d && typeof d === 'object') {
         localStrokesByPage = d;
       }
+      nnPdfAnnResetUndoRedo();
     }
 
     function nnSerializeLocalMemo() {
@@ -1563,21 +1568,24 @@
     function nnApplySharedAnnotationData(dataStr) {
       sharedStrokesByPage = {};
       sharedTextByPage = {};
-      if (!dataStr || !String(dataStr).trim()) return;
+      if (!dataStr || !String(dataStr).trim()) {
+        nnPdfAnnResetUndoRedo();
+        return;
+      }
       var d;
       try {
         d = JSON.parse(dataStr);
       } catch (e) {
+        nnPdfAnnResetUndoRedo();
         return;
       }
       if (d && d.v === 2 && d.pen && typeof d.pen === 'object') {
         sharedStrokesByPage = d.pen;
         sharedTextByPage = d.text && typeof d.text === 'object' ? d.text : {};
-        return;
-      }
-      if (d && typeof d === 'object') {
+      } else if (d && typeof d === 'object') {
         sharedStrokesByPage = d;
       }
+      nnPdfAnnResetUndoRedo();
     }
 
     function nnSerializeSharedAnnotation() {
@@ -2314,6 +2322,7 @@
         nnCloneTextStyleFromDefaults()
       );
       var arr = getTargetTextBoxesArray();
+      nnPdfAnnCheckpointBeforeChange();
       arr.push(tb);
       var sk = nnLpCurrentStrokeKey();
       var layer = currentUserRole === 'presenter' && nnPresenterTextToShared ? 'shared' : 'local';
@@ -2434,6 +2443,12 @@
 
     function nnOnInspectorInput() {
       if (!nnSelectedTextRef || !nnSelectedTextRef.box) return;
+      var insG = document.getElementById('nn-text-inspector');
+      if (insG && insG.dataset.nnInspectorApplying === '1') return;
+      if (nnTbHistBranch !== 'format') {
+        nnPdfAnnCheckpointBeforeChange();
+        nnTbHistBranch = 'format';
+      }
       nnApplyInspectorToBox(nnSelectedTextRef.box);
       redraw();
       nnSyncTextBoxChrome();
@@ -2455,7 +2470,9 @@
         nnHideTextInspector();
         return;
       }
+      ins.dataset.nnInspectorApplying = '1';
       nnLoadInspectorFromBox(nnSelectedTextRef.box);
+      ins.dataset.nnInspectorApplying = '';
       ins.classList.add('nn-show');
       nnPositionTextInspector(nnSelectedTextRef.box);
     }
@@ -2566,6 +2583,7 @@
       var field = document.getElementById('nn-text-edit-field');
       if (!ov || !field) return;
       nnTextEditActive = true;
+      nnTbHistBranch = null;
       field.value = nnSelectedTextRef.box.text != null ? String(nnSelectedTextRef.box.text) : '';
       ov.classList.add('nn-show');
       nnSyncTextEditOverlayGeometry();
@@ -2582,6 +2600,7 @@
         autoSaveCurrent(true);
       }
       nnTextEditActive = false;
+      nnTbHistBranch = null;
       ov.classList.remove('nn-show');
       redraw();
     }
@@ -2595,6 +2614,7 @@
       nnReadTextStyleFromPanel();
       var tb = Object.assign({ id: nnNewTextBoxId(), x: x, y: y, w: w, h: h, text: '' }, nnCloneTextStyleFromDefaults());
       var arr = getTargetTextBoxesArray();
+      nnPdfAnnCheckpointBeforeChange();
       arr.push(tb);
       var sk = nnLpCurrentStrokeKey();
       var layer = currentUserRole === 'presenter' && nnPresenterTextToShared ? 'shared' : 'local';
@@ -2613,6 +2633,7 @@
       if (!arr) return;
       var idx = arr.indexOf(nnSelectedTextRef.box);
       if (idx < 0) return;
+      nnPdfAnnCheckpointBeforeChange();
       arr.splice(idx, 1);
       nnClearTextSelection();
       nnBumpStrokeTime();
@@ -2659,6 +2680,7 @@
         var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
         var box = nnSelectedTextRef.box;
         if (mode === 'resize') {
+          nnPdfAnnCheckpointBeforeChange();
           nnTextResize = {
             box: box,
             px: pt.x,
@@ -2767,6 +2789,11 @@
       var field = document.getElementById('nn-text-edit-field');
       if (field) {
         field.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+        field.addEventListener('beforeinput', function (ev) {
+          if (!nnTextEditActive || !nnSelectedTextRef) return;
+          var br = nnClassifyTbBeforeInputBranch(ev.inputType || '');
+          nnTextEnsureBranchCheckpoint(br);
+        });
         function nnSyncEditingTextFromField() {
           if (!nnTextEditActive || !nnSelectedTextRef || !nnSelectedTextRef.box) return;
           nnSelectedTextRef.box.text = String(field.value);
@@ -2800,6 +2827,7 @@
         if (e.pointerType === 'touch') isPanning = false;
         if (nnHitTextResizeSE(pt, hit.box)) {
           nnSelectTextBox(hit);
+          nnPdfAnnCheckpointBeforeChange();
           nnTextResize = {
             box: hit.box,
             px: pt.x,
@@ -2815,6 +2843,7 @@
         }
         if (nnHitTextBorderOutline(pt, hit.box)) {
           nnSelectTextBox(hit);
+          nnPdfAnnCheckpointBeforeChange();
           nnTextMove = {
             hit: hit,
             px: pt.x,
@@ -2865,6 +2894,7 @@
           var th = NN_TEXT_BODY_DRAG_ACTIVATE_PX;
           var d0 = Math.hypot(pt.x - nnTextMove.px, pt.y - nnTextMove.py);
           if (!nnTextMove.didDrag && d0 < th) return true;
+          if (!nnTextMove.didDrag) nnPdfAnnCheckpointBeforeChange();
           nnTextMove.didDrag = true;
         }
         nnApplyTextMoveFromPt(pt);
@@ -3432,12 +3462,14 @@
       var pal = nnGetToolsPalette();
       if (pal && !pal.classList.contains('nn-palette-minimized')) nnClampPaletteInShell(pal);
       nnPositionPaletteFab();
+      nnPdfAnnRefreshUndoUi();
     }
 
     function nnHidePdfViewer() {
       var shell = document.getElementById('viewer-shell');
       if (shell) shell.classList.remove('nn-show');
       else if (viewerContainer) viewerContainer.style.display = 'none';
+      nnPdfAnnRefreshUndoUi();
     }
 
     function nnSyncSharedFolderUi() {
@@ -4420,6 +4452,143 @@
       }
     }
 
+    var NN_PDF_ANN_UNDO_DEPTH = 5;
+    var nnPdfAnnUndoStack = [];
+    var nnPdfAnnRedoStack = [];
+    var nnTbHistBranch = null;
+
+    function nnClonePdfAnnState() {
+      return {
+        ls: nnSafeJsonClone(localStrokesByPage),
+        ss: nnSafeJsonClone(sharedStrokesByPage),
+        lt: nnSafeJsonClone(localTextByPage),
+        st: nnSafeJsonClone(sharedTextByPage),
+      };
+    }
+
+    function nnPdfAnnResetUndoRedo() {
+      nnPdfAnnUndoStack = [];
+      nnPdfAnnRedoStack = [];
+      nnTbHistBranch = null;
+      nnPdfAnnRefreshUndoUi();
+    }
+
+    function nnPdfAnnRefreshUndoUi() {
+      var shell = document.getElementById('viewer-shell');
+      var shellVis = !!(shell && shell.classList.contains('nn-show'));
+      var viewerOk = !!(currentFileId && (fileType === 'pdf' || fileType === 'image'));
+      var u = document.getElementById('nn-pdf-ann-undo');
+      var r = document.getElementById('nn-pdf-ann-redo');
+      if (u) u.disabled = !viewerOk || !shellVis || nnPdfAnnUndoStack.length === 0;
+      if (r) r.disabled = !viewerOk || !shellVis || nnPdfAnnRedoStack.length === 0;
+    }
+
+    /** ユーザー操作による変更の直前に呼ぶ。リドゥスタックは消去。過去側は最大5手。 */
+    function nnPdfAnnCheckpointBeforeChange() {
+      if (!currentFileId) return;
+      nnPdfAnnRedoStack = [];
+      var snap = nnClonePdfAnnState();
+      nnPdfAnnUndoStack.push(snap);
+      if (nnPdfAnnUndoStack.length > NN_PDF_ANN_UNDO_DEPTH) nnPdfAnnUndoStack.shift();
+      nnPdfAnnRefreshUndoUi();
+    }
+
+    function nnPdfAnnFindBoxAfterRestore(idGuess, layerGuess) {
+      if (idGuess == null || idGuess === '') return null;
+      var key = String(idGuess);
+      function scan(map, layer) {
+        if (!map) return null;
+        var ks = Object.keys(map);
+        for (var i = 0; i < ks.length; i++) {
+          var sk = ks[i];
+          var arr = map[sk];
+          if (!arr || !arr.length) continue;
+          for (var j = 0; j < arr.length; j++) {
+            var tb = arr[j];
+            if (tb && tb.id != null && String(tb.id) === key)
+              return { box: tb, layer: layer, sk: sk };
+          }
+        }
+        return null;
+      }
+      var pref = scan(layerGuess === 'shared' ? sharedTextByPage : localTextByPage, layerGuess);
+      if (pref) return pref;
+      return scan(layerGuess === 'shared' ? localTextByPage : sharedTextByPage, layerGuess === 'shared' ? 'local' : 'shared');
+    }
+
+    function nnPdfAnnRepairSelectionAfterRestore() {
+      if (!nnSelectedTextRef || nnSelectedTextRef.id == null) return;
+      var fr = nnPdfAnnFindBoxAfterRestore(nnSelectedTextRef.id, nnSelectedTextRef.layer);
+      if (!fr) {
+        nnCloseTextEditOverlay(false);
+        nnHideTextInspector();
+        nnSelectedTextRef = null;
+        nnTextMove = null;
+        nnTextResize = null;
+        nnSyncTextBoxChrome();
+        return;
+      }
+      nnSelectedTextRef.box = fr.box;
+      nnSelectedTextRef.layer = fr.layer;
+      nnSelectedTextRef.id = fr.box.id;
+    }
+
+    function nnRestorePdfAnnState(s) {
+      if (!s) return;
+      localStrokesByPage = nnSafeJsonClone(s.ls);
+      sharedStrokesByPage = nnSafeJsonClone(s.ss);
+      localTextByPage = nnSafeJsonClone(s.lt);
+      sharedTextByPage = nnSafeJsonClone(s.st);
+      nnPdfAnnRepairSelectionAfterRestore();
+      if (nnTextEditActive && nnSelectedTextRef && nnSelectedTextRef.box) {
+        var f = document.getElementById('nn-text-edit-field');
+        if (f) f.value = nnSelectedTextRef.box.text != null ? String(nnSelectedTextRef.box.text) : '';
+      }
+      redraw();
+      nnSyncTextBoxChrome();
+      if (nnSelectedTextRef && nnSelectedTextRef.box) {
+        nnPositionTextInspector(nnSelectedTextRef.box);
+        nnSyncTextEditOverlayGeometry();
+      }
+      try {
+        autoSaveCurrent(true);
+      } catch (eSv) {}
+      nnBumpStrokeTime();
+      nnPdfAnnRefreshUndoUi();
+    }
+
+    window.nnPdfAnnUndo = function nnPdfAnnUndo() {
+      if (!currentFileId || nnPdfAnnUndoStack.length === 0) return;
+      nnPdfAnnRedoStack.push(nnClonePdfAnnState());
+      var prev = nnPdfAnnUndoStack.pop();
+      nnTbHistBranch = null;
+      nnRestorePdfAnnState(prev);
+    };
+
+    window.nnPdfAnnRedo = function nnPdfAnnRedo() {
+      if (!currentFileId || nnPdfAnnRedoStack.length === 0) return;
+      nnPdfAnnUndoStack.push(nnClonePdfAnnState());
+      if (nnPdfAnnUndoStack.length > NN_PDF_ANN_UNDO_DEPTH) nnPdfAnnUndoStack.shift();
+      var nxt = nnPdfAnnRedoStack.pop();
+      nnTbHistBranch = null;
+      nnRestorePdfAnnState(nxt);
+    };
+
+    function nnClassifyTbBeforeInputBranch(inputType) {
+      var it = String(inputType || '');
+      if (it.indexOf('delete') === 0 || it === 'deleteByComposition') return 'delete';
+      return 'insert';
+    }
+
+    /** テキスト框: 入力系のグループ変更時だけ undo チェックポイント（連続入力・連続削除は1手）。 */
+    function nnTextEnsureBranchCheckpoint(newBranch) {
+      if (!currentFileId || !nnTextEditActive) return;
+      if (nnTbHistBranch !== newBranch) {
+        nnPdfAnnCheckpointBeforeChange();
+        nnTbHistBranch = newBranch;
+      }
+    }
+
     function nnPdfSlotBaseName(name) {
       var n = (name || '').trim();
       if (!n) return '';
@@ -5148,6 +5317,7 @@
       }
       legacyFolderNavActive = false;
       nnSyncLegacyToolsVisibility();
+      nnPdfAnnResetUndoRedo();
     }
 
     async function restorePdfSlotToGlobals(idx, opts) {
@@ -5276,6 +5446,7 @@
       }
       nnUpdatePdfSlotTabButtons();
       nnSyncLegacyToolsVisibility();
+      nnPdfAnnResetUndoRedo();
     }
 
     window.nnOnPdfSlotTabClick = function nnOnPdfSlotTabClick(slotIdx) {
@@ -5379,6 +5550,7 @@
       nnInitTextUxV2();
       nnInitFloatingPaletteDock();
       window.addEventListener('keydown', nnOnKeyDownTextSelect);
+      nnPdfAnnRefreshUndoUi();
       applyRoleMeet();
       showLoader('システムを初期設定中...');
       google.script.run
@@ -7520,6 +7692,7 @@
       }
       isDrawing = true;
       if (activeTool === 'pen') {
+        nnPdfAnnCheckpointBeforeChange();
         currentStroke = {
           color: nnGetActivePenColor(),
           opacity: parseFloat(document.getElementById('pen-opacity').value),
@@ -7528,6 +7701,7 @@
         };
         getTargetStrokesArray().push(currentStroke);
       } else if (activeTool === 'eraser') {
+        nnPdfAnnCheckpointBeforeChange();
         eraseStroke(pt);
       }
     });
