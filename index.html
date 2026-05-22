@@ -74,6 +74,10 @@
     .folder-label { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; padding: 6px 10px; border-radius: 6px; box-sizing: border-box; border: 1px solid transparent; }
     .btn-folder-settings { background: #f1f3f4; border: 1px solid #dadce0; cursor: pointer; font-size: 12px; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; opacity: 0; transition: opacity 0.2s; }
     .folder-item:hover .btn-folder-settings { opacity: 1; }
+    .btn-file-settings { background: #f1f3f4; border: 1px solid #dadce0; cursor: pointer; font-size: 12px; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; opacity: 0; transition: opacity 0.2s; }
+    .file-item:hover .btn-file-settings { opacity: 1; }
+    .btn-open-folder { flex-shrink: 0; background: transparent; border: 1px solid #dadce0; color: #1a73e8; cursor: pointer; font-size: 11px; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+    .btn-open-folder:hover { background: #e8f0fe; border-color: #1a73e8; }
     .file-list { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; padding: 10px; box-sizing: border-box; }
     .file-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px; border-bottom: 1px solid #f1f3f4; cursor: pointer; }
     .file-item:hover { background: #f8f9fa; }
@@ -85,7 +89,7 @@
     .file-name-text { font-weight: bold; color: #1a73e8; font-size: 14px; display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .btn-file-favorite { flex-shrink: 0; background: transparent; border: none; cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
     .btn-file-favorite:hover { background: #e8eaed; }
-    #nn-folder-settings-modal, #nn-file-favorite-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 20000; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+    #nn-folder-settings-modal, #nn-file-favorite-modal, #nn-file-settings-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 20000; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
     .nn-pastel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0 12px; }
     .nn-pastel-swatch { width: 100%; aspect-ratio: 1; max-width: 36px; border-radius: 50%; border: 2px solid #dadce0; cursor: pointer; box-sizing: border-box; }
     .nn-pastel-swatch.nn-sel { outline: 2px solid #1a73e8; border-color: #1a73e8; }
@@ -919,6 +923,25 @@
     </div>
   </div>
 
+  <div id="nn-file-settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseFileSettingsModal()">
+    <div role="dialog" aria-modal="true" aria-labelledby="nn-file-settings-title" style="background:#fff;padding:20px;border-radius:12px;max-width:420px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+      <div id="nn-file-settings-title" style="font-weight:600;margin-bottom:8px;font-size:15px;color:#202124;">PDF の設定</div>
+      <p id="nn-file-settings-name" style="font-size:13px;color:#5f6368;margin:0 0 12px 0;"></p>
+      <p id="nn-file-settings-backup-meta" style="font-size:12px;color:#174ea6;margin:0 0 12px 0;line-height:1.45;"></p>
+      <div style="margin-bottom:14px;">
+        <button type="button" class="btn-meeting-action" style="width:100%;box-sizing:border-box;" onclick="nnRestoreFromNeighborBackupModal()">バックアップから注釈を復元</button>
+        <p style="font-size:11px;color:#5f6368;margin:8px 0 0;line-height:1.45;">PDF と同じフォルダの <code style="font-size:10px;">*.nn-notes.json</code>（手動保存で作成）の内容で上書きします。</p>
+      </div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#202124;">期限・メモ</div>
+      <input type="text" id="nn-file-settings-due" placeholder="例: 2026-05-20" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #dadce0;border-radius:6px;font-size:13px;margin-bottom:14px;" />
+      <p style="font-size:11px;color:#5f6368;margin:-8px 0 14px;line-height:1.45;">会議日・配布期限など（任意）。並び替え「期限・メモ」でも利用されます。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+        <button type="button" class="file-btn-meet" onclick="nnCloseFileSettingsModal()">閉じる</button>
+        <button type="button" class="btn-meeting-action" onclick="nnSaveFileSettingsDue()">期限・メモを保存</button>
+      </div>
+    </div>
+  </div>
+
   <div id="nn-export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:20000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;" onclick="if (event.target === this) nnCloseExportModal()">
     <div role="dialog" aria-modal="true" aria-labelledby="nn-export-modal-title" style="background:#fff;padding:20px;border-radius:12px;max-width:440px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
       <div id="nn-export-modal-title" style="font-weight:600;margin-bottom:8px;font-size:15px;color:#202124;">PDF・画像の出力</div>
@@ -1590,6 +1613,92 @@
 
     function nnSerializeSharedAnnotation() {
       return JSON.stringify({ v: 2, pen: sharedStrokesByPage, text: sharedTextByPage });
+    }
+
+    var NN_RESTORE_BACKUP_SS = 'nn_restore_backup_pending';
+
+    function nnSerializeFullAnnotationBackup() {
+      return JSON.stringify({
+        v: 3,
+        kind: 'NiceNotes3_pdf_backup',
+        pdfFileId: currentFileId || '',
+        savedAt: new Date().toISOString(),
+        shared: {
+          pen: nnSafeJsonClone(sharedStrokesByPage),
+          text: nnSafeJsonClone(sharedTextByPage),
+        },
+        local: {
+          pen: nnSafeJsonClone(localStrokesByPage),
+          text: nnSafeJsonClone(localTextByPage),
+        },
+      });
+    }
+
+    function nnApplyFullBackupPayload(dataStr) {
+      if (!dataStr || !String(dataStr).trim()) return false;
+      var d;
+      try {
+        d = JSON.parse(dataStr);
+      } catch (e) {
+        return false;
+      }
+      if (!d || typeof d !== 'object') return false;
+      if (d.pdfFileId && currentFileId && String(d.pdfFileId) !== String(currentFileId)) return false;
+      if (d.v === 3 && d.shared && d.local) {
+        sharedStrokesByPage = nnSafeJsonClone(d.shared.pen || {});
+        sharedTextByPage = nnSafeJsonClone(d.shared.text || {});
+        localStrokesByPage = nnSafeJsonClone(d.local.pen || {});
+        localTextByPage = nnSafeJsonClone(d.local.text || {});
+      } else {
+        return false;
+      }
+      if (fileName) {
+        var baseName = fileName.replace(/\.[^/.]+$/, '');
+        localStorage.setItem('local_memo_' + baseName, nnSerializeLocalMemo());
+      }
+      nnPdfAnnResetUndoRedo();
+      return true;
+    }
+
+    function nnNeighborBackupSkipped_(folderId) {
+      var fid = folderId != null && String(folderId).trim() !== '' ? folderId : currentFolderId;
+      if (!fid) return false;
+      return nnGetFolderPdfModeForFolder(fid) === 'seamless';
+    }
+
+    function nnLoadNeighborBackupPromise(fileId, name, folderId) {
+      if (!fileId || typeof google === 'undefined' || !google.script || !google.script.run) {
+        return Promise.resolve(null);
+      }
+      if (nnNeighborBackupSkipped_(folderId)) return Promise.resolve(null);
+      return new Promise(function (resolve) {
+        google.script.run
+          .withFailureHandler(function () {
+            resolve(null);
+          })
+          .withSuccessHandler(function (res) {
+            resolve(res);
+          })
+          .loadPdfNeighborBackup(fileId, name);
+      });
+    }
+
+    async function nnTryApplyNeighborBackupOnOpen(fileId, openFileName, loadGen, folderId) {
+      var pending = null;
+      try {
+        var raw = sessionStorage.getItem(NN_RESTORE_BACKUP_SS);
+        if (raw) pending = JSON.parse(raw);
+      } catch (e) {}
+      if (pending && pending.fileId === fileId && pending.applyOnOpen && pending.payload) {
+        sessionStorage.removeItem(NN_RESTORE_BACKUP_SS);
+        if (loadGen != null && loadGen !== __pdfLoadGeneration) return false;
+        return nnApplyFullBackupPayload(pending.payload);
+      }
+      if (nnNeighborBackupSkipped_(folderId)) return false;
+      var res = await nnLoadNeighborBackupPromise(fileId, openFileName, folderId);
+      if (loadGen != null && loadGen !== __pdfLoadGeneration) return false;
+      if (res && res.success && res.data) return nnApplyFullBackupPayload(res.data);
+      return false;
     }
 
     function nnTextMapNonEmpty(map) {
@@ -4836,30 +4945,48 @@
                 var uarr = new Uint8Array(bstr.length);
                 for (var ir = 0; ir < bstr.length; ir++) uarr[ir] = bstr.charCodeAt(ir);
                 pdfSlots[slotIdx].originalPdfBytes = uarr.buffer;
-                var annRes = await new Promise(function (resAnn) {
-                  google.script.run
-                    .withFailureHandler(function () {
-                      resAnn(null);
-                    })
-                    .withSuccessHandler(resAnn)
-                    .loadAnnotation(fileId, baseName);
-                });
-                if (pdfSlots[slotIdx].fileId !== fileId) return;
-                if (annRes && annRes.success && annRes.data) {
-                  nnApplyAnnotationPayloadToSlot(pdfSlots[slotIdx], annRes.data);
-                }
-                var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
-                if (savedLocalMemo) {
+                var neighborRes = await nnLoadNeighborBackupPromise(
+                  fileId,
+                  s.fileName || 'document.pdf',
+                  s.folderId
+                );
+                if (neighborRes && neighborRes.success && neighborRes.data) {
                   try {
-                    var ld = JSON.parse(savedLocalMemo);
-                    if (ld && ld.v === 2 && ld.pen) {
-                      pdfSlots[slotIdx].localStrokesByPage = ld.pen;
-                      pdfSlots[slotIdx].localTextByPage = ld.text && typeof ld.text === 'object' ? ld.text : {};
-                    } else if (ld && typeof ld === 'object') {
-                      pdfSlots[slotIdx].localStrokesByPage = ld;
+                    var nb = JSON.parse(neighborRes.data);
+                    if (nb && nb.v === 3 && nb.shared && nb.local) {
+                      pdfSlots[slotIdx].sharedStrokesByPage = nb.shared.pen || {};
+                      pdfSlots[slotIdx].sharedTextByPage = nb.shared.text || {};
+                      pdfSlots[slotIdx].localStrokesByPage = nb.local.pen || {};
+                      pdfSlots[slotIdx].localTextByPage = nb.local.text || {};
                     }
-                  } catch (e2) {}
+                  } catch (eNb) {}
+                } else {
+                  var annRes = await new Promise(function (resAnn) {
+                    google.script.run
+                      .withFailureHandler(function () {
+                        resAnn(null);
+                      })
+                      .withSuccessHandler(resAnn)
+                      .loadAnnotation(fileId, baseName);
+                  });
+                  if (pdfSlots[slotIdx].fileId !== fileId) return;
+                  if (annRes && annRes.success && annRes.data) {
+                    nnApplyAnnotationPayloadToSlot(pdfSlots[slotIdx], annRes.data);
+                  }
+                  var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
+                  if (savedLocalMemo) {
+                    try {
+                      var ld = JSON.parse(savedLocalMemo);
+                      if (ld && ld.v === 2 && ld.pen) {
+                        pdfSlots[slotIdx].localStrokesByPage = ld.pen;
+                        pdfSlots[slotIdx].localTextByPage = ld.text && typeof ld.text === 'object' ? ld.text : {};
+                      } else if (ld && typeof ld === 'object') {
+                        pdfSlots[slotIdx].localStrokesByPage = ld;
+                      }
+                    } catch (e2) {}
+                  }
                 }
+                if (pdfSlots[slotIdx].fileId !== fileId) return;
               } catch (e) {
                 console.warn('nnPreloadSlotInBackground', e);
               } finally {
@@ -5509,11 +5636,19 @@
       });
       if (slotStrokeCount === 0) {
         try {
-          var annRes = await nnLoadAnnotationsForCurrentFile();
-          if (restoreGen !== __pdfLoadGeneration) return;
-          if (annRes && annRes.success && annRes.data) nnApplySharedAnnotationData(annRes.data);
-          var savedLocalMemo = localStorage.getItem('local_memo_' + fileName.replace(/\.[^/.]+$/, ''));
-          if (savedLocalMemo) nnApplyLocalMemoPayload(savedLocalMemo);
+          var usedNeighbor = await nnTryApplyNeighborBackupOnOpen(
+            s.fileId,
+            fileName,
+            restoreGen,
+            s.folderId || currentFolderId
+          );
+          if (!usedNeighbor) {
+            var annRes = await nnLoadAnnotationsForCurrentFile();
+            if (restoreGen !== __pdfLoadGeneration) return;
+            if (annRes && annRes.success && annRes.data) nnApplySharedAnnotationData(annRes.data);
+            var savedLocalMemo = localStorage.getItem('local_memo_' + fileName.replace(/\.[^/.]+$/, ''));
+            if (savedLocalMemo) nnApplyLocalMemoPayload(savedLocalMemo);
+          }
           savePdfSlotFromGlobals();
           await renderPage(currentPageNum);
         } catch (annErr) {
@@ -6581,6 +6716,138 @@
       }
     };
 
+    var __nnFileSettingsCtx = null;
+
+    window.nnOpenFileSettingsModal = function nnOpenFileSettingsModal(fileObj) {
+      if (!fileObj || !fileObj.id) return;
+      __nnFileSettingsCtx = {
+        id: String(fileObj.id).trim(),
+        name: fileObj.name || 'document.pdf',
+        folderId: fileObj.folderId != null ? fileObj.folderId : null,
+      };
+      var nameEl = document.getElementById('nn-file-settings-name');
+      if (nameEl) nameEl.textContent = '📄 ' + __nnFileSettingsCtx.name;
+      var dueEl = document.getElementById('nn-file-settings-due');
+      nnEnsureWorkspaceMeta();
+      if (dueEl) {
+        dueEl.value = (treeData.workspaceMeta.layout.fileDue[__nnFileSettingsCtx.id] || '').trim();
+      }
+      var metaEl = document.getElementById('nn-file-settings-backup-meta');
+      if (metaEl) metaEl.textContent = 'バックアップ情報を確認中...';
+      var m = document.getElementById('nn-file-settings-modal');
+      if (m) m.style.display = 'flex';
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withFailureHandler(function () {
+            if (metaEl) metaEl.textContent = 'バックアップ情報を取得できませんでした。';
+          })
+          .withSuccessHandler(function (res) {
+            if (!metaEl) return;
+            if (res && res.success && res.hasBackup && res.savedAt) {
+              var when = new Date(res.savedAt);
+              metaEl.textContent =
+                '最終バックアップ: ' +
+                (isNaN(when.getTime()) ? res.savedAt : when.toLocaleString('ja-JP')) +
+                (res.fileName ? '（' + res.fileName + '）' : '');
+            } else if (res && res.success) {
+              metaEl.textContent = '隣接バックアップ JSON はまだありません。「手動保存」で作成できます。';
+            } else {
+              metaEl.textContent = (res && res.error) ? res.error : 'バックアップ情報を取得できませんでした。';
+            }
+          })
+          .getPdfNeighborBackupMeta(__nnFileSettingsCtx.id, __nnFileSettingsCtx.name);
+      } else if (metaEl) {
+        metaEl.textContent = '';
+      }
+    };
+
+    window.nnCloseFileSettingsModal = function nnCloseFileSettingsModal() {
+      var m = document.getElementById('nn-file-settings-modal');
+      if (m) m.style.display = 'none';
+      __nnFileSettingsCtx = null;
+    };
+
+    window.nnSaveFileSettingsDue = function nnSaveFileSettingsDue() {
+      if (!__nnFileSettingsCtx) return;
+      var dueEl = document.getElementById('nn-file-settings-due');
+      nnEnsureWorkspaceMeta();
+      var v = dueEl ? dueEl.value.trim() : '';
+      if (v) treeData.workspaceMeta.layout.fileDue[__nnFileSettingsCtx.id] = v;
+      else delete treeData.workspaceMeta.layout.fileDue[__nnFileSettingsCtx.id];
+      nnSaveWorkspaceMetaToServer();
+      renderFilesMeet();
+      nnCloseFileSettingsModal();
+    };
+
+    window.nnRestoreFromNeighborBackupModal = function nnRestoreFromNeighborBackupModal() {
+      if (!__nnFileSettingsCtx) return;
+      var ctx = __nnFileSettingsCtx;
+      if (
+        !confirm(
+          'バックアップ JSON から注釈を復元します。現在の注釈は上書きされます。よろしいですか？'
+        )
+      ) {
+        return;
+      }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        alert('Google Apps Script から読み込めません。');
+        return;
+      }
+      google.script.run
+        .withFailureHandler(function (err) {
+          alert('読み込みエラー: ' + (err && err.message ? err.message : String(err)));
+        })
+        .withSuccessHandler(function (res) {
+          if (!res || !res.success) {
+            alert((res && res.error) ? res.error : '読み込みに失敗しました');
+            return;
+          }
+          if (!res.data) {
+            alert(
+              'この PDF の隣接バックアップ JSON が見つかりません。PDF ビューアで「手動保存」してください。'
+            );
+            return;
+          }
+          var viewerOpen = homeScreen && homeScreen.style.display === 'none';
+          if (viewerOpen && currentFileId === ctx.id) {
+            if (nnApplyFullBackupPayload(res.data)) {
+              savePdfSlotFromGlobals();
+              renderPage(currentPageNum);
+              if (statusDiv) statusDiv.textContent = 'バックアップから復元しました';
+              nnCloseFileSettingsModal();
+            } else {
+              alert('バックアップ JSON の形式が不正です。');
+            }
+            return;
+          }
+          try {
+            sessionStorage.setItem(
+              NN_RESTORE_BACKUP_SS,
+              JSON.stringify({ fileId: ctx.id, applyOnOpen: true, payload: res.data })
+            );
+          } catch (e) {
+            alert('復元予約の保存に失敗しました: ' + (e && e.message ? e.message : String(e)));
+            return;
+          }
+          alert('次にこの PDF を開いたときにバックアップを適用します。');
+          nnCloseFileSettingsModal();
+        })
+        .loadPdfNeighborBackup(ctx.id, ctx.name);
+    };
+
+    window.nnOpenPdfFolderInDrive = function nnOpenPdfFolderInDrive(folderId) {
+      var fid = String(folderId || '').trim();
+      if (!fid) {
+        alert('フォルダ ID がありません。');
+        return;
+      }
+      window.open(
+        'https://drive.google.com/drive/folders/' + encodeURIComponent(fid),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    };
+
     function nnPopulateFileFavColorGrid() {
       var grid = document.getElementById('nn-file-fav-color-grid');
       if (!grid || !__nnFileFavCtx) return;
@@ -6856,6 +7123,26 @@
         nameText.textContent = fileIcon + (f.name || '');
         nameRow.appendChild(nameText);
         if (nnIsOpenableFromHome(f.name)) {
+          var openFolderBtn = document.createElement('button');
+          openFolderBtn.type = 'button';
+          openFolderBtn.className = 'btn-open-folder';
+          openFolderBtn.textContent = '格納フォルダを開く';
+          openFolderBtn.title = 'Google Drive 上のこの PDF のフォルダを開きます';
+          openFolderBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            nnOpenPdfFolderInDrive(f.folderId || currentFolderId);
+          });
+          nameRow.appendChild(openFolderBtn);
+          var setFileBtn = document.createElement('button');
+          setFileBtn.type = 'button';
+          setFileBtn.className = 'btn-file-settings';
+          setFileBtn.title = 'PDF の設定（バックアップ復元・期限・メモ）';
+          setFileBtn.textContent = '設定';
+          setFileBtn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            nnOpenFileSettingsModal({ id: f.id, name: f.name, folderId: f.folderId || currentFolderId });
+          });
+          nameRow.appendChild(setFileBtn);
           var favBtn = document.createElement('button');
           favBtn.type = 'button';
           favBtn.className = 'btn-file-favorite';
@@ -7303,7 +7590,6 @@
               }
 
               var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
-              nnApplyLocalMemoPayload(savedLocalMemo);
 
               var maxPageGuess = fileType === 'pdf' ? pdfDocJs.numPages : totalPages;
               if (goToLastPage) {
@@ -7321,10 +7607,19 @@
 
               async function nnAfterAnnotation_(res) {
                 if (loadGen !== __pdfLoadGeneration) return;
-                if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
-                else {
-                  sharedStrokesByPage = {};
-                  sharedTextByPage = {};
+                var usedNeighbor = await nnTryApplyNeighborBackupOnOpen(
+                  currentFileId,
+                  fileName,
+                  loadGen,
+                  currentFolderId
+                );
+                if (!usedNeighbor) {
+                  nnApplyLocalMemoPayload(savedLocalMemo);
+                  if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
+                  else {
+                    sharedStrokesByPage = {};
+                    sharedTextByPage = {};
+                  }
                 }
                 if (fileType === 'pdf' && pdfDocJs) {
                   nnLpEnsurePlanForCurrentFile(pdfDocJs.numPages);
@@ -7480,14 +7775,22 @@
           if (loadGenB64 !== __pdfLoadGeneration) return;
           var physPages2 = pdfDocJs.numPages;
           var savedLocalMemo = localStorage.getItem('local_memo_' + baseName);
-          nnApplyLocalMemoPayload(savedLocalMemo);
           google.script.run
             .withSuccessHandler(async function (res) {
               if (loadGenB64 !== __pdfLoadGeneration) return;
-              if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
-              else {
-                sharedStrokesByPage = {};
-                sharedTextByPage = {};
+              var usedNeighbor = await nnTryApplyNeighborBackupOnOpen(
+                currentFileId,
+                fileName,
+                loadGenB64,
+                currentFolderId
+              );
+              if (!usedNeighbor) {
+                nnApplyLocalMemoPayload(savedLocalMemo);
+                if (res && res.success && res.data) nnApplySharedAnnotationData(res.data);
+                else {
+                  sharedStrokesByPage = {};
+                  sharedTextByPage = {};
+                }
               }
               nnLpEnsurePlanForCurrentFile(physPages2);
               currentPageNum = Math.min(Math.max(1, resumeB64.page), totalPages);
@@ -7948,6 +8251,26 @@
     function saveToServer() {
       if (!fileName) return alert('ファイルが開かれていません。');
       autoSaveCurrent(false);
+      if (!currentFileId) return;
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return alert('Google Apps Script から保存できません。');
+      }
+      if (statusDiv) statusDiv.textContent = 'バックアップ保存中...';
+      var payload = nnSerializeFullAnnotationBackup();
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (res && res.success) {
+            if (statusDiv) statusDiv.textContent = '保存完了（Drive バックアップ JSON 含む）';
+          } else {
+            alert((res && res.error) ? res.error : '隣接バックアップ JSON の保存に失敗しました');
+            if (statusDiv) statusDiv.textContent = 'バックアップ保存失敗';
+          }
+        })
+        .withFailureHandler(function (err) {
+          alert('バックアップ保存エラー: ' + (err && err.message ? err.message : String(err)));
+          if (statusDiv) statusDiv.textContent = 'バックアップ保存失敗';
+        })
+        .savePdfNeighborBackup(currentFileId, fileName, payload);
     }
 
     function recognizeCurrentPageText() {

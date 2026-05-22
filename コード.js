@@ -211,6 +211,124 @@ function loadAnnotation(fileId, legacyBaseName) {
   }
 }
 
+/** PDF と同じフォルダに置く隣接バックアップ JSON のファイル名（例: 資料.pdf → 資料.nn-notes.json） */
+function nn_neighborBackupFileName_(pdfName) {
+  const name = String(pdfName || '').trim() || 'document.pdf';
+  const base = name.replace(/\.pdf$/i, '');
+  return base + '.nn-notes.json';
+}
+
+/**
+ * PDF の親フォルダ（複数親は先頭）。
+ * @param {string} pdfFileId
+ * @return {GoogleAppsScript.Drive.Folder}
+ */
+function nn_getPdfParentFolder_(pdfFileId) {
+  const file = DriveApp.getFileById(String(pdfFileId || '').trim());
+  const parents = file.getParents();
+  if (parents.hasNext()) return parents.next();
+  return DriveApp.getRootFolder();
+}
+
+/**
+ * PDF と同じ Drive フォルダにフル注釈バックアップ JSON を保存する。
+ * @param {string} pdfFileId
+ * @param {string} pdfNameHint ファイル名（Drive 名と異なる場合のフォールバック）
+ * @param {string} jsonString
+ */
+function savePdfNeighborBackup(pdfFileId, pdfNameHint, jsonString) {
+  try {
+    const id = String(pdfFileId || '').trim();
+    if (!id) return { success: false, error: 'fileId が空です' };
+    const file = DriveApp.getFileById(id);
+    const driveName = file.getName();
+    const nameForBackup = String(pdfNameHint || '').trim() || driveName;
+    const targetName = nn_neighborBackupFileName_(nameForBackup);
+    const folder = nn_getPdfParentFolder_(id);
+    const files = folder.getFilesByName(targetName);
+    if (files.hasNext()) {
+      files.next().setContent(jsonString);
+    } else {
+      folder.createFile(targetName, jsonString, MimeType.PLAIN_TEXT);
+    }
+    return { success: true, fileName: targetName };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * PDF と同じフォルダから隣接バックアップ JSON を読む。
+ * @param {string} pdfFileId
+ * @param {string=} pdfNameHint
+ * @return {{ success: boolean, data: (string|null), savedAt?: string, error?: string }}
+ */
+function loadPdfNeighborBackup(pdfFileId, pdfNameHint) {
+  try {
+    const id = String(pdfFileId || '').trim();
+    if (!id) return { success: true, data: null };
+    const file = DriveApp.getFileById(id);
+    const driveName = file.getName();
+    const nameForBackup = String(pdfNameHint || '').trim() || driveName;
+    const targetName = nn_neighborBackupFileName_(nameForBackup);
+    const folder = nn_getPdfParentFolder_(id);
+    const files = folder.getFilesByName(targetName);
+    if (!files.hasNext()) return { success: true, data: null };
+    var latest = files.next();
+    var updated = latest.getLastUpdated();
+    while (files.hasNext()) {
+      var cand = files.next();
+      if (cand.getLastUpdated().getTime() > updated.getTime()) {
+        latest = cand;
+        updated = cand.getLastUpdated();
+      }
+    }
+    const dataStr = latest.getBlob().getDataAsString();
+    if (dataStr && dataStr.trim()) {
+      try {
+        const parsed = JSON.parse(dataStr);
+        if (parsed && parsed.pdfFileId && String(parsed.pdfFileId) !== id) {
+          return {
+            success: false,
+            error: 'バックアップ JSON の pdfFileId が一致しません。',
+          };
+        }
+        return {
+          success: true,
+          data: dataStr,
+          savedAt: parsed && parsed.savedAt ? String(parsed.savedAt) : updated.toISOString(),
+        };
+      } catch (parseErr) {
+        return { success: false, error: 'バックアップ JSON の解析に失敗しました: ' + parseErr };
+      }
+    }
+    return { success: true, data: null };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * 隣接バックアップのメタ情報（モーダル表示用）。
+ * @param {string} pdfFileId
+ * @param {string=} pdfNameHint
+ */
+function getPdfNeighborBackupMeta(pdfFileId, pdfNameHint) {
+  const res = loadPdfNeighborBackup(pdfFileId, pdfNameHint);
+  if (!res.success) return res;
+  if (!res.data) {
+    return { success: true, hasBackup: false, savedAt: null, fileName: null };
+  }
+  const file = DriveApp.getFileById(String(pdfFileId || '').trim());
+  const nameForBackup = String(pdfNameHint || '').trim() || file.getName();
+  return {
+    success: true,
+    hasBackup: true,
+    savedAt: res.savedAt || null,
+    fileName: nn_neighborBackupFileName_(nameForBackup),
+  };
+}
+
 // 【新規追加】ストローク配列を受け取りGoogle APIへ送る関数
 function recognizeSentence(allStrokes) {
   const url = "https://www.google.com.hk/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8";
