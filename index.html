@@ -487,14 +487,10 @@
       pointer-events: none;
       box-sizing: border-box;
     }
-    #nn-text-box-chrome.nn-show { display: block; pointer-events: auto; }
-    #nn-text-box-chrome .nn-tb-grip {
-      position: absolute;
-      left: 0;
-      border-radius: 6px;
-      min-height: 24px;
-      padding: 10px 8px;
-      box-sizing: content-box;
+    /* コンテナ自体は貫通（内側のクリックで枠ドラッグ・編集検出へ）。ハンドルのみヒット標的。 */
+    #nn-text-box-chrome.nn-show { display: block; pointer-events: none; }
+    #nn-text-box-chrome.nn-show .nn-tb-resize {
+      pointer-events: auto;
     }
     #nn-text-box-chrome .nn-tb-resize {
       position: absolute;
@@ -507,6 +503,7 @@
       border-radius: 3px;
       cursor: nwse-resize;
       box-sizing: border-box;
+      z-index: 2;
     }
     #nn-text-edit-overlay {
       position: absolute;
@@ -516,14 +513,6 @@
       padding: 0;
     }
     #nn-text-edit-overlay.nn-show { display: block; }
-    /* 入力中は本文をキャンバス側にリアルタイム描画し、textarea はキャレット用に文字色を透明化 */
-    #nn-text-edit-overlay.nn-canvas-live #nn-text-edit-field {
-      color: transparent;
-      caret-color: #1a73e8;
-      border-color: transparent;
-      background: transparent;
-      text-shadow: none;
-    }
     #nn-text-edit-field {
       width: 100%;
       height: 100%;
@@ -1254,7 +1243,7 @@
         <canvas id="bg-canvas"></canvas>
         <canvas id="draw-canvas"></canvas>
         <div id="my-laser" class="laser-dot"></div>
-        <div id="nn-text-box-chrome"><button type="button" class="nn-panel-grip nn-tb-grip" title="移動">⋮⋮</button><span class="nn-tb-resize" title="リサイズ"></span></div>
+        <div id="nn-text-box-chrome"><span class="nn-tb-resize" title="ドラッグでサイズ変更"></span></div>
         <div id="nn-text-edit-overlay"><textarea id="nn-text-edit-field" placeholder="テキスト"></textarea></div>
          
         <div id="host-frame"></div>
@@ -1787,8 +1776,14 @@
         }
         ctx.globalAlpha = 1;
         var pad = 6;
-        var text = String(tb.text != null ? tb.text : '');
-        nnDrawTextInBox(ctx, tb, text, x + pad, y + pad, Math.max(8, w - pad * 2), Math.max(8, h - pad * 2));
+        var overlayEditing =
+          nnTextEditActive &&
+          nnSelectedTextRef &&
+          nnSelectedTextRef.box === tb;
+        if (!overlayEditing) {
+          var text = String(tb.text != null ? tb.text : '');
+          nnDrawTextInBox(ctx, tb, text, x + pad, y + pad, Math.max(8, w - pad * 2), Math.max(8, h - pad * 2));
+        }
         if (nnSelectedTextRef && nnSelectedTextRef.box === tb) {
           ctx.save();
           ctx.setLineDash([5, 4]);
@@ -1935,7 +1930,8 @@
     var nnInspectorManualPos = null;
     var nnTextEditActive = false;
     var nnTextTouchBoxOp = false;
-    var NN_TEXT_GRIP_H = 24;
+    var NN_TEXT_BORDER_DRAG_PX = 8;
+    var NN_TEXT_BODY_DRAG_ACTIVATE_PX = 6;
     var NN_TEXT_DEFAULT_W = 160;
     var NN_TEXT_DEFAULT_H = 80;
 
@@ -1969,10 +1965,25 @@
       return { x: (clientX - pr.left) / currentScale, y: (clientY - pr.top) / currentScale };
     }
 
-    function nnHitTextGripZone(pt, box) {
-      if (!box) return false;
-      var gh = NN_TEXT_GRIP_H;
-      return pt.x >= box.x && pt.x <= box.x + box.w && pt.y >= box.y - gh - 4 && pt.y < box.y;
+    function nnHitTextBorderOutline(pt, box) {
+      if (!box || box.w < 4 || box.h < 4) return false;
+      var x = box.x,
+        y = box.y,
+        w = box.w,
+        h = box.h;
+      if (pt.x < x || pt.x > x + w || pt.y < y || pt.y > y + h) return false;
+      var tol = NN_TEXT_BORDER_DRAG_PX;
+      if (w < tol * 2 + 8 || h < tol * 2 + 8) return true;
+      var ix = x + tol,
+        iy = y + tol,
+        iw = w - tol * 2,
+        ih = h - tol * 2;
+      var inInner =
+        pt.x >= ix &&
+        pt.x <= ix + iw &&
+        pt.y >= iy &&
+        pt.y <= iy + ih;
+      return !inInner;
     }
 
     function nnHitTextResizeSE(pt, box) {
@@ -2510,19 +2521,9 @@
       if (!sr) return;
       chrome.classList.add('nn-show');
       chrome.style.left = sr.left - pr.left + 'px';
-      chrome.style.top = sr.top - pr.top - NN_TEXT_GRIP_H - 2 + 'px';
+      chrome.style.top = sr.top - pr.top + 'px';
       chrome.style.width = sr.width + 'px';
-      chrome.style.height = sr.height + NN_TEXT_GRIP_H + 2 + 'px';
-      var grip = chrome.querySelector('.nn-tb-grip');
-      var res = chrome.querySelector('.nn-tb-resize');
-      if (grip) {
-        grip.style.width = sr.width + 'px';
-        grip.style.top = '0';
-      }
-      if (res) {
-        res.style.left = sr.width - 10 + 'px';
-        res.style.top = NN_TEXT_GRIP_H + sr.height - 10 + 'px';
-      }
+      chrome.style.height = sr.height + 'px';
     }
 
     function nnApplyTextEditFieldStyle(box) {
@@ -2567,7 +2568,6 @@
       nnTextEditActive = true;
       field.value = nnSelectedTextRef.box.text != null ? String(nnSelectedTextRef.box.text) : '';
       ov.classList.add('nn-show');
-      ov.classList.add('nn-canvas-live');
       nnSyncTextEditOverlayGeometry();
       field.focus();
     }
@@ -2583,7 +2583,6 @@
       }
       nnTextEditActive = false;
       ov.classList.remove('nn-show');
-      ov.classList.remove('nn-canvas-live');
       redraw();
     }
 
@@ -2717,9 +2716,7 @@
       if (!chrome || chrome.dataset.wired === '1') return;
       chrome.dataset.wired = '1';
       chrome.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
-      var grip = chrome.querySelector('.nn-tb-grip');
       var res = chrome.querySelector('.nn-tb-resize');
-      if (grip) nnWireChromeTransformPointer(grip, 'move');
       if (res) nnWireChromeTransformPointer(res, 'resize');
     }
 
@@ -2773,7 +2770,6 @@
         function nnSyncEditingTextFromField() {
           if (!nnTextEditActive || !nnSelectedTextRef || !nnSelectedTextRef.box) return;
           nnSelectedTextRef.box.text = String(field.value);
-          redraw();
         }
         field.addEventListener('input', nnSyncEditingTextFromField);
         field.addEventListener('compositionend', nnSyncEditingTextFromField);
@@ -2817,7 +2813,7 @@
           isDrawing = true;
           return true;
         }
-        if (nnHitTextGripZone(pt, hit.box)) {
+        if (nnHitTextBorderOutline(pt, hit.box)) {
           nnSelectTextBox(hit);
           nnTextMove = {
             hit: hit,
@@ -2826,7 +2822,8 @@
             ox: hit.box.x,
             oy: hit.box.y,
             pointerId: e.pointerId,
-            kind: 'grip',
+            kind: 'border',
+            didDrag: false,
           };
           isDrawing = true;
           return true;
@@ -2840,6 +2837,7 @@
           oy: hit.box.y,
           pointerId: e.pointerId,
           kind: 'body',
+          didDrag: false,
         };
         isDrawing = true;
         return true;
@@ -2863,6 +2861,12 @@
         return true;
       }
       if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
+        if (nnTextMove.kind === 'body') {
+          var th = NN_TEXT_BODY_DRAG_ACTIVATE_PX;
+          var d0 = Math.hypot(pt.x - nnTextMove.px, pt.y - nnTextMove.py);
+          if (!nnTextMove.didDrag && d0 < th) return true;
+          nnTextMove.didDrag = true;
+        }
         nnApplyTextMoveFromPt(pt);
         return true;
       }
@@ -2894,11 +2898,9 @@
         return true;
       }
       if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
-        var moved =
-          Math.hypot(nnTextMove.hit.box.x - nnTextMove.ox, nnTextMove.hit.box.y - nnTextMove.oy) < 4;
         if (
-          moved &&
           nnTextMove.kind === 'body' &&
+          !nnTextMove.didDrag &&
           nnIsTextBoxInteractionPointer(e) &&
           nnSelectedTextRef
         ) {
