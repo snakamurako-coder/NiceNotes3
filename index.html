@@ -1662,6 +1662,44 @@
         al && (al.value === 'center' || al.value === 'right') ? al.value : 'left';
       nnTextStyleDefaults.bold = !!(bd && bd.checked);
       nnTextStyleDefaults.underline = !!(ul && ul.checked);
+      nnSaveTextStylePrefsToStorage();
+    }
+
+    var NN_PDF_TEXT_STYLE_LS = 'nn_pdf_text_style_v1';
+
+    function nnSaveTextStylePrefsToStorage() {
+      try {
+        localStorage.setItem(NN_PDF_TEXT_STYLE_LS, JSON.stringify(nnTextStyleDefaults));
+      } catch (e) {}
+    }
+
+    function nnLoadTextStylePrefsFromStorage() {
+      try {
+        var s = localStorage.getItem(NN_PDF_TEXT_STYLE_LS);
+        if (!s || !String(s).trim()) return;
+        var o = JSON.parse(s);
+        if (!o || typeof o !== 'object') return;
+        if (typeof o.borderColor === 'string') nnTextStyleDefaults.borderColor = o.borderColor;
+        if (typeof o.borderWidth === 'number' && !isNaN(o.borderWidth)) nnTextStyleDefaults.borderWidth = Math.max(0, Math.min(12, o.borderWidth));
+        else if (o.borderWidth != null) {
+          var abw = parseFloat(o.borderWidth);
+          if (!isNaN(abw)) nnTextStyleDefaults.borderWidth = Math.max(0, Math.min(12, abw));
+        }
+        if (typeof o.borderOpacity === 'number' && !isNaN(o.borderOpacity))
+          nnTextStyleDefaults.borderOpacity = nnParseOpacity(String(o.borderOpacity), nnTextStyleDefaults.borderOpacity != null ? nnTextStyleDefaults.borderOpacity : 1);
+        if (typeof o.fillColor === 'string') nnTextStyleDefaults.fillColor = o.fillColor;
+        if (typeof o.fillOpacity === 'number' && !isNaN(o.fillOpacity))
+          nnTextStyleDefaults.fillOpacity = nnParseOpacity(String(o.fillOpacity), nnTextStyleDefaults.fillOpacity != null ? nnTextStyleDefaults.fillOpacity : 0.4);
+        if (typeof o.color === 'string') nnTextStyleDefaults.color = o.color;
+        if (typeof o.fontFamily === 'string') nnTextStyleDefaults.fontFamily = o.fontFamily;
+        if (typeof o.fontSize === 'number' && !isNaN(o.fontSize))
+          nnTextStyleDefaults.fontSize = Math.max(8, Math.min(48, Math.round(o.fontSize)));
+        if (o.writingMode === 'vertical' || o.writingMode === 'horizontal') nnTextStyleDefaults.writingMode = o.writingMode;
+        if (o.textAlign === 'left' || o.textAlign === 'center' || o.textAlign === 'right')
+          nnTextStyleDefaults.textAlign = o.textAlign;
+        nnTextStyleDefaults.bold = !!o.bold;
+        nnTextStyleDefaults.underline = !!o.underline;
+      } catch (e) {}
     }
 
     function nnSyncTextStylePanelFromDefaults() {
@@ -2979,6 +3017,7 @@
           b.addEventListener('click', function () {
             nnPenColorIndex = idx;
             nnRenderPenPaletteUI();
+            nnSavePdfPenUiPrefs();
           });
           host.appendChild(b);
         })(i);
@@ -2993,6 +3032,7 @@
         nnPenPalette[nnPenColorIndex] = inp.value;
         nnSavePenPalette();
         nnRenderPenPaletteUI();
+        nnSavePdfPenUiPrefs();
         inp.onchange = null;
       };
       inp.click();
@@ -3000,6 +3040,53 @@
 
     function nnGetActivePenColor() {
       return nnPenPalette[nnPenColorIndex] || '#000000';
+    }
+
+    var NN_PDF_PEN_UI_LS = 'nn_pdf_pen_ui_v1';
+    function nnPdfPenUiMinMaxW() {
+      return { mn: 0.5, mx: 30.0 };
+    }
+
+    function nnSavePdfPenUiPrefs() {
+      try {
+        var opEl = document.getElementById('pen-opacity');
+        var mm = nnPdfPenUiMinMaxW();
+        var w = widthInput ? parseFloat(widthInput.value) : 5;
+        if (isNaN(w)) w = 5;
+        w = Math.max(mm.mn, Math.min(mm.mx, w));
+        var op = opEl ? parseFloat(opEl.value) : 1;
+        if (isNaN(op)) op = 1;
+        op = Math.max(0.1, Math.min(1, op));
+        localStorage.setItem(
+          NN_PDF_PEN_UI_LS,
+          JSON.stringify({
+            colorIndex: Math.max(0, Math.min(5, nnPenColorIndex >> 0)),
+            width: w,
+            opacity: op,
+          })
+        );
+      } catch (e) {}
+    }
+
+    function nnLoadPdfPenUiPrefs() {
+      try {
+        var s = localStorage.getItem(NN_PDF_PEN_UI_LS);
+        if (!s || !String(s).trim()) return;
+        var o = JSON.parse(s);
+        if (!o || typeof o !== 'object') return;
+        if (typeof o.colorIndex === 'number' && !isNaN(o.colorIndex))
+          nnPenColorIndex = Math.max(0, Math.min(5, o.colorIndex >> 0));
+        var mm = nnPdfPenUiMinMaxW();
+        if (typeof o.width === 'number' && !isNaN(o.width) && widthInput && widthSlider) {
+          var w = Math.max(mm.mn, Math.min(mm.mx, o.width));
+          widthInput.value = w.toFixed(1);
+          widthSlider.value = Math.round(Math.sqrt((w - mm.mn) / (mm.mx - mm.mn)) * 100);
+        }
+        if (typeof o.opacity === 'number' && !isNaN(o.opacity)) {
+          var el = document.getElementById('pen-opacity');
+          if (el) el.value = String(Math.max(0.1, Math.min(1, o.opacity)));
+        }
+      } catch (e) {}
     }
 
     function getTargetTextBoxesArray() {
@@ -5520,12 +5607,14 @@
     function updateWidthFromSlider() {
       const t = parseFloat(widthSlider.value) / 100;
       widthInput.value = (MIN_WIDTH + (MAX_WIDTH - MIN_WIDTH) * (t * t)).toFixed(1);
+      nnSavePdfPenUiPrefs();
     }
     function updateWidthFromInput() {
       let val = parseFloat(widthInput.value);
       if (isNaN(val)) return;
       if (val < MIN_WIDTH) val = MIN_WIDTH; if (val > MAX_WIDTH) val = MAX_WIDTH;
       widthSlider.value = Math.round(Math.sqrt((val - MIN_WIDTH) / (MAX_WIDTH - MIN_WIDTH)) * 100);
+      nnSavePdfPenUiPrefs();
     }
 
     function stopMeetSync() {
@@ -5539,10 +5628,14 @@
       var rt = document.getElementById('nn-realtime-share');
       if (rt) rt.checked = nnLoadRealtimeSharePref();
       nnLoadPenPalette();
-      nnLoadPresenterTargets();
+      nnLoadPdfPenUiPrefs();
       nnRenderPenPaletteUI();
+      var penOp = document.getElementById('pen-opacity');
+      if (penOp) penOp.addEventListener('input', nnSavePdfPenUiPrefs);
+      nnLoadPresenterTargets();
       nnLoadLayerVisFromStorage();
       nnSyncLayerVisCheckboxes();
+      nnLoadTextStylePrefsFromStorage();
       nnSyncTextStylePanelFromDefaults();
       nnWireTextStylePanelInputs();
       nnBuildFloatingPalettes();
