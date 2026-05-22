@@ -516,6 +516,14 @@
       padding: 0;
     }
     #nn-text-edit-overlay.nn-show { display: block; }
+    /* 入力中は本文をキャンバス側にリアルタイム描画し、textarea はキャレット用に文字色を透明化 */
+    #nn-text-edit-overlay.nn-canvas-live #nn-text-edit-field {
+      color: transparent;
+      caret-color: #1a73e8;
+      border-color: transparent;
+      background: transparent;
+      text-shadow: none;
+    }
     #nn-text-edit-field {
       width: 100%;
       height: 100%;
@@ -1621,7 +1629,7 @@
     }
 
     function nnIsTextBoxInteractionPointer(e) {
-      return e && (e.pointerType === 'touch' || e.pointerType === 'mouse');
+      return e && (e.pointerType === 'touch' || e.pointerType === 'mouse' || e.pointerType === 'pen');
     }
 
     function nnBuildTextFontString(tb) {
@@ -1710,6 +1718,44 @@
         bold: nnTextStyleDefaults.bold,
         underline: nnTextStyleDefaults.underline,
       };
+    }
+
+    /** shared/local を結合するとき、同一 id のテキスト框が両方に存在すると重ね描きになる。結合側で id 単位で1つにまとめる（id が無い旧データはそのまま）。 */
+    function nnConcatTextBoxesDedupeById(sharedArr, localArr) {
+      var out = [];
+      var seen = Object.create(null);
+      function ingest(arr) {
+        if (!arr || !arr.length) return;
+        for (var i = 0; i < arr.length; i++) {
+          var tb = arr[i];
+          if (!tb || tb.w < 4 || tb.h < 4) continue;
+          var idStr = tb.id != null ? String(tb.id).trim() : '';
+          if (idStr) {
+            if (seen[idStr]) continue;
+            seen[idStr] = true;
+          }
+          out.push(tb);
+        }
+      }
+      ingest(sharedArr);
+      ingest(localArr);
+      return out;
+    }
+
+    function nnFilterSharedTextBoxesNotShadowedByLocal(sharedArr, localArr) {
+      if (!sharedArr || !sharedArr.length) return sharedArr;
+      if (!localArr || !localArr.length) return sharedArr;
+      var localIds = Object.create(null);
+      for (var i = 0; i < localArr.length; i++) {
+        var ltb = localArr[i];
+        if (ltb && ltb.id != null) localIds[String(ltb.id).trim()] = true;
+      }
+      return sharedArr.filter(function (stb) {
+        if (!stb) return false;
+        var idStr = stb.id != null ? String(stb.id).trim() : '';
+        if (!idStr) return true;
+        return !localIds[idStr];
+      });
     }
 
     function nnDrawTextBoxesToContext(ctx, boxes) {
@@ -2380,7 +2426,10 @@
       nnApplyInspectorToBox(nnSelectedTextRef.box);
       redraw();
       nnSyncTextBoxChrome();
-      if (nnTextEditActive) nnSyncTextEditOverlayGeometry();
+      if (nnTextEditActive) {
+        nnSyncTextEditOverlayGeometry();
+        nnApplyTextEditFieldStyle(nnSelectedTextRef.box);
+      }
     }
 
     function nnHideTextInspector() {
@@ -2518,6 +2567,7 @@
       nnTextEditActive = true;
       field.value = nnSelectedTextRef.box.text != null ? String(nnSelectedTextRef.box.text) : '';
       ov.classList.add('nn-show');
+      ov.classList.add('nn-canvas-live');
       nnSyncTextEditOverlayGeometry();
       field.focus();
     }
@@ -2533,6 +2583,7 @@
       }
       nnTextEditActive = false;
       ov.classList.remove('nn-show');
+      ov.classList.remove('nn-canvas-live');
       redraw();
     }
 
@@ -2552,6 +2603,7 @@
       nnBumpStrokeTime();
       autoSaveCurrent(true);
       nnOpenTextEditOverlay();
+      redraw();
     }
 
     function nnDeleteSelectedTextBox() {
@@ -2718,6 +2770,13 @@
       var field = document.getElementById('nn-text-edit-field');
       if (field) {
         field.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+        function nnSyncEditingTextFromField() {
+          if (!nnTextEditActive || !nnSelectedTextRef || !nnSelectedTextRef.box) return;
+          nnSelectedTextRef.box.text = String(field.value);
+          redraw();
+        }
+        field.addEventListener('input', nnSyncEditingTextFromField);
+        field.addEventListener('compositionend', nnSyncEditingTextFromField);
         field.addEventListener('keydown', function (e) {
           if (e.key === 'Escape') { e.preventDefault(); nnCloseTextEditOverlay(false); }
           if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); nnCloseTextEditOverlay(true); }
@@ -2730,6 +2789,15 @@
 
     function nnTryHandleTextPointerDown(e, pt) {
       if (!nnIsTextBoxInteractionPointer(e)) return false;
+      // 配置モード中はドラッグ新規作成を優先（既存箱の上での誤選択で2個目が置けなくなるのを防ぐ）
+      if (nnTextPlacementMode) {
+        if (nnSelectedTextRef) nnClearTextSelection();
+        nnTextCreateDrag = { x1: pt.x, y1: pt.y, pointerId: e.pointerId };
+        nnTempTextRect = null;
+        isDrawing = true;
+        if (e.pointerType === 'touch') isPanning = false;
+        return true;
+      }
       var hit = nnHitTextBoxesAt(pt, true);
       if (hit && nnCanEditTextHit(hit)) {
         nnTextTouchBoxOp = e.pointerType === 'touch';
@@ -2785,13 +2853,6 @@
       }
       if (!hit) {
         if (nnSelectedTextRef) nnClearTextSelection();
-        if (nnTextPlacementMode) {
-          nnTextCreateDrag = { x1: pt.x, y1: pt.y, pointerId: e.pointerId };
-          nnTempTextRect = null;
-          isDrawing = true;
-          if (e.pointerType === 'touch') isPanning = false;
-          return true;
-        }
       }
       return false;
     }
@@ -2815,7 +2876,12 @@
 
     function nnTryHandleTextPointerEnd(e) {
       if (nnTextCreateDrag && nnTextCreateDrag.pointerId === e.pointerId) {
+        if (e.type !== 'pointerup' && e.type !== 'pointercancel') return false;
         var tr = nnTempTextRect;
+        if (!tr || tr.w < 1 || tr.h < 1) {
+          var d = nnTextCreateDrag;
+          tr = nnNormalizeRect(d.x1, d.y1, d.x1, d.y1);
+        }
         nnFinishTextCreate(tr);
         nnTextCreateDrag = null;
         nnTempTextRect = null;
@@ -4025,7 +4091,7 @@
         newPdf.addPage(copiedPages[0]);
         var pdfPage = newPdf.getPages()[newPdf.getPageCount() - 1];
         var pageStrokes = (sharedStrokesByPage[lid] || []).concat(localStrokesByPage[lid] || []);
-        var pageTexts = (sharedTextByPage[lid] || []).concat(localTextByPage[lid] || []);
+        var pageTexts = nnConcatTextBoxesDedupeById(sharedTextByPage[lid], localTextByPage[lid]);
         if (pageStrokes.length || pageTexts.length) {
           var dim = await nnExportViewportSizeForPhysicalPage(phys);
           offCanvas.width = dim.ew * dpr;
@@ -4045,7 +4111,7 @@
         newPdf.addPage(copied2[0]);
         var pdfPage2 = newPdf.getPages()[newPdf.getPageCount() - 1];
         var pageStrokes2 = (sharedStrokesByPage[String(i)] || []).concat(localStrokesByPage[String(i)] || []);
-        var pageTexts2 = (sharedTextByPage[String(i)] || []).concat(localTextByPage[String(i)] || []);
+        var pageTexts2 = nnConcatTextBoxesDedupeById(sharedTextByPage[String(i)], localTextByPage[String(i)]);
         if (pageStrokes2.length || pageTexts2.length) {
           var dim2 = await nnExportViewportSizeForPhysicalPage(i);
           offCanvas.width = dim2.ew * dpr;
@@ -7439,7 +7505,7 @@
         }
         return;
       }
-      if (e.buttons === 0) return;
+      if (e.buttons === 0 && e.pointerType !== 'pen') return;
       const isHardwareEraser = (e.buttons === 32 || e.button === 5);
       const activeTool = isHardwareEraser ? 'eraser' : currentTool;
       if (nnTryHandlePartialInkPointerDown(e, pt)) return;
@@ -7514,10 +7580,18 @@
     });
 
     function handlePointerEnd(e) {
-      activePointers.delete(e.pointerId);
+      var texPid = nnTextCreateDrag ? nnTextCreateDrag.pointerId : null;
+      var ignoreLeaveWhileTextSizing =
+        (e.type === 'pointerleave' || e.type === 'pointerout') &&
+        texPid !== null &&
+        texPid === e.pointerId;
+      if (!ignoreLeaveWhileTextSizing) activePointers.delete(e.pointerId);
       if (currentTool === 'laser') myLaserDot.style.display = 'none';
-      var skipPenAutosave = nnTryHandlePartialInkPointerEnd(e) || nnTryHandleTextPointerEnd(e);
-      if (activePointers.size === 0) {
+      var skipPenAutosave =
+        ignoreLeaveWhileTextSizing
+          ? true
+          : nnTryHandlePartialInkPointerEnd(e) || nnTryHandleTextPointerEnd(e);
+      if (activePointers.size === 0 && !ignoreLeaveWhileTextSizing) {
         if (isDrawing && !skipPenAutosave) {
           lastStrokeTime = Date.now();
           autoSaveCurrent(true);
@@ -7532,7 +7606,9 @@
         isPanning = !nnTextTouchBoxOp;
       }
     }
-        ['pointerup', 'pointercancel', 'pointerleave', 'pointerout'].forEach(evt => drawCanvas.addEventListener(evt, handlePointerEnd));
+        ['pointerup', 'pointercancel', 'pointerleave', 'pointerout'].forEach(evt =>
+      drawCanvas.addEventListener(evt, handlePointerEnd)
+    );
     window.addEventListener('pointerup', handlePointerEnd);
 
     function eraseStroke(point) {
@@ -7569,7 +7645,13 @@
       drawCtx.clearRect(0, 0, drawCanvas.width / dpr, drawCanvas.height / dpr);
       var sk = nnLpCurrentStrokeKey();
       if (nnLayerVis.sharedPen && sharedStrokesByPage[sk]) drawStrokesToContext(drawCtx, sharedStrokesByPage[sk], false);
-      if (nnLayerVis.sharedText && sharedTextByPage[sk]) nnDrawTextBoxesToContext(drawCtx, sharedTextByPage[sk]);
+      if (nnLayerVis.sharedText && sharedTextByPage[sk]) {
+        var sharedBoxesDraw =
+          nnLayerVis.localText && localTextByPage[sk] && localTextByPage[sk].length
+            ? nnFilterSharedTextBoxesNotShadowedByLocal(sharedTextByPage[sk], localTextByPage[sk])
+            : sharedTextByPage[sk];
+        if (sharedBoxesDraw && sharedBoxesDraw.length) nnDrawTextBoxesToContext(drawCtx, sharedBoxesDraw);
+      }
       if (nnLayerVis.localPen && localStrokesByPage[sk]) drawStrokesToContext(drawCtx, localStrokesByPage[sk], false);
       if (nnLayerVis.localText && localTextByPage[sk]) nnDrawTextBoxesToContext(drawCtx, localTextByPage[sk]);
       if (nnTempTextRect && nnTempTextRect.w > 0 && nnTempTextRect.h > 0) {
@@ -7665,7 +7747,14 @@
     function nnDrawExportOverlayToContext(offCtx, sk, ew, eh, vis, clearFirst) {
       if (clearFirst) offCtx.clearRect(0, 0, ew, eh);
       if (vis.sharedPen && sharedStrokesByPage[sk]) drawStrokesToContext(offCtx, sharedStrokesByPage[sk], false);
-      if (vis.sharedText && sharedTextByPage[sk]) nnDrawTextBoxesToContext(offCtx, sharedTextByPage[sk]);
+      if (vis.sharedText && sharedTextByPage[sk]) {
+        if (vis.localText && localTextByPage[sk] && localTextByPage[sk].length) {
+          var sharedDraw = nnFilterSharedTextBoxesNotShadowedByLocal(sharedTextByPage[sk], localTextByPage[sk]);
+          if (sharedDraw && sharedDraw.length) nnDrawTextBoxesToContext(offCtx, sharedDraw);
+        } else {
+          nnDrawTextBoxesToContext(offCtx, sharedTextByPage[sk]);
+        }
+      }
       if (vis.localPen && localStrokesByPage[sk]) drawStrokesToContext(offCtx, localStrokesByPage[sk], false);
       if (vis.localText && localTextByPage[sk]) nnDrawTextBoxesToContext(offCtx, localTextByPage[sk]);
     }
