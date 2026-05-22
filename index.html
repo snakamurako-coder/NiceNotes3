@@ -7123,16 +7123,6 @@
         nameText.textContent = fileIcon + (f.name || '');
         nameRow.appendChild(nameText);
         if (nnIsOpenableFromHome(f.name)) {
-          var openFolderBtn = document.createElement('button');
-          openFolderBtn.type = 'button';
-          openFolderBtn.className = 'btn-open-folder';
-          openFolderBtn.textContent = '格納フォルダを開く';
-          openFolderBtn.title = 'Google Drive 上のこの PDF のフォルダを開きます';
-          openFolderBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            nnOpenPdfFolderInDrive(f.folderId || currentFolderId);
-          });
-          nameRow.appendChild(openFolderBtn);
           var setFileBtn = document.createElement('button');
           setFileBtn.type = 'button';
           setFileBtn.className = 'btn-file-settings';
@@ -7159,35 +7149,6 @@
         meta.className = 'file-meta';
         var dateSpan = document.createElement('span');
         dateSpan.textContent = '更新: ' + new Date(f.updated).toLocaleDateString();
-        var dueLab = document.createElement('label');
-        dueLab.style.cssText = 'font-size:12px;color:#5f6368;display:flex;align-items:center;gap:4px;';
-        dueLab.title =
-          '会議日・配布期限・校了日など、資料ごとの目安日をメモする欄です（任意）。上部の並び替えで「期限・メモ」欄の日付を選ぶと、この日付で並べ替えられます。未入力のファイルは並び替え時に末尾扱いになります。';
-        dueLab.appendChild(document.createTextNode('期限・メモ'));
-        var dueIn = document.createElement('input');
-        dueIn.type = 'text';
-        dueIn.placeholder = '例: 2026-05-20';
-        dueIn.style.cssText = 'width:110px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;';
-        dueIn.value = (treeData.workspaceMeta.layout.fileDue[f.id] || '').trim();
-        dueIn.addEventListener('click', function (e) {
-          e.stopPropagation();
-        });
-        dueIn.addEventListener('change', function () {
-          nnEnsureWorkspaceMeta();
-          var v = dueIn.value.trim();
-          if (v) treeData.workspaceMeta.layout.fileDue[f.id] = v;
-          else delete treeData.workspaceMeta.layout.fileDue[f.id];
-          nnSaveWorkspaceMetaToServer();
-        });
-        dueLab.appendChild(dueIn);
-        var openBtn = document.createElement('button');
-        openBtn.type = 'button';
-        openBtn.className = 'file-btn-meet';
-        openBtn.textContent = '開く';
-        openBtn.onclick = function (e) {
-          e.stopPropagation();
-          openFileFromHome(f.id, f.name, f.folderId);
-        };
         var driveLink = document.createElement('a');
         driveLink.href = 'https://drive.google.com/file/d/' + encodeURIComponent(f.id) + '/view';
         driveLink.target = '_blank';
@@ -7201,9 +7162,19 @@
           e.stopPropagation();
         });
         meta.appendChild(dateSpan);
-        meta.appendChild(dueLab);
-        meta.appendChild(openBtn);
         meta.appendChild(driveLink);
+        if (nnIsOpenableFromHome(f.name)) {
+          var openFolderBtn = document.createElement('button');
+          openFolderBtn.type = 'button';
+          openFolderBtn.className = 'btn-open-folder';
+          openFolderBtn.textContent = '格納フォルダを開く';
+          openFolderBtn.title = 'Google Drive 上のこの PDF のフォルダを開きます';
+          openFolderBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            nnOpenPdfFolderInDrive(f.folderId || currentFolderId);
+          });
+          meta.appendChild(openFolderBtn);
+        }
         div.appendChild(grip);
         div.appendChild(nameRow);
         div.appendChild(meta);
