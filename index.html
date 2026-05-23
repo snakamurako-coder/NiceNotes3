@@ -500,6 +500,7 @@
       pointer-events: none;
       box-sizing: border-box;
       overflow: visible;
+      touch-action: none;
     }
     #nn-text-box-chrome.nn-show { display: block; }
     #nn-text-box-chrome .nn-tb-frame {
@@ -510,6 +511,7 @@
       border-radius: 6px;
       overflow: hidden;
       pointer-events: auto;
+      touch-action: none;
     }
     #nn-text-box-chrome #nn-text-edit-field {
       display: block;
@@ -543,6 +545,8 @@
       line-height: 18px;
       cursor: grab;
       pointer-events: auto;
+      touch-action: none;
+      user-select: none;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
       letter-spacing: -2px;
       z-index: 3;
@@ -561,6 +565,27 @@
       box-sizing: border-box;
       z-index: 2;
       pointer-events: auto;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .nn-dock-slot[data-edge="bottom"],
+    .nn-dock-slot[data-edge="top"] {
+      flex-shrink: 0;
+      z-index: 1320;
+      position: relative;
+      width: 100%;
+    }
+    .nn-dock-slot[data-edge="bottom"].nn-dock-active {
+      border-top: 2px solid #dadce0;
+      background: #f1f3f4;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .nn-float-palette.nn-palette-docked[data-dock-edge="bottom"],
+    .nn-float-palette.nn-palette-docked[data-dock-edge="top"] {
+      width: 100%;
+      max-width: none;
+      border-radius: 0;
     }
 
     #viewer-shell {
@@ -573,6 +598,7 @@
       z-index: 10;
       flex-direction: column;
       background: #555;
+      overflow: hidden;
     }
     #viewer-shell.nn-show { display: flex; }
     .nn-viewer-middle {
@@ -2845,9 +2871,43 @@
     }
 
     function nnWireChromeTransformPointer(el, mode) {
+      var dragPid = null;
+      function clearDrag(e) {
+        if (dragPid == null || !e || e.pointerId !== dragPid) return;
+        if (nnTextResize && nnTextResize.pointerId === dragPid) {
+          nnTextResize = null;
+          nnBumpStrokeTime();
+          autoSaveCurrent(true);
+        } else if (nnTextMove && nnTextMove.pointerId === dragPid) {
+          nnTextMove = null;
+          nnBumpStrokeTime();
+          autoSaveCurrent(true);
+        }
+        dragPid = null;
+        nnTextTouchBoxOp = false;
+        nnEndGripDrag();
+        window.removeEventListener('pointermove', onMoveWin, true);
+        window.removeEventListener('pointerup', onUpWin, true);
+        window.removeEventListener('pointercancel', onUpWin, true);
+        try {
+          el.releasePointerCapture(e.pointerId);
+        } catch (err) {}
+      }
+      function onMoveWin(e) {
+        if (dragPid == null || e.pointerId !== dragPid) return;
+        if (!nnIsTextBoxInteractionPointer(e)) return;
+        e.preventDefault();
+        var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
+        if (nnTextResize && nnTextResize.pointerId === e.pointerId) nnApplyTextResizeFromPt(pt);
+        else if (nnTextMove && nnTextMove.pointerId === e.pointerId) nnApplyTextMoveFromPt(pt);
+      }
+      function onUpWin(e) {
+        clearDrag(e);
+      }
       function onDown(e) {
         if (!nnIsTextBoxInteractionPointer(e)) return;
         if (!nnSelectedTextRef || !nnCanEditTextHit(nnSelectedTextRef)) return;
+        if (e.button !== 0 && e.pointerType === 'mouse') return;
         e.preventDefault();
         e.stopPropagation();
         var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
@@ -2865,6 +2925,7 @@
             pointerId: e.pointerId,
           };
         } else {
+          nnPdfAnnCheckpointBeforeChange();
           nnTextMove = {
             hit: nnSelectedTextRef,
             px: pt.x,
@@ -2875,35 +2936,17 @@
             kind: 'grip',
           };
         }
+        dragPid = e.pointerId;
+        nnTextTouchBoxOp = true;
         nnBeginGripDrag();
-        el.setPointerCapture(e.pointerId);
-      }
-      function onMove(e) {
-        if (!nnIsTextBoxInteractionPointer(e)) return;
-        if (e.pointerId !== (nnTextResize && nnTextResize.pointerId) && e.pointerId !== (nnTextMove && nnTextMove.pointerId)) return;
-        var pt = nnScreenToBoxCoords(e.clientX, e.clientY);
-        if (nnTextResize && nnTextResize.pointerId === e.pointerId) nnApplyTextResizeFromPt(pt);
-        else if (nnTextMove && nnTextMove.pointerId === e.pointerId) nnApplyTextMoveFromPt(pt);
-      }
-      function onUp(e) {
-        if (e.pointerId !== (nnTextResize && nnTextResize.pointerId) && e.pointerId !== (nnTextMove && nnTextMove.pointerId)) return;
-        if (nnTextResize && nnTextResize.pointerId === e.pointerId) {
-          nnTextResize = null;
-          nnBumpStrokeTime();
-          autoSaveCurrent(true);
-        } else if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
-          nnTextMove = null;
-          nnBumpStrokeTime();
-          autoSaveCurrent(true);
-          nnTextTouchBoxOp = false;
-        }
-        nnEndGripDrag();
-        try { el.releasePointerCapture(e.pointerId); } catch (err) {}
+        window.addEventListener('pointermove', onMoveWin, { capture: true, passive: false });
+        window.addEventListener('pointerup', onUpWin, true);
+        window.addEventListener('pointercancel', onUpWin, true);
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch (err) {}
       }
       el.addEventListener('pointerdown', onDown);
-      el.addEventListener('pointermove', onMove);
-      el.addEventListener('pointerup', onUp);
-      el.addEventListener('pointercancel', onUp);
     }
 
     function nnInitTextChromeDrag() {
@@ -3677,7 +3720,9 @@
       if (shell) shell.classList.add('nn-show');
       else if (viewerContainer) viewerContainer.style.display = 'block';
       var pal = nnGetToolsPalette();
-      if (pal && !pal.classList.contains('nn-palette-minimized')) nnClampPaletteInShell(pal);
+      if (pal && !pal.classList.contains('nn-palette-minimized')) {
+        if (!nnEnsureToolsPaletteBottomDock(pal)) nnClampPaletteInShell(pal);
+      }
       nnPositionPaletteFab();
       nnPdfAnnRefreshUndoUi();
     }
@@ -3788,10 +3833,32 @@
     }
 
     var NN_PALETTE_DOCK_KEY = 'nn_palette_dock_v2';
+    var nnPaletteDockToEdge = null;
+
+    function nnEnsureToolsPaletteBottomDock(pal) {
+      if (!pal || !nnPaletteDockToEdge) return false;
+      if (pal.classList.contains('nn-palette-minimized') || pal.classList.contains('nn-palette-docked')) return false;
+      var shell = document.getElementById('viewer-shell');
+      if (!shell || !shell.classList.contains('nn-show')) return false;
+      var shellR = shell.getBoundingClientRect();
+      var palR = pal.getBoundingClientRect();
+      if (!palR.width && !palR.height) return false;
+      var bottomGap = shellR.bottom - palR.bottom;
+      var inBottomBand =
+        bottomGap < 64 ||
+        palR.top >= shellR.top + shellR.height * 0.58 ||
+        parseFloat(pal.style.top) >= shell.clientHeight * 0.58;
+      if (!inBottomBand) return false;
+      nnPaletteDockToEdge('bottom');
+      nnSavePaletteState();
+      return true;
+    }
 
     function nnClampPaletteInShell(pal) {
       var shell = document.getElementById('viewer-shell');
-      if (!pal || !shell || pal.classList.contains('nn-palette-docked')) return;
+      if (!pal || !shell) return;
+      if (pal.classList.contains('nn-palette-docked')) return;
+      if (pal.classList.contains('nn-palette-minimized')) return;
       var pad = 8;
       var w = pal.offsetWidth;
       var h = pal.offsetHeight;
@@ -3803,6 +3870,7 @@
       if (isNaN(top)) top = pad;
       pal.style.left = Math.min(Math.max(pad, left), maxL) + 'px';
       pal.style.top = Math.min(Math.max(pad, top), maxT) + 'px';
+      nnEnsureToolsPaletteBottomDock(pal);
     }
 
     function nnClampFabInShell(fab) {
@@ -3941,6 +4009,7 @@
         if (!slot) return;
         pal.classList.add('nn-palette-docked');
         pal.dataset.dockEdge = edge;
+        pal.style.position = 'relative';
         pal.style.left = '';
         pal.style.top = '';
         pal.style.display = '';
@@ -3959,6 +4028,10 @@
 
       function nearestEdge(cx, cy) {
         var r = shell.getBoundingClientRect();
+        var relY = cy - r.top;
+        var relH = Math.max(r.height, 1);
+        if (relY >= relH * 0.72) return 'bottom';
+        if (relY <= relH * 0.18) return 'top';
         var dist = {
           top: cy - r.top,
           bottom: r.bottom - cy,
@@ -3973,8 +4046,10 @@
             edge = k;
           }
         });
-        return min < 80 ? edge : null;
+        return min < 96 ? edge : null;
       }
+
+      nnPaletteDockToEdge = dockTo;
 
       var handle = pal.querySelector('.nn-palette-drag-handle') || pal.querySelector('.nn-float-handle');
       var minBtn = document.getElementById('nn-palette-min-btn');
@@ -4035,7 +4110,7 @@
             if (slots[k]) slots[k].classList.remove('nn-dock-drag-over');
           });
           if (edge) dockTo(edge);
-          else nnClampPaletteInShell(pal);
+          else if (!nnEnsureToolsPaletteBottomDock(pal)) nnClampPaletteInShell(pal);
           nnSavePaletteState();
           drag = null;
           nnEndGripDrag();
@@ -4070,7 +4145,7 @@
         pal.style.position = 'absolute';
         pal.style.left = cfg.left || '12px';
         pal.style.top = cfg.top || '12px';
-        nnClampPaletteInShell(pal);
+        if (!nnEnsureToolsPaletteBottomDock(pal)) nnClampPaletteInShell(pal);
       } else {
         dockTo('bottom');
       }
@@ -8113,7 +8188,7 @@
           /* handled */
         } else if (nnTryHandleTextPointerMove(e, ptTouch)) {
           /* handled */
-        } else if (activePointers.size === 1 && isPanning && !nnTextTouchBoxOp) {
+        } else if (activePointers.size === 1 && isPanning && !nnTextTouchBoxOp && !nnTextMove && !nnTextResize) {
           viewerContainer.scrollLeft -= (e.clientX - lastPanX);
           viewerContainer.scrollTop -= (e.clientY - lastPanY);
           lastPanX = e.clientX;
