@@ -371,8 +371,17 @@
     }
     .nn-panel-grip:active { cursor: grabbing; background: #e8eaed; }
     .nn-float-header-stacked { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
-    .nn-float-header-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 4px 8px; }
-    .nn-float-title { font-size: 12px; font-weight: 600; color: #3c4043; }
+    .nn-float-header-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 4px 8px; gap: 6px; }
+    .nn-palette-drag-handle {
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+      flex: 1;
+      min-width: 0;
+    }
+    .nn-palette-drag-handle:active { cursor: grabbing; }
+    .nn-palette-drag-mark { color: #9aa0a6; flex-shrink: 0; font-size: 11px; line-height: 1; letter-spacing: -2px; }
+    .nn-float-title { font-size: 12px; font-weight: 600; color: #3c4043; flex: 1; min-width: 0; }
     #nn-btn-place-textbox.nn-place-active,
     #nn-btn-partial-ink-recog.nn-place-active { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: 600; }
     #nn-partial-ink-modal {
@@ -490,12 +499,55 @@
       display: none;
       pointer-events: none;
       box-sizing: border-box;
+      overflow: visible;
     }
-    /* コンテナ自体は貫通（内側のクリックで枠ドラッグ・編集検出へ）。ハンドルのみヒット標的。 */
-    #nn-text-box-chrome.nn-show { display: block; pointer-events: none; }
-    #nn-text-box-chrome.nn-show .nn-tb-resize {
+    #nn-text-box-chrome.nn-show { display: block; }
+    #nn-text-box-chrome .nn-tb-frame {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      border-radius: 6px;
+      overflow: hidden;
       pointer-events: auto;
     }
+    #nn-text-box-chrome #nn-text-edit-field {
+      display: block;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 6px;
+      border: none;
+      outline: none;
+      border-radius: 6px;
+      resize: none;
+      font-size: 15px;
+      line-height: 1.25;
+      background: transparent;
+    }
+    #nn-text-box-chrome .nn-tb-grip {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 100%;
+      margin-top: -1px;
+      min-width: 48px;
+      height: 18px;
+      padding: 0 10px;
+      border: none;
+      border-radius: 0 0 8px 8px;
+      background: #1a73e8;
+      color: #fff;
+      font-size: 10px;
+      line-height: 18px;
+      cursor: grab;
+      pointer-events: auto;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
+      letter-spacing: -2px;
+      z-index: 3;
+    }
+    #nn-text-box-chrome .nn-tb-grip:active { cursor: grabbing; }
     #nn-text-box-chrome .nn-tb-resize {
       position: absolute;
       width: 14px;
@@ -508,27 +560,7 @@
       cursor: nwse-resize;
       box-sizing: border-box;
       z-index: 2;
-    }
-    #nn-text-edit-overlay {
-      position: absolute;
-      z-index: 1250;
-      display: none;
-      box-sizing: border-box;
-      padding: 0;
-    }
-    #nn-text-edit-overlay.nn-show { display: block; }
-    #nn-text-edit-field {
-      width: 100%;
-      height: 100%;
-      box-sizing: border-box;
-      margin: 0;
-      padding: 6px;
-      border: 2px solid #1a73e8;
-      border-radius: 6px;
-      resize: none;
-      font-size: 15px;
-      line-height: 1.25;
-      background: rgba(255, 255, 255, 0.97);
+      pointer-events: auto;
     }
 
     #viewer-shell {
@@ -596,49 +628,7 @@
       max-width: none;
       width: 100%;
     }
-    .nn-float-palette.nn-palette-docked .nn-float-header-stacked { overflow: visible; }
-    .nn-float-palette.nn-palette-docked .nn-float-grip {
-      position: absolute;
-      z-index: 1400;
-      width: 32px;
-      min-height: 44px;
-      padding: 8px 6px;
-      flex: none;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-      border-radius: 6px;
-    }
-    .nn-float-palette.nn-palette-docked[data-dock-edge="left"] .nn-float-grip {
-      right: -34px;
-      top: 50%;
-      left: auto;
-      transform: translateY(-50%);
-      border-radius: 0 8px 8px 0;
-    }
-    .nn-float-palette.nn-palette-docked[data-dock-edge="right"] .nn-float-grip {
-      left: -34px;
-      top: 50%;
-      right: auto;
-      transform: translateY(-50%);
-      border-radius: 8px 0 0 8px;
-    }
-    .nn-float-palette.nn-palette-docked[data-dock-edge="top"] .nn-float-grip {
-      left: 50%;
-      bottom: -30px;
-      top: auto;
-      transform: translateX(-50%);
-      width: auto;
-      min-width: 48px;
-      border-radius: 0 0 8px 8px;
-    }
-    .nn-float-palette.nn-palette-docked[data-dock-edge="bottom"] .nn-float-grip {
-      left: 50%;
-      top: -30px;
-      bottom: auto;
-      transform: translateX(-50%);
-      width: auto;
-      min-width: 48px;
-      border-radius: 8px 8px 0 0;
-    }
+    .nn-float-palette.nn-palette-docked .nn-float-header-stacked { overflow: hidden; }
     .nn-float-palette.nn-palette-docked.nn-orient-h .nn-float-body {
       flex-direction: row;
       flex-wrap: wrap;
@@ -731,6 +721,29 @@
       font-weight: 600;
       color: #5f6368;
       margin: 0 0 2px;
+    }
+    .nn-palette-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+      margin-bottom: 2px;
+    }
+    .nn-palette-label-row .nn-palette-section-label {
+      width: auto;
+      flex: 1;
+      margin: 0;
+    }
+    .nn-palette-label-row .nn-palette-min-btn {
+      margin: 0;
+      width: 24px;
+      height: 24px;
+      font-size: 14px;
+    }
+    .nn-float-header-row.nn-palette-drag-handle-only {
+      justify-content: center;
+      padding: 4px 8px;
     }
     #nn-palette-fab {
       display: none;
@@ -1268,8 +1281,13 @@
         <canvas id="bg-canvas"></canvas>
         <canvas id="draw-canvas"></canvas>
         <div id="my-laser" class="laser-dot"></div>
-        <div id="nn-text-box-chrome"><span class="nn-tb-resize" title="ドラッグでサイズ変更"></span></div>
-        <div id="nn-text-edit-overlay"><textarea id="nn-text-edit-field" placeholder="テキスト"></textarea></div>
+        <div id="nn-text-box-chrome">
+          <div class="nn-tb-frame">
+            <textarea id="nn-text-edit-field" placeholder="テキスト"></textarea>
+            <span class="nn-tb-resize" title="ドラッグでサイズ変更"></span>
+          </div>
+          <button type="button" class="nn-tb-grip" title="ドラッグして移動">⋮⋮</button>
+        </div>
          
         <div id="host-frame"></div>
       </div>
@@ -1290,10 +1308,8 @@
      
     <div id="nn-float-tools" class="nn-float-palette nn-orient-h" data-palette-id="tools">
       <div class="nn-float-header nn-float-header-stacked">
-        <button type="button" class="nn-panel-grip nn-float-grip" title="ドラッグして画面の辺にドック">⋮⋮</button>
-        <div class="nn-float-header-row">
-          <span class="nn-float-title">描画ツール</span>
-          <button type="button" class="nn-palette-min-btn" id="nn-palette-min-btn" title="最小化">−</button>
+        <div class="nn-float-header-row nn-palette-drag-handle nn-palette-drag-handle-only" title="ドラッグして移動・画面の辺にドック">
+          <span class="nn-palette-drag-mark" aria-hidden="true">⋮⋮</span>
         </div>
       </div>
       <div class="nn-float-body" id="nn-float-tools-body"></div>
@@ -1906,6 +1922,13 @@
       if (!boxes || !boxes.length) return;
       boxes.forEach(function (tb) {
         if (!tb || tb.w < 4 || tb.h < 4) return;
+        if (
+          nnSelectedTextRef &&
+          nnSelectedTextRef.box === tb &&
+          nnCanEditTextHit(nnSelectedTextRef)
+        ) {
+          return;
+        }
         var bw = tb.borderWidth != null ? tb.borderWidth : 2;
         var bo = tb.borderOpacity != null ? tb.borderOpacity : 1;
         var fo = tb.fillOpacity != null ? tb.fillOpacity : 0.35;
@@ -1931,23 +1954,8 @@
         }
         ctx.globalAlpha = 1;
         var pad = 6;
-        var overlayEditing =
-          nnTextEditActive &&
-          nnSelectedTextRef &&
-          nnSelectedTextRef.box === tb;
-        if (!overlayEditing) {
-          var text = String(tb.text != null ? tb.text : '');
-          nnDrawTextInBox(ctx, tb, text, x + pad, y + pad, Math.max(8, w - pad * 2), Math.max(8, h - pad * 2));
-        }
-        if (nnSelectedTextRef && nnSelectedTextRef.box === tb) {
-          ctx.save();
-          ctx.setLineDash([5, 4]);
-          ctx.strokeStyle = 'rgba(26,115,232,0.95)';
-          ctx.lineWidth = 2;
-          ctx.globalAlpha = 1;
-          ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
-          ctx.restore();
-        }
+        var text = String(tb.text != null ? tb.text : '');
+        nnDrawTextInBox(ctx, tb, text, x + pad, y + pad, Math.max(8, w - pad * 2), Math.max(8, h - pad * 2));
         ctx.restore();
       });
     }
@@ -2085,8 +2093,6 @@
     var nnInspectorManualPos = null;
     var nnTextEditActive = false;
     var nnTextTouchBoxOp = false;
-    var NN_TEXT_BORDER_DRAG_PX = 8;
-    var NN_TEXT_BODY_DRAG_ACTIVATE_PX = 6;
     var NN_TEXT_DEFAULT_W = 160;
     var NN_TEXT_DEFAULT_H = 80;
 
@@ -2118,27 +2124,6 @@
       var pr = nnGetPageWrapperRect();
       if (!pr) return { x: 0, y: 0 };
       return { x: (clientX - pr.left) / currentScale, y: (clientY - pr.top) / currentScale };
-    }
-
-    function nnHitTextBorderOutline(pt, box) {
-      if (!box || box.w < 4 || box.h < 4) return false;
-      var x = box.x,
-        y = box.y,
-        w = box.w,
-        h = box.h;
-      if (pt.x < x || pt.x > x + w || pt.y < y || pt.y > y + h) return false;
-      var tol = NN_TEXT_BORDER_DRAG_PX;
-      if (w < tol * 2 + 8 || h < tol * 2 + 8) return true;
-      var ix = x + tol,
-        iy = y + tol,
-        iw = w - tol * 2,
-        ih = h - tol * 2;
-      var inInner =
-        pt.x >= ix &&
-        pt.x <= ix + iw &&
-        pt.y >= iy &&
-        pt.y <= iy + ih;
-      return !inInner;
     }
 
     function nnHitTextResizeSE(pt, box) {
@@ -2600,8 +2585,10 @@
       redraw();
       nnSyncTextBoxChrome();
       if (nnTextEditActive) {
-        nnSyncTextEditOverlayGeometry();
         nnApplyTextEditFieldStyle(nnSelectedTextRef.box);
+      }
+      if (nnSelectedTextRef && nnSelectedTextRef.box && !nnInspectorPinned) {
+        nnPositionTextInspector(nnSelectedTextRef.box);
       }
     }
 
@@ -2633,48 +2620,94 @@
       return { left: Math.min(Math.max(pad, left), maxL), top: Math.min(Math.max(pad, top), maxT) };
     }
 
+    function nnInspectorOverlapsBox(insLeft, insTop, insW, insH, boxLeft, boxTop, boxW, boxH, margin) {
+      margin = margin != null ? margin : 8;
+      return !(
+        insLeft + insW + margin <= boxLeft ||
+        boxLeft + boxW + margin <= insLeft ||
+        insTop + insH + margin <= boxTop ||
+        boxTop + boxH + margin <= insTop
+      );
+    }
+
     function nnPositionTextInspector(box) {
       var ins = document.getElementById('nn-text-inspector');
       var shell = document.getElementById('viewer-shell');
       if (!ins || !shell || !box) return;
       if (nnInspectorPinned && nnInspectorManualPos) {
-        var c = nnClampInspectorInShell(ins, nnInspectorManualPos.left, nnInspectorManualPos.top);
-        ins.style.left = c.left + 'px';
-        ins.style.top = c.top + 'px';
+        var c0 = nnClampInspectorInShell(ins, nnInspectorManualPos.left, nnInspectorManualPos.top);
+        ins.style.left = c0.left + 'px';
+        ins.style.top = c0.top + 'px';
         return;
       }
       var sr = nnBoxToScreenRect(box);
       var shellR = shell.getBoundingClientRect();
       if (!sr) return;
-      var margin = 8;
+      var margin = 10;
+      var gripH = 20;
       var bw = ins.offsetWidth || 220;
       var bh = ins.offsetHeight || 200;
       var relL = sr.left - shellR.left;
       var relT = sr.top - shellR.top;
+      var boxH = sr.height + gripH;
       var candidates = [
-        { left: relL, top: relT + sr.height + margin },
-        { left: relL + sr.width + margin, top: relT },
-        { left: relL, top: relT - bh - margin },
-        { left: relL - bw - margin, top: relT },
+        { left: relL, top: relT + boxH + margin, name: 'below' },
+        { left: relL + sr.width + margin, top: relT, name: 'right' },
+        { left: relL - bw - margin, top: relT, name: 'left' },
+        { left: relL, top: relT - bh - margin, name: 'above' },
+        { left: relL + sr.width + margin, top: relT + boxH + margin, name: 'br' },
+        { left: margin, top: margin, name: 'corner' },
       ];
-      var pick = candidates[0];
+      function fitsShell(c) {
+        return (
+          c.left >= margin &&
+          c.top >= margin &&
+          c.left + bw <= shell.clientWidth - margin &&
+          c.top + bh <= shell.clientHeight - margin
+        );
+      }
+      var pick = null;
       for (var i = 0; i < candidates.length; i++) {
         var c = candidates[i];
-        if (c.left >= margin && c.top >= margin && c.left + bw <= shell.clientWidth - margin && c.top + bh <= shell.clientHeight - margin) {
+        if (
+          !nnInspectorOverlapsBox(c.left, c.top, bw, bh, relL, relT, sr.width, boxH, margin) &&
+          fitsShell(c)
+        ) {
           pick = c;
           break;
         }
       }
+      if (!pick) {
+        for (var j = 0; j < candidates.length; j++) {
+          if (fitsShell(candidates[j])) {
+            pick = candidates[j];
+            break;
+          }
+        }
+      }
+      if (!pick) pick = { left: margin, top: Math.max(margin, relT + boxH + margin) };
       var cl = nnClampInspectorInShell(ins, pick.left, pick.top);
       ins.style.position = 'absolute';
       ins.style.left = cl.left + 'px';
       ins.style.top = cl.top + 'px';
     }
 
+    function nnApplyTextChromeVisual(box, frame) {
+      if (!box || !frame) return;
+      var bw = box.borderWidth != null ? box.borderWidth : 2;
+      var bo = box.borderOpacity != null ? box.borderOpacity : 1;
+      var fo = box.fillOpacity != null ? box.fillOpacity : 0.35;
+      frame.style.background = nnRgba(box.fillColor || '#ffffff', fo);
+      frame.style.border = bw + 'px solid ' + nnRgba(box.borderColor || '#1a73e8', bo);
+      frame.style.boxShadow = '0 0 0 2px rgba(26,115,232,0.35)';
+    }
+
     function nnSyncTextBoxChrome() {
       var chrome = document.getElementById('nn-text-box-chrome');
       var pw = document.getElementById('page-wrapper');
-      if (!chrome || !pw) return;
+      var field = document.getElementById('nn-text-edit-field');
+      var frame = chrome && chrome.querySelector('.nn-tb-frame');
+      if (!chrome || !pw || !frame) return;
       if (!nnSelectedTextRef || !nnSelectedTextRef.box || !nnCanEditTextHit(nnSelectedTextRef)) {
         chrome.classList.remove('nn-show');
         return;
@@ -2688,6 +2721,11 @@
       chrome.style.top = sr.top - pr.top + 'px';
       chrome.style.width = sr.width + 'px';
       chrome.style.height = sr.height + 'px';
+      nnApplyTextChromeVisual(box, frame);
+      if (field && !nnTextEditActive) {
+        field.value = box.text != null ? String(box.text) : '';
+      }
+      nnApplyTextEditFieldStyle(box);
     }
 
     function nnApplyTextEditFieldStyle(box) {
@@ -2709,38 +2747,26 @@
     }
 
     function nnSyncTextEditOverlayGeometry() {
-      var ov = document.getElementById('nn-text-edit-overlay');
-      var field = document.getElementById('nn-text-edit-field');
-      if (!ov || !field || !nnSelectedTextRef || !nnSelectedTextRef.box) return;
-      var box = nnSelectedTextRef.box;
-      var pw = document.getElementById('page-wrapper');
-      var sr = nnBoxToScreenRect(box);
-      var pr = pw.getBoundingClientRect();
-      if (!sr || !pw) return;
-      ov.style.left = sr.left - pr.left + 'px';
-      ov.style.top = sr.top - pr.top + 'px';
-      ov.style.width = sr.width + 'px';
-      ov.style.height = sr.height + 'px';
-      nnApplyTextEditFieldStyle(box);
+      nnSyncTextBoxChrome();
     }
 
     function nnOpenTextEditOverlay() {
       if (!nnSelectedTextRef || !nnSelectedTextRef.box) return;
-      var ov = document.getElementById('nn-text-edit-overlay');
       var field = document.getElementById('nn-text-edit-field');
-      if (!ov || !field) return;
+      if (!field) return;
       nnTextEditActive = true;
       nnTbHistBranch = null;
       field.value = nnSelectedTextRef.box.text != null ? String(nnSelectedTextRef.box.text) : '';
-      ov.classList.add('nn-show');
-      nnSyncTextEditOverlayGeometry();
+      nnSyncTextBoxChrome();
+      redraw();
       field.focus();
+      try {
+        field.setSelectionRange(field.value.length, field.value.length);
+      } catch (e) {}
     }
 
     function nnCloseTextEditOverlay(save) {
-      var ov = document.getElementById('nn-text-edit-overlay');
       var field = document.getElementById('nn-text-edit-field');
-      if (!ov) return;
       if (save && nnSelectedTextRef && nnSelectedTextRef.box && field) {
         nnSelectedTextRef.box.text = String(field.value);
         nnBumpStrokeTime();
@@ -2748,8 +2774,8 @@
       }
       nnTextEditActive = false;
       nnTbHistBranch = null;
-      ov.classList.remove('nn-show');
       redraw();
+      nnSyncTextBoxChrome();
     }
 
     function nnFinishTextCreate(tr) {
@@ -2884,7 +2910,12 @@
       var chrome = document.getElementById('nn-text-box-chrome');
       if (!chrome || chrome.dataset.wired === '1') return;
       chrome.dataset.wired = '1';
-      chrome.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+      chrome.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('.nn-tb-grip, .nn-tb-resize, #nn-text-edit-field')) return;
+        e.stopPropagation();
+      });
+      var grip = chrome.querySelector('.nn-tb-grip');
+      if (grip) nnWireChromeTransformPointer(grip, 'move');
       var res = chrome.querySelector('.nn-tb-resize');
       if (res) nnWireChromeTransformPointer(res, 'resize');
     }
@@ -2931,11 +2962,15 @@
       nnInitTextInspectorUi();
       nnInitTextChromeDrag();
       nnInitInspectorGripDrag();
-      var ov = document.getElementById('nn-text-edit-overlay');
-      if (ov) ov.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
       var field = document.getElementById('nn-text-edit-field');
       if (field) {
-        field.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+        field.addEventListener('pointerdown', function (e) {
+          e.stopPropagation();
+          if (!nnTextEditActive) nnOpenTextEditOverlay();
+        });
+        field.addEventListener('focus', function () {
+          if (!nnTextEditActive && nnSelectedTextRef) nnOpenTextEditOverlay();
+        });
         field.addEventListener('beforeinput', function (ev) {
           if (!nnTextEditActive || !nnSelectedTextRef) return;
           var br = nnClassifyTbBeforeInputBranch(ev.inputType || '');
@@ -2948,8 +2983,14 @@
         field.addEventListener('input', nnSyncEditingTextFromField);
         field.addEventListener('compositionend', nnSyncEditingTextFromField);
         field.addEventListener('keydown', function (e) {
-          if (e.key === 'Escape') { e.preventDefault(); nnCloseTextEditOverlay(false); }
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); nnCloseTextEditOverlay(true); }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            nnCloseTextEditOverlay(false);
+          }
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            nnCloseTextEditOverlay(true);
+          }
         });
         field.addEventListener('blur', function () {
           if (nnTextEditActive) nnCloseTextEditOverlay(true);
@@ -2988,22 +3029,6 @@
           isDrawing = true;
           return true;
         }
-        if (nnHitTextBorderOutline(pt, hit.box)) {
-          nnSelectTextBox(hit);
-          nnPdfAnnCheckpointBeforeChange();
-          nnTextMove = {
-            hit: hit,
-            px: pt.x,
-            py: pt.y,
-            ox: hit.box.x,
-            oy: hit.box.y,
-            pointerId: e.pointerId,
-            kind: 'border',
-            didDrag: false,
-          };
-          isDrawing = true;
-          return true;
-        }
         nnSelectTextBox(hit);
         nnTextMove = {
           hit: hit,
@@ -3038,11 +3063,7 @@
       }
       if (nnTextMove && nnTextMove.pointerId === e.pointerId) {
         if (nnTextMove.kind === 'body') {
-          var th = NN_TEXT_BODY_DRAG_ACTIVATE_PX;
-          var d0 = Math.hypot(pt.x - nnTextMove.px, pt.y - nnTextMove.py);
-          if (!nnTextMove.didDrag && d0 < th) return true;
-          if (!nnTextMove.didDrag) nnPdfAnnCheckpointBeforeChange();
-          nnTextMove.didDrag = true;
+          return true;
         }
         nnApplyTextMoveFromPt(pt);
         return true;
@@ -3713,7 +3734,17 @@
       }
 
       var toolsSec = section();
-      toolsSec.appendChild(label('描画ツール'));
+      var toolsLabelRow = document.createElement('div');
+      toolsLabelRow.className = 'nn-palette-label-row';
+      toolsLabelRow.appendChild(label('描画ツール'));
+      var minBtn = document.createElement('button');
+      minBtn.type = 'button';
+      minBtn.className = 'nn-palette-min-btn';
+      minBtn.id = 'nn-palette-min-btn';
+      minBtn.title = '最小化';
+      minBtn.textContent = '−';
+      toolsLabelRow.appendChild(minBtn);
+      toolsSec.appendChild(toolsLabelRow);
       ['btn-pen', 'btn-eraser', 'btn-laser'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) toolsSec.appendChild(el);
@@ -3945,7 +3976,7 @@
         return min < 80 ? edge : null;
       }
 
-      var handle = pal.querySelector('.nn-panel-grip.nn-float-grip') || pal.querySelector('.nn-float-handle');
+      var handle = pal.querySelector('.nn-palette-drag-handle') || pal.querySelector('.nn-float-handle');
       var minBtn = document.getElementById('nn-palette-min-btn');
       var fab = document.getElementById('nn-palette-fab');
       if (minBtn) {
@@ -3964,6 +3995,7 @@
       if (handle) {
         handle.addEventListener('pointerdown', function (e) {
           if (e.button !== 0) return;
+          if (e.target.closest('.nn-palette-min-btn')) return;
           e.preventDefault();
           e.stopPropagation();
           var shellRect = shell.getBoundingClientRect();
