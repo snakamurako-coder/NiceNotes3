@@ -2149,3 +2149,284 @@ function nn_batchSync(ops) {
     return { results: results };
   });
 }
+
+// --- Flip Memo (めくりメモ / スプレッドシート連携) ----------------------------
+
+const FM_PROP_BOOK_ID = 'FLIP_MEMO_BOOK';
+const FM_BOOK_TITLE = 'NiceNotes3 Flip Memo';
+const FM_HEADERS = ['通し番号', '日付', '登録時刻', 'メモ１', 'メモ２'];
+
+/**
+ * @return {GoogleAppsScript.Spreadsheet.Spreadsheet}
+ */
+function fm_ensureBook_() {
+  const props = PropertiesService.getScriptProperties();
+  let id = props.getProperty(FM_PROP_BOOK_ID);
+  let ss;
+  if (id) {
+    ss = SpreadsheetApp.openById(id);
+  } else {
+    ss = SpreadsheetApp.create(FM_BOOK_TITLE);
+    id = ss.getId();
+    props.setProperty(FM_PROP_BOOK_ID, id);
+    const sheets = ss.getSheets();
+    if (sheets.length === 1 && sheets[0].getLastRow() <= 1) {
+      try {
+        ss.deleteSheet(sheets[0]);
+      } catch (e) {
+        /* 最後の1枚は消せない */
+      }
+    }
+  }
+  return ss;
+}
+
+/**
+ * @param {string} label
+ * @return {GoogleAppsScript.Spreadsheet.Sheet}
+ */
+function fm_openSheet_(label) {
+  fm_validateLabelName_(label);
+  const ss = fm_ensureBook_();
+  const sheet = ss.getSheetByName(label);
+  if (!sheet) {
+    throw new Error('FM_E_NO_LABEL: ラベル「' + label + '」が見つかりません');
+  }
+  return sheet;
+}
+
+/**
+ * @param {string} name
+ */
+function fm_validateLabelName_(name) {
+  const n = String(name || '').trim();
+  if (!n) throw new Error('FM_E_BAD_LABEL: ラベル名が空です');
+  if (n.length > 100) throw new Error('FM_E_BAD_LABEL: ラベル名が長すぎます');
+  if (/[\\/?*[\]:]/.test(n)) throw new Error('FM_E_BAD_LABEL: 使用できない文字が含まれています');
+  return n;
+}
+
+/**
+ * @param {Array} row
+ * @return {{ seq: number, date: string, time: string, memo1: string, memo2: string }}
+ */
+function fm_rowToMemo_(row) {
+  return {
+    seq: Number(row[0]) || 0,
+    date: row[1] != null ? String(row[1]) : '',
+    time: row[2] != null ? String(row[2]) : '',
+    memo1: row[3] != null ? String(row[3]) : '',
+    memo2: row[4] != null ? String(row[4]) : '',
+  };
+}
+
+/**
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @return {number}
+ */
+function fm_ensureHeaders_(sheet) {
+  const width = FM_HEADERS.length;
+  const headerRow = sheet.getRange(1, 1, 1, width).getValues()[0];
+  let i;
+  for (i = 0; i < FM_HEADERS.length; i++) {
+    if (headerRow[i] !== FM_HEADERS[i]) {
+      sheet.getRange(1, i + 1).setValue(FM_HEADERS[i]);
+    }
+  }
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, width).setFontWeight('bold').setBackground('#f0f0f0');
+  return width;
+}
+
+/**
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @return {{ latestSeq: number, totalRows: number }}
+ */
+function fm_sheetStats_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { latestSeq: 0, totalRows: 0 };
+  const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  let maxSeq = 0;
+  let i;
+  for (i = 0; i < data.length; i++) {
+    const s = Number(data[i][0]) || 0;
+    if (s > maxSeq) maxSeq = s;
+  }
+  return { latestSeq: maxSeq, totalRows: lastRow - 1 };
+}
+
+/**
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @param {number} seq
+ * @return {number} 行番号 (1-based), 0 = なし
+ */
+function fm_findRowBySeq_(sheet, seq) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+  const data = sheet.getRange(2, 1, lastRow - 1, FM_HEADERS.length).getValues();
+  let i;
+  for (i = 0; i < data.length; i++) {
+    if (Number(data[i][0]) === seq) return i + 2;
+  }
+  return 0;
+}
+
+/**
+ * @return {{ ok: true, spreadsheetId: string, url: string }}
+ */
+function fm_ensureBook() {
+  const ss = fm_ensureBook_();
+  return { ok: true, spreadsheetId: ss.getId(), url: ss.getUrl() };
+}
+
+/**
+ * @return {string[]}
+ */
+function fm_listLabels() {
+  const ss = fm_ensureBook_();
+  return ss.getSheets().map(function (s) {
+    return s.getName();
+  });
+}
+
+/**
+ * @param {string} name
+ * @return {{ ok: true, label: string, labels: string[] }}
+ */
+function fm_createLabel(name) {
+  const label = fm_validateLabelName_(name);
+  const ss = fm_ensureBook_();
+  if (ss.getSheetByName(label)) {
+    throw new Error('FM_E_DUP_LABEL: ラベル「' + label + '」は既に存在します');
+  }
+  const sheet = ss.insertSheet(label);
+  fm_ensureHeaders_(sheet);
+  sheet.autoResizeColumns(1, FM_HEADERS.length);
+  return { ok: true, label: label, labels: fm_listLabels() };
+}
+
+/**
+ * @param {string} label
+ * @param {number=} seq 省略時は最新行
+ * @return {{ ok: true, label: string, seq: number, date: string, time: string, memo1: string, memo2: string, latestSeq: number, totalRows: number }}
+ */
+function fm_getMemoBySeq(label, seq) {
+  const sheet = fm_openSheet_(label);
+  fm_ensureHeaders_(sheet);
+  const stats = fm_sheetStats_(sheet);
+  if (stats.totalRows === 0) {
+    return {
+      ok: true,
+      label: label,
+      seq: 0,
+      date: '',
+      time: '',
+      memo1: '',
+      memo2: '',
+      latestSeq: 0,
+      totalRows: 0,
+    };
+  }
+  let targetSeq = seq != null && seq !== '' ? Number(seq) : stats.latestSeq;
+  if (!targetSeq || isNaN(targetSeq)) targetSeq = stats.latestSeq;
+  const rowNum = fm_findRowBySeq_(sheet, targetSeq);
+  if (!rowNum) {
+    throw new Error('FM_E_NO_ROW: 通し番号 ' + targetSeq + ' が見つかりません');
+  }
+  const row = sheet.getRange(rowNum, 1, 1, FM_HEADERS.length).getValues()[0];
+  const memo = fm_rowToMemo_(row);
+  return {
+    ok: true,
+    label: label,
+    seq: memo.seq,
+    date: memo.date,
+    time: memo.time,
+    memo1: memo.memo1,
+    memo2: memo.memo2,
+    latestSeq: stats.latestSeq,
+    totalRows: stats.totalRows,
+  };
+}
+
+/**
+ * @param {string} label
+ * @param {number} seq
+ * @param {string} memo1
+ * @param {string} memo2
+ * @return {{ ok: true, label: string, seq: number, date: string, time: string, memo1: string, memo2: string, latestSeq: number, totalRows: number }}
+ */
+function fm_updateMemo(label, seq, memo1, memo2) {
+  const sheet = fm_openSheet_(label);
+  fm_ensureHeaders_(sheet);
+  const targetSeq = Number(seq);
+  if (!targetSeq || isNaN(targetSeq)) throw new Error('FM_E_BAD_SEQ: 通し番号が不正です');
+  const rowNum = fm_findRowBySeq_(sheet, targetSeq);
+  if (!rowNum) throw new Error('FM_E_NO_ROW: 通し番号 ' + targetSeq + ' が見つかりません');
+  const existing = sheet.getRange(rowNum, 1, 1, FM_HEADERS.length).getValues()[0];
+  sheet.getRange(rowNum, 4, 1, 2).setValues([[memo1 != null ? String(memo1) : '', memo2 != null ? String(memo2) : '']]);
+  const stats = fm_sheetStats_(sheet);
+  const memo = fm_rowToMemo_(existing);
+  memo.memo1 = memo1 != null ? String(memo1) : '';
+  memo.memo2 = memo2 != null ? String(memo2) : '';
+  return {
+    ok: true,
+    label: label,
+    seq: memo.seq,
+    date: memo.date,
+    time: memo.time,
+    memo1: memo.memo1,
+    memo2: memo.memo2,
+    latestSeq: stats.latestSeq,
+    totalRows: stats.totalRows,
+  };
+}
+
+/**
+ * @param {string} label
+ * @param {string} memo1
+ * @param {string} memo2
+ * @return {{ ok: true, label: string, seq: number, date: string, time: string, memo1: string, memo2: string, latestSeq: number, totalRows: number }}
+ */
+function fm_appendMemo(label, memo1, memo2) {
+  const sheet = fm_openSheet_(label);
+  fm_ensureHeaders_(sheet);
+  const stats = fm_sheetStats_(sheet);
+  const newSeq = stats.latestSeq + 1;
+  const now = new Date();
+  const tz = Session.getScriptTimeZone();
+  const dateStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const timeStr = Utilities.formatDate(now, tz, 'HH:mm:ss');
+  const row = [newSeq, dateStr, timeStr, memo1 != null ? String(memo1) : '', memo2 != null ? String(memo2) : ''];
+  sheet.appendRow(row);
+  const newStats = fm_sheetStats_(sheet);
+  return {
+    ok: true,
+    label: label,
+    seq: newSeq,
+    date: dateStr,
+    time: timeStr,
+    memo1: row[3],
+    memo2: row[4],
+    latestSeq: newStats.latestSeq,
+    totalRows: newStats.totalRows,
+  };
+}
+
+/**
+ * 最新行のメモ１を上書き。行がなければ新規追加。
+ * @param {string} label
+ * @param {string} memo1
+ * @return {{ ok: true, label: string, seq: number, date: string, time: string, memo1: string, memo2: string, latestSeq: number, totalRows: number }}
+ */
+function fm_updateLatestMemo1(label, memo1) {
+  const sheet = fm_openSheet_(label);
+  fm_ensureHeaders_(sheet);
+  const stats = fm_sheetStats_(sheet);
+  if (stats.totalRows === 0) {
+    return fm_appendMemo(label, memo1, '');
+  }
+  const rowNum = fm_findRowBySeq_(sheet, stats.latestSeq);
+  const existing = sheet.getRange(rowNum, 1, 1, FM_HEADERS.length).getValues()[0];
+  const memo2 = existing[4] != null ? String(existing[4]) : '';
+  return fm_updateMemo(label, stats.latestSeq, memo1, memo2);
+}

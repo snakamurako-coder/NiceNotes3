@@ -568,6 +568,68 @@
       touch-action: none;
       user-select: none;
     }
+    #nn-text-box-chrome.nn-flip-memo-active #nn-text-edit-field { height: calc(100% - 0px); }
+    .nn-fm-toolbar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 100%;
+      margin-bottom: 2px;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: auto;
+      z-index: 4;
+    }
+    #nn-text-box-chrome.nn-flip-memo-active .nn-fm-toolbar { display: flex; }
+    .nn-fm-tabs { display: flex; gap: 4px; }
+    .nn-fm-tab {
+      flex: 1;
+      font-size: 11px;
+      padding: 4px 6px;
+      border: 1px solid #dadce0;
+      border-radius: 6px 6px 0 0;
+      background: #f1f3f4;
+      color: #3c4043;
+      cursor: pointer;
+    }
+    .nn-fm-tab.nn-fm-tab-active { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: 600; }
+    .nn-fm-meta { font-size: 10px; color: #5f6368; background: #fff; border: 1px solid #dadce0; border-radius: 4px; padding: 2px 6px; }
+    .nn-fm-nav {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 18px);
+      display: none;
+      gap: 6px;
+      pointer-events: auto;
+      z-index: 4;
+    }
+    #nn-text-box-chrome.nn-flip-memo-active .nn-fm-nav { display: flex; }
+    .nn-fm-nav button {
+      flex: 1;
+      font-size: 11px;
+      padding: 5px 8px;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      background: #fff;
+      color: #1a73e8;
+      cursor: pointer;
+    }
+    .nn-fm-nav button:disabled { opacity: 0.45; cursor: default; color: #80868b; }
+    #nn-flip-memo-label-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 20000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    #nn-flip-memo-label-modal.nn-show { display: flex; }
+    #nn-btn-place-flip-memo.nn-place-active { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: 600; }
 
     .nn-dock-slot[data-edge="bottom"],
     .nn-dock-slot[data-edge="top"] {
@@ -1033,6 +1095,22 @@
     </div>
   </div>
 
+  <div id="nn-flip-memo-label-modal" aria-modal="true" role="dialog" onclick="if (event.target === this) nnFmCloseLabelModal()">
+    <div role="dialog" aria-labelledby="nn-flip-memo-label-title" style="background:#fff;padding:20px;border-radius:12px;max-width:400px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+      <div id="nn-flip-memo-label-title" style="font-weight:600;margin-bottom:8px;font-size:15px;color:#202124;">めくりメモのラベルを選択</div>
+      <p style="font-size:13px;color:#5f6368;margin:0 0 12px;">ラベルはスプレッドシートのシート名に対応します。</p>
+      <label style="display:block;font-size:12px;color:#5f6368;margin-bottom:4px;">既存ラベル</label>
+      <select id="nn-fm-label-select" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #dadce0;border-radius:8px;font-size:14px;margin-bottom:12px;"></select>
+      <label style="display:block;font-size:12px;color:#5f6368;margin-bottom:4px;">新規ラベル</label>
+      <input type="text" id="nn-fm-label-new" placeholder="新しいラベル名" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #dadce0;border-radius:8px;font-size:14px;margin-bottom:14px;" />
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button type="button" class="btn-meeting-action" style="width:100%;justify-content:center;" onclick="nnFmConfirmLabelSelect()">選択したラベルを使う</button>
+        <button type="button" class="btn-meeting-action" style="width:100%;justify-content:center;background:#188038;" onclick="nnFmConfirmLabelCreate()">新規作成して使う</button>
+        <button type="button" class="file-btn-meet" onclick="nnFmCloseLabelModal()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
   <div id="nn-partial-ink-modal" aria-modal="true" role="dialog" onclick="if (event.target === this) nnClosePartialInkModal()">
     <div class="nn-partial-ink-inner" onclick="event.stopPropagation()">
       <div style="font-weight:600;font-size:15px;color:#202124;">部分手書きテキスト化</div>
@@ -1251,6 +1329,7 @@
       <button id="btn-eraser" onclick="setTool('eraser')">消しゴム</button>
       <button id="btn-laser" onclick="setTool('laser')">レーザー</button>
       <button type="button" id="nn-btn-place-textbox" class="file-btn-meet">テキストボックスを配置</button>
+      <button type="button" id="nn-btn-place-flip-memo" class="file-btn-meet" style="display:none" aria-hidden="true">スプレッドシート連携テキストボックスを配置</button>
       <button type="button" id="nn-btn-partial-ink-recog" class="file-btn-meet" style="display:none" aria-hidden="true">部分手書きテキスト化</button>
       <button id="btn-textbox" style="display:none" aria-hidden="true">テキスト框</button>
       <button id="btn-select" style="display:none" aria-hidden="true">選択</button>
@@ -1308,9 +1387,20 @@
         <canvas id="draw-canvas"></canvas>
         <div id="my-laser" class="laser-dot"></div>
         <div id="nn-text-box-chrome">
+          <div class="nn-fm-toolbar" id="nn-flip-memo-toolbar">
+            <div class="nn-fm-tabs">
+              <button type="button" class="nn-fm-tab nn-fm-tab-active" id="nn-fm-tab-memo1" data-tab="memo1">メモ１</button>
+              <button type="button" class="nn-fm-tab" id="nn-fm-tab-memo2" data-tab="memo2">メモ２</button>
+            </div>
+            <div class="nn-fm-meta" id="nn-fm-meta"></div>
+          </div>
           <div class="nn-tb-frame">
             <textarea id="nn-text-edit-field" placeholder="テキスト"></textarea>
             <span class="nn-tb-resize" title="ドラッグでサイズ変更"></span>
+          </div>
+          <div class="nn-fm-nav" id="nn-flip-memo-nav">
+            <button type="button" id="nn-fm-prev">← 前のメモ</button>
+            <button type="button" id="nn-fm-next">次のメモ →</button>
           </div>
           <button type="button" class="nn-tb-grip" title="ドラッグして移動">⋮⋮</button>
         </div>
@@ -1328,6 +1418,7 @@
       <div class="nn-text-inspector-body" id="nn-text-inspector-body"></div>
       <div class="nn-ti-actions">
         <button type="button" id="nn-ti-edit-text">文字を編集</button>
+        <button type="button" id="nn-ti-convert-flip-memo" style="display:none;">スプレッドシート連携に変換</button>
         <button type="button" id="nn-ti-delete" class="nn-ti-danger">削除</button>
       </div>
     </div>
@@ -1624,6 +1715,23 @@
         localStrokesByPage = d;
       }
       nnPdfAnnResetUndoRedo();
+      nnFmPrefetchLabelsFromLocalBoxes();
+    }
+
+    function nnFmPrefetchLabelsFromLocalBoxes() {
+      var labels = {};
+      Object.keys(localTextByPage).forEach(function (sk) {
+        var arr = localTextByPage[sk];
+        if (!arr) return;
+        arr.forEach(function (tb) {
+          if (nnFmIsFlipMemoBox(tb)) labels[nnFmGetLabel(tb)] = true;
+        });
+      });
+      Object.keys(labels).forEach(function (label) {
+        nnFmEnsureLabelLoaded(label, function () {
+          redraw();
+        });
+      });
     }
 
     function nnSerializeLocalMemo() {
@@ -1981,7 +2089,24 @@
         ctx.globalAlpha = 1;
         var pad = 6;
         var text = String(tb.text != null ? tb.text : '');
-        nnDrawTextInBox(ctx, tb, text, x + pad, y + pad, Math.max(8, w - pad * 2), Math.max(8, h - pad * 2));
+        if (nnFmIsFlipMemoBox(tb)) {
+          var fmLabel = nnFmGetLabel(tb);
+          var fmSt = fmLabelState[fmLabel];
+          if (fmSt) {
+            text = nnFmGetActiveMemoText(fmLabel);
+            tb.text = text;
+          }
+          ctx.save();
+          ctx.font = '600 9px system-ui,sans-serif';
+          ctx.fillStyle = 'rgba(26,115,232,0.85)';
+          var badge = fmLabel.length > 12 ? fmLabel.slice(0, 11) + '…' : fmLabel;
+          ctx.fillText(badge, x + pad, y + pad + 9);
+          ctx.restore();
+          pad = 6;
+          nnDrawTextInBox(ctx, tb, text, x + pad, y + pad + 12, Math.max(8, w - pad * 2), Math.max(8, h - pad * 2 - 12));
+        } else {
+          nnDrawTextInBox(ctx, tb, text, x + pad, y + pad, Math.max(8, w - pad * 2), Math.max(8, h - pad * 2));
+        }
         ctx.restore();
       });
     }
@@ -2114,6 +2239,11 @@
 
 /* NN_TEXTBOX_V2 — paste block */
     var nnTextPlacementMode = false;
+    var nnFlipMemoPlacementMode = false;
+    var nnFlipMemoPlacementLabel = null;
+    var fmLabelState = {};
+    var nnFmLabelModalCallback = null;
+    var nnFmSaveTimer = null;
     var nnTextResize = null;
     var nnInspectorPinned = false;
     var nnInspectorManualPos = null;
@@ -2217,15 +2347,457 @@
       nnInspectorPinned = false;
       nnInspectorManualPos = null;
       nnShowTextInspector();
-      nnSyncTextBoxChrome();
-      redraw();
+      if (nnFmIsFlipMemoBox(hit.box)) {
+        nnFmEnsureLabelLoaded(nnFmGetLabel(hit.box), function () {
+          nnFmSyncFlipMemoChrome();
+          nnSyncTextBoxChrome();
+          redraw();
+        });
+      } else {
+        nnSyncTextBoxChrome();
+        redraw();
+      }
     }
 
     function nnToggleTextPlacementMode() {
       nnTextPlacementMode = !nnTextPlacementMode;
-      if (nnTextPlacementMode) nnCancelPartialInkRecogMode(false);
+      if (nnTextPlacementMode) {
+        nnCancelPartialInkRecogMode(false);
+        nnCancelFlipMemoPlacementMode(false);
+      }
       var btn = document.getElementById('nn-btn-place-textbox');
       if (btn) btn.classList.toggle('nn-place-active', nnTextPlacementMode);
+    }
+
+    function nnFmIsFlipMemoBox(box) {
+      return !!(box && box.flipMemo && box.flipMemo.label);
+    }
+
+    function nnFmGetLabel(box) {
+      return box && box.flipMemo && box.flipMemo.label ? String(box.flipMemo.label) : '';
+    }
+
+    function nnFmOnError(err) {
+      var msg = err && err.message ? err.message : String(err || 'エラー');
+      if (statusDiv) statusDiv.textContent = 'めくりメモ: ' + msg;
+    }
+
+    function nnFmApplyMemoToLabelState(label, data, keepView) {
+      var prev = fmLabelState[label] || {};
+      var viewingSeq = keepView && prev.viewingSeq != null ? prev.viewingSeq : (data.seq || data.latestSeq || 0);
+      fmLabelState[label] = {
+        viewingSeq: viewingSeq,
+        activeTab: prev.activeTab || 'memo1',
+        seq: data.seq,
+        date: data.date || '',
+        time: data.time || '',
+        memo1: data.memo1 != null ? String(data.memo1) : '',
+        memo2: data.memo2 != null ? String(data.memo2) : '',
+        latestSeq: data.latestSeq != null ? data.latestSeq : 0,
+        totalRows: data.totalRows != null ? data.totalRows : 0,
+        loaded: true,
+      };
+    }
+
+    function nnFmGetActiveMemoText(label) {
+      var st = fmLabelState[label];
+      if (!st) return '';
+      return st.activeTab === 'memo2' ? st.memo2 : st.memo1;
+    }
+
+    function nnFmSyncAllBoxesForLabel(label) {
+      var st = fmLabelState[label];
+      if (!st) return;
+      var displayText = nnFmGetActiveMemoText(label);
+      Object.keys(localTextByPage).forEach(function (sk) {
+        var arr = localTextByPage[sk];
+        if (!arr) return;
+        arr.forEach(function (tb) {
+          if (nnFmIsFlipMemoBox(tb) && nnFmGetLabel(tb) === label) {
+            tb.text = displayText;
+          }
+        });
+      });
+    }
+
+    function nnFmEnsureLabelLoaded(label, callback) {
+      if (!label) {
+        if (callback) callback(null);
+        return;
+      }
+      if (fmLabelState[label] && fmLabelState[label].loaded) {
+        if (callback) callback(fmLabelState[label]);
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function (data) {
+          nnFmApplyMemoToLabelState(label, data);
+          nnFmSyncAllBoxesForLabel(label);
+          if (callback) callback(fmLabelState[label]);
+        })
+        .withFailureHandler(nnFmOnError)
+        .fm_getMemoBySeq(label);
+    }
+
+    function nnFmLoadMemoForLabel(label, seq, callback) {
+      google.script.run
+        .withSuccessHandler(function (data) {
+          var prev = fmLabelState[label] || {};
+          fmLabelState[label] = {
+            viewingSeq: data.seq,
+            activeTab: prev.activeTab || 'memo1',
+            seq: data.seq,
+            date: data.date || '',
+            time: data.time || '',
+            memo1: data.memo1 != null ? String(data.memo1) : '',
+            memo2: data.memo2 != null ? String(data.memo2) : '',
+            latestSeq: data.latestSeq != null ? data.latestSeq : 0,
+            totalRows: data.totalRows != null ? data.totalRows : 0,
+            loaded: true,
+          };
+          nnFmSyncAllBoxesForLabel(label);
+          if (callback) callback(fmLabelState[label]);
+        })
+        .withFailureHandler(nnFmOnError)
+        .fm_getMemoBySeq(label, seq);
+    }
+
+    function nnFmRefreshLabelModalDropdown(labels) {
+      var sel = document.getElementById('nn-fm-label-select');
+      if (!sel) return;
+      sel.innerHTML = '';
+      if (!labels || !labels.length) {
+        var o = document.createElement('option');
+        o.value = '';
+        o.textContent = '（ラベルがありません）';
+        sel.appendChild(o);
+        return;
+      }
+      labels.forEach(function (name) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+      });
+    }
+
+    function nnFmOpenLabelModal(callback) {
+      nnFmLabelModalCallback = callback || null;
+      var modal = document.getElementById('nn-flip-memo-label-modal');
+      var inp = document.getElementById('nn-fm-label-new');
+      if (inp) inp.value = '';
+      if (modal) modal.classList.add('nn-show');
+      google.script.run
+        .withSuccessHandler(function () {
+          google.script.run
+            .withSuccessHandler(function (labels) {
+              nnFmRefreshLabelModalDropdown(labels);
+            })
+            .withFailureHandler(nnFmOnError)
+            .fm_listLabels();
+        })
+        .withFailureHandler(nnFmOnError)
+        .fm_ensureBook();
+    }
+
+    function nnFmCloseLabelModal() {
+      var modal = document.getElementById('nn-flip-memo-label-modal');
+      if (modal) modal.classList.remove('nn-show');
+      nnFmLabelModalCallback = null;
+    }
+
+    function nnFmFinishLabelModal(label) {
+      var cb = nnFmLabelModalCallback;
+      nnFmCloseLabelModal();
+      if (cb && label) cb(label);
+    }
+
+    function nnFmConfirmLabelSelect() {
+      var sel = document.getElementById('nn-fm-label-select');
+      var label = sel && sel.value ? String(sel.value).trim() : '';
+      if (!label) {
+        if (statusDiv) statusDiv.textContent = 'ラベルを選択してください';
+        return;
+      }
+      nnFmFinishLabelModal(label);
+    }
+
+    function nnFmConfirmLabelCreate() {
+      var inp = document.getElementById('nn-fm-label-new');
+      var name = inp && inp.value ? String(inp.value).trim() : '';
+      if (!name) {
+        if (statusDiv) statusDiv.textContent = '新規ラベル名を入力してください';
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function () {
+          nnFmFinishLabelModal(name);
+        })
+        .withFailureHandler(nnFmOnError)
+        .fm_createLabel(name);
+    }
+
+    function nnCancelFlipMemoPlacementMode(redrawCanvas) {
+      nnFlipMemoPlacementMode = false;
+      nnFlipMemoPlacementLabel = null;
+      var btn = document.getElementById('nn-btn-place-flip-memo');
+      if (btn) btn.classList.remove('nn-place-active');
+      if (redrawCanvas !== false) redraw();
+    }
+
+    function nnBeginFlipMemoPlacement() {
+      nnFmOpenLabelModal(function (label) {
+        if (!label) return;
+        nnFlipMemoPlacementLabel = label;
+        nnFlipMemoPlacementMode = true;
+        nnTextPlacementMode = false;
+        var pb = document.getElementById('nn-btn-place-textbox');
+        if (pb) pb.classList.remove('nn-place-active');
+        var fb = document.getElementById('nn-btn-place-flip-memo');
+        if (fb) fb.classList.add('nn-place-active');
+        if (statusDiv) statusDiv.textContent = 'スプレッドシート連携テキストボックスを配置する場所をドラッグしてください';
+      });
+    }
+
+    function nnFmSyncFlipMemoChrome() {
+      var chrome = document.getElementById('nn-text-box-chrome');
+      var meta = document.getElementById('nn-fm-meta');
+      var btnPrev = document.getElementById('nn-fm-prev');
+      var btnNext = document.getElementById('nn-fm-next');
+      var tab1 = document.getElementById('nn-fm-tab-memo1');
+      var tab2 = document.getElementById('nn-fm-tab-memo2');
+      var field = document.getElementById('nn-text-edit-field');
+      if (!chrome || !nnSelectedTextRef || !nnFmIsFlipMemoBox(nnSelectedTextRef.box)) {
+        if (chrome) chrome.classList.remove('nn-flip-memo-active');
+        return;
+      }
+      var label = nnFmGetLabel(nnSelectedTextRef.box);
+      var st = fmLabelState[label];
+      chrome.classList.add('nn-flip-memo-active');
+      if (tab1) tab1.classList.toggle('nn-fm-tab-active', !st || st.activeTab !== 'memo2');
+      if (tab2) tab2.classList.toggle('nn-fm-tab-active', !!(st && st.activeTab === 'memo2'));
+      if (meta && st) {
+        var pos = st.seq > 0 ? st.seq + ' / ' + st.latestSeq : '（未登録）';
+        var dt = st.date && st.time ? st.date + ' ' + st.time : '';
+        meta.textContent = label + ' · ' + pos + (dt ? ' · ' + dt : '');
+      } else if (meta) {
+        meta.textContent = label;
+      }
+      if (btnPrev) btnPrev.disabled = !st || st.viewingSeq <= 1;
+      if (btnNext) {
+        var onLatest = !st || st.viewingSeq >= st.latestSeq;
+        btnNext.textContent = onLatest ? '新しいメモを追加' : '次のメモ →';
+        btnNext.disabled = false;
+      }
+      if (field && st && !nnTextEditActive) {
+        field.value = nnFmGetActiveMemoText(label);
+      }
+    }
+
+    function nnFmSelectTab(tab) {
+      if (!nnSelectedTextRef || !nnFmIsFlipMemoBox(nnSelectedTextRef.box)) return;
+      var label = nnFmGetLabel(nnSelectedTextRef.box);
+      var st = fmLabelState[label];
+      if (!st) return;
+      st.activeTab = tab === 'memo2' ? 'memo2' : 'memo1';
+      nnFmSyncAllBoxesForLabel(label);
+      nnFmSyncFlipMemoChrome();
+      redraw();
+      var field = document.getElementById('nn-text-edit-field');
+      if (field && nnTextEditActive) {
+        field.value = nnFmGetActiveMemoText(label);
+        field.focus();
+      }
+    }
+
+    function nnFmGoPrev() {
+      if (!nnSelectedTextRef || !nnFmIsFlipMemoBox(nnSelectedTextRef.box)) return;
+      var label = nnFmGetLabel(nnSelectedTextRef.box);
+      var st = fmLabelState[label];
+      if (!st || st.viewingSeq <= 1) return;
+      nnFmFlushSave();
+      nnFmLoadMemoForLabel(label, st.viewingSeq - 1, function () {
+        nnFmSyncFlipMemoChrome();
+        redraw();
+        nnSyncTextBoxChrome();
+      });
+    }
+
+    function nnFmGoNext() {
+      if (!nnSelectedTextRef || !nnFmIsFlipMemoBox(nnSelectedTextRef.box)) return;
+      var label = nnFmGetLabel(nnSelectedTextRef.box);
+      var st = fmLabelState[label];
+      if (!st) return;
+      if (st.viewingSeq >= st.latestSeq) {
+        nnFmAddNewMemo();
+        return;
+      }
+      nnFmFlushSave();
+      nnFmLoadMemoForLabel(label, st.viewingSeq + 1, function () {
+        nnFmSyncFlipMemoChrome();
+        redraw();
+        nnSyncTextBoxChrome();
+      });
+    }
+
+    function nnFmAddNewMemo() {
+      if (!nnSelectedTextRef || !nnFmIsFlipMemoBox(nnSelectedTextRef.box)) return;
+      var label = nnFmGetLabel(nnSelectedTextRef.box);
+      nnFmFlushSave();
+      google.script.run
+        .withSuccessHandler(function (data) {
+          nnFmApplyMemoToLabelState(label, data);
+          fmLabelState[label].viewingSeq = data.seq;
+          fmLabelState[label].activeTab = 'memo1';
+          nnFmSyncAllBoxesForLabel(label);
+          nnFmSyncFlipMemoChrome();
+          redraw();
+          nnSyncTextBoxChrome();
+          nnOpenTextEditOverlay();
+        })
+        .withFailureHandler(nnFmOnError)
+        .fm_appendMemo(label, '', '');
+    }
+
+    function nnFmScheduleSave() {
+      if (nnFmSaveTimer) clearTimeout(nnFmSaveTimer);
+      nnFmSaveTimer = setTimeout(nnFmFlushSave, 500);
+    }
+
+    function nnFmFlushSave() {
+      if (nnFmSaveTimer) {
+        clearTimeout(nnFmSaveTimer);
+        nnFmSaveTimer = null;
+      }
+      if (!nnSelectedTextRef || !nnFmIsFlipMemoBox(nnSelectedTextRef.box)) return;
+      var label = nnFmGetLabel(nnSelectedTextRef.box);
+      var st = fmLabelState[label];
+      if (!st) return;
+      if (!st.seq) {
+        google.script.run
+          .withSuccessHandler(function (data) {
+            nnFmApplyMemoToLabelState(label, data, true);
+            fmLabelState[label].viewingSeq = data.seq;
+            nnFmSyncAllBoxesForLabel(label);
+            nnFmSyncFlipMemoChrome();
+          })
+          .withFailureHandler(nnFmOnError)
+          .fm_appendMemo(label, st.memo1, st.memo2);
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function (data) {
+          nnFmApplyMemoToLabelState(label, data, true);
+          nnFmSyncAllBoxesForLabel(label);
+        })
+        .withFailureHandler(nnFmOnError)
+        .fm_updateMemo(label, st.seq, st.memo1, st.memo2);
+    }
+
+    function nnFmSyncEditingFromField() {
+      if (!nnTextEditActive || !nnSelectedTextRef || !nnFmIsFlipMemoBox(nnSelectedTextRef.box)) return;
+      var label = nnFmGetLabel(nnSelectedTextRef.box);
+      var st = fmLabelState[label];
+      if (!st) return;
+      var field = document.getElementById('nn-text-edit-field');
+      if (!field) return;
+      var val = String(field.value);
+      if (st.activeTab === 'memo2') st.memo2 = val;
+      else st.memo1 = val;
+      nnFmSyncAllBoxesForLabel(label);
+      nnFmScheduleSave();
+      redraw();
+    }
+
+    function nnFinishFlipMemoCreate(tr) {
+      if (!tr || !nnFlipMemoPlacementLabel) return;
+      var w = tr.w >= 20 ? tr.w : NN_TEXT_DEFAULT_W;
+      var h = tr.h >= 14 ? tr.h : NN_TEXT_DEFAULT_H;
+      var x = tr.w >= 20 ? tr.x : tr.x - w / 2;
+      var y = tr.h >= 14 ? tr.y : tr.y - h / 2;
+      nnReadTextStyleFromPanel();
+      var label = nnFlipMemoPlacementLabel;
+      var tb = Object.assign(
+        { id: nnNewTextBoxId(), x: x, y: y, w: w, h: h, text: '', flipMemo: { label: label } },
+        nnCloneTextStyleFromDefaults()
+      );
+      var sk = nnLpCurrentStrokeKey();
+      nnPdfAnnCheckpointBeforeChange();
+      if (!localTextByPage[sk]) localTextByPage[sk] = [];
+      localTextByPage[sk].push(tb);
+      nnCancelFlipMemoPlacementMode(false);
+      nnSelectTextBox({ box: tb, layer: 'local', index: localTextByPage[sk].length - 1, sk: sk });
+      nnBumpStrokeTime();
+      autoSaveCurrent(true);
+      nnFmEnsureLabelLoaded(label, function () {
+        redraw();
+        nnSyncTextBoxChrome();
+        nnOpenTextEditOverlay();
+      });
+    }
+
+    function nnConvertBoxToFlipMemo(label) {
+      if (!nnSelectedTextRef || nnSelectedTextRef.layer !== 'local' || !nnSelectedTextRef.box) return;
+      if (nnFmIsFlipMemoBox(nnSelectedTextRef.box)) return;
+      var box = nnSelectedTextRef.box;
+      var existingText = box.text != null ? String(box.text) : '';
+      nnPdfAnnCheckpointBeforeChange();
+      box.flipMemo = { label: label };
+      google.script.run
+        .withSuccessHandler(function (data) {
+          nnFmApplyMemoToLabelState(label, data);
+          nnFmSyncAllBoxesForLabel(label);
+          autoSaveCurrent(true);
+          redraw();
+          nnSyncTextBoxChrome();
+          nnOpenTextEditOverlay();
+        })
+        .withFailureHandler(nnFmOnError)
+        .fm_updateLatestMemo1(label, existingText);
+    }
+
+    function nnInitFlipMemoUi() {
+      var flipBtn = document.getElementById('nn-btn-place-flip-memo');
+      if (flipBtn && flipBtn.dataset.nnFmWired !== '1') {
+        flipBtn.dataset.nnFmWired = '1';
+        flipBtn.addEventListener('click', function () {
+          if (nnFlipMemoPlacementMode) nnCancelFlipMemoPlacementMode(true);
+          else nnBeginFlipMemoPlacement();
+        });
+      }
+      var btnConvert = document.getElementById('nn-ti-convert-flip-memo');
+      if (btnConvert && btnConvert.dataset.nnFmWired !== '1') {
+        btnConvert.dataset.nnFmWired = '1';
+        btnConvert.addEventListener('click', function () {
+          nnFmOpenLabelModal(function (label) {
+            if (label) nnConvertBoxToFlipMemo(label);
+          });
+        });
+      }
+      ['nn-fm-tab-memo1', 'nn-fm-tab-memo2'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el || el.dataset.nnFmWired === '1') return;
+        el.dataset.nnFmWired = '1';
+        el.addEventListener('click', function () {
+          nnFmSelectTab(el.dataset.tab);
+        });
+      });
+      var btnPrev = document.getElementById('nn-fm-prev');
+      var btnNext = document.getElementById('nn-fm-next');
+      if (btnPrev && btnPrev.dataset.nnFmWired !== '1') {
+        btnPrev.dataset.nnFmWired = '1';
+        btnPrev.addEventListener('click', function (e) {
+          e.stopPropagation();
+          nnFmGoPrev();
+        });
+      }
+      if (btnNext && btnNext.dataset.nnFmWired !== '1') {
+        btnNext.dataset.nnFmWired = '1';
+        btnNext.addEventListener('click', function (e) {
+          e.stopPropagation();
+          nnFmGoNext();
+        });
+      }
     }
 
     var nnPartialInkRecogMode = false;
@@ -2247,6 +2819,7 @@
         return;
       }
       nnTextPlacementMode = false;
+      nnCancelFlipMemoPlacementMode(false);
       var pb = document.getElementById('nn-btn-place-textbox');
       if (pb) pb.classList.remove('nn-place-active');
       nnPartialInkRecogMode = true;
@@ -2630,6 +3203,12 @@
         nnHideTextInspector();
         return;
       }
+      var btnConvert = document.getElementById('nn-ti-convert-flip-memo');
+      if (btnConvert) {
+        var showConvert =
+          nnSelectedTextRef.layer === 'local' && !nnFmIsFlipMemoBox(nnSelectedTextRef.box);
+        btnConvert.style.display = showConvert ? '' : 'none';
+      }
       ins.dataset.nnInspectorApplying = '1';
       nnLoadInspectorFromBox(nnSelectedTextRef.box);
       ins.dataset.nnInspectorApplying = '';
@@ -2748,8 +3327,16 @@
       chrome.style.width = sr.width + 'px';
       chrome.style.height = sr.height + 'px';
       nnApplyTextChromeVisual(box, frame);
-      if (field && !nnTextEditActive) {
-        field.value = box.text != null ? String(box.text) : '';
+      if (nnFmIsFlipMemoBox(box)) {
+        nnFmSyncFlipMemoChrome();
+        if (field && !nnTextEditActive) {
+          field.value = nnFmGetActiveMemoText(nnFmGetLabel(box));
+        }
+      } else {
+        chrome.classList.remove('nn-flip-memo-active');
+        if (field && !nnTextEditActive) {
+          field.value = box.text != null ? String(box.text) : '';
+        }
       }
       nnApplyTextEditFieldStyle(box);
     }
@@ -2782,7 +3369,11 @@
       if (!field) return;
       nnTextEditActive = true;
       nnTbHistBranch = null;
-      field.value = nnSelectedTextRef.box.text != null ? String(nnSelectedTextRef.box.text) : '';
+      if (nnFmIsFlipMemoBox(nnSelectedTextRef.box)) {
+        field.value = nnFmGetActiveMemoText(nnFmGetLabel(nnSelectedTextRef.box));
+      } else {
+        field.value = nnSelectedTextRef.box.text != null ? String(nnSelectedTextRef.box.text) : '';
+      }
       nnSyncTextBoxChrome();
       redraw();
       field.focus();
@@ -2794,7 +3385,12 @@
     function nnCloseTextEditOverlay(save) {
       var field = document.getElementById('nn-text-edit-field');
       if (save && nnSelectedTextRef && nnSelectedTextRef.box && field) {
-        nnSelectedTextRef.box.text = String(field.value);
+        if (nnFmIsFlipMemoBox(nnSelectedTextRef.box)) {
+          nnFmSyncEditingFromField();
+          nnFmFlushSave();
+        } else {
+          nnSelectedTextRef.box.text = String(field.value);
+        }
         nnBumpStrokeTime();
         autoSaveCurrent(true);
       }
@@ -3005,6 +3601,7 @@
       nnInitTextInspectorUi();
       nnInitTextChromeDrag();
       nnInitInspectorGripDrag();
+      nnInitFlipMemoUi();
       var field = document.getElementById('nn-text-edit-field');
       if (field) {
         field.addEventListener('pointerdown', function (e) {
@@ -3021,7 +3618,8 @@
         });
         function nnSyncEditingTextFromField() {
           if (!nnTextEditActive || !nnSelectedTextRef || !nnSelectedTextRef.box) return;
-          nnSelectedTextRef.box.text = String(field.value);
+          if (nnFmIsFlipMemoBox(nnSelectedTextRef.box)) nnFmSyncEditingFromField();
+          else nnSelectedTextRef.box.text = String(field.value);
         }
         field.addEventListener('input', nnSyncEditingTextFromField);
         field.addEventListener('compositionend', nnSyncEditingTextFromField);
@@ -3044,7 +3642,7 @@
     function nnTryHandleTextPointerDown(e, pt) {
       if (!nnIsTextBoxInteractionPointer(e)) return false;
       // 配置モード中はドラッグ新規作成を優先（既存箱の上での誤選択で2個目が置けなくなるのを防ぐ）
-      if (nnTextPlacementMode) {
+      if (nnTextPlacementMode || nnFlipMemoPlacementMode) {
         if (nnSelectedTextRef) nnClearTextSelection();
         nnTextCreateDrag = { x1: pt.x, y1: pt.y, pointerId: e.pointerId };
         nnTempTextRect = null;
@@ -3127,7 +3725,8 @@
           var d = nnTextCreateDrag;
           tr = nnNormalizeRect(d.x1, d.y1, d.x1, d.y1);
         }
-        nnFinishTextCreate(tr);
+        if (nnFlipMemoPlacementMode && nnFlipMemoPlacementLabel) nnFinishFlipMemoCreate(tr);
+        else nnFinishTextCreate(tr);
         nnTextCreateDrag = null;
         nnTempTextRect = null;
         return true;
@@ -3800,6 +4399,12 @@
       textSec.appendChild(label('テキスト'));
       var placeBtn = document.getElementById('nn-btn-place-textbox');
       if (placeBtn) textSec.appendChild(placeBtn);
+      var flipMemoBtn = document.getElementById('nn-btn-place-flip-memo');
+      if (flipMemoBtn) {
+        flipMemoBtn.style.display = '';
+        flipMemoBtn.removeAttribute('aria-hidden');
+        textSec.appendChild(flipMemoBtn);
+      }
       body.appendChild(textSec);
 
       var inkSec = section();
