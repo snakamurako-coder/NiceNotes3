@@ -3854,7 +3854,7 @@
       return true;
     }
 
-    function nnClampPaletteInShell(pal) {
+    function nnClampPaletteInShell(pal, skipAutoDock) {
       var shell = document.getElementById('viewer-shell');
       if (!pal || !shell) return;
       if (pal.classList.contains('nn-palette-docked')) return;
@@ -3870,7 +3870,7 @@
       if (isNaN(top)) top = pad;
       pal.style.left = Math.min(Math.max(pad, left), maxL) + 'px';
       pal.style.top = Math.min(Math.max(pad, top), maxT) + 'px';
-      nnEnsureToolsPaletteBottomDock(pal);
+      if (!skipAutoDock) nnEnsureToolsPaletteBottomDock(pal);
     }
 
     function nnClampFabInShell(fab) {
@@ -4097,7 +4097,7 @@
           if (!drag || e.pointerId !== drag.pid) return;
           pal.style.left = drag.sl + (e.clientX - drag.ox) + 'px';
           pal.style.top = drag.st + (e.clientY - drag.oy) + 'px';
-          nnClampPaletteInShell(pal);
+          nnClampPaletteInShell(pal, true);
           var edge = nearestEdge(e.clientX, e.clientY);
           Object.keys(slots).forEach(function (k) {
             if (slots[k]) slots[k].classList.toggle('nn-dock-drag-over', edge === k);
@@ -4110,7 +4110,7 @@
             if (slots[k]) slots[k].classList.remove('nn-dock-drag-over');
           });
           if (edge) dockTo(edge);
-          else if (!nnEnsureToolsPaletteBottomDock(pal)) nnClampPaletteInShell(pal);
+          else nnClampPaletteInShell(pal, true);
           nnSavePaletteState();
           drag = null;
           nnEndGripDrag();
