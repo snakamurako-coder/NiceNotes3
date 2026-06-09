@@ -329,32 +329,67 @@ function getPdfNeighborBackupMeta(pdfFileId, pdfNameHint) {
   };
 }
 
-// 【新規追加】ストローク配列を受け取りGoogle APIへ送る関数
+// ストローク配列を受け取り Google 手書き認識 API へ送る
 function recognizeSentence(allStrokes) {
-  const url = "https://www.google.com.hk/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8";
-  const payload = {
-    "options": "enable_pre_space",
-    "requests": [{
-      "writing_guide": { "writing_area_width": 1000, "writing_area_height": 1000 },
-      "ink": allStrokes,
-      "language": "ja"
-    }]
-  };
-
-  try {
-    const response = UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify(payload)
-    });
-    const result = JSON.parse(response.getContentText());
-    if (result[0] === "SUCCESS") {
-      return result[1][0][1][0];
-    }
-  } catch (e) {
-    return null;
+  if (!allStrokes || !allStrokes.length) {
+    throw new Error('認識する手書きストロークがありません');
   }
-  return null;
+
+  var maxX = 0;
+  var maxY = 0;
+  var i;
+  var j;
+  for (i = 0; i < allStrokes.length; i++) {
+    var stroke = allStrokes[i];
+    if (!stroke || !stroke[0] || !stroke[1] || stroke[0].length < 2) continue;
+    for (j = 0; j < stroke[0].length; j++) {
+      if (stroke[0][j] > maxX) maxX = stroke[0][j];
+      if (stroke[1][j] > maxY) maxY = stroke[1][j];
+    }
+  }
+  var areaW = Math.max(maxX + 40, 280);
+  var areaH = Math.max(maxY + 40, 280);
+
+  const urls = [
+    'https://www.google.com/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8',
+    'https://inputtools.google.com/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8',
+  ];
+  const payload = {
+    options: 'enable_pre_space',
+    requests: [{
+      writing_guide: { writing_area_width: areaW, writing_area_height: areaH },
+      ink: allStrokes,
+      language: 'ja',
+    }],
+  };
+  const body = JSON.stringify(payload);
+  var lastErr = '';
+
+  for (i = 0; i < urls.length; i++) {
+    try {
+      const response = UrlFetchApp.fetch(urls[i], {
+        method: 'post',
+        contentType: 'application/json',
+        payload: body,
+        muteHttpExceptions: true,
+      });
+      const code = response.getResponseCode();
+      const text = response.getContentText();
+      if (code !== 200) {
+        lastErr = 'HTTP ' + code;
+        continue;
+      }
+      const result = JSON.parse(text);
+      if (result[0] === 'SUCCESS' && result[1] && result[1][0] && result[1][0][1] && result[1][0][1][0]) {
+        return result[1][0][1][0];
+      }
+      lastErr = result[0] || '認識結果なし';
+    } catch (e) {
+      lastErr = e && e.message ? e.message : String(e);
+    }
+  }
+
+  throw new Error('手書きを認識できませんでした' + (lastErr ? ' (' + lastErr + ')' : ''));
 }
 
 // =============================================================================
@@ -2210,11 +2245,41 @@ function fm_validateLabelName_(name) {
  * @param {Array} row
  * @return {{ seq: number, date: string, time: string, memo1: string, memo2: string }}
  */
+function fm_formatDisplayAt_(dateCell, timeCell) {
+  const tz = Session.getScriptTimeZone();
+  if (dateCell instanceof Date && timeCell instanceof Date) {
+    const combined = new Date(
+      dateCell.getFullYear(),
+      dateCell.getMonth(),
+      dateCell.getDate(),
+      timeCell.getHours(),
+      timeCell.getMinutes(),
+      timeCell.getSeconds()
+    );
+    return Utilities.formatDate(combined, tz, 'EEE MMM dd yyyy HH:mm');
+  }
+  if (dateCell instanceof Date) {
+    return Utilities.formatDate(dateCell, tz, 'EEE MMM dd yyyy HH:mm');
+  }
+  if (timeCell instanceof Date) {
+    return Utilities.formatDate(timeCell, tz, 'EEE MMM dd yyyy HH:mm');
+  }
+  const dateStr = dateCell != null ? String(dateCell).trim() : '';
+  const timeStr = timeCell != null ? String(timeCell).trim() : '';
+  if (dateStr && timeStr) {
+    const shortTime = timeStr.length >= 5 ? timeStr.substring(0, 5) : timeStr;
+    return dateStr + ' ' + shortTime;
+  }
+  return dateStr || timeStr;
+}
+
 function fm_rowToMemo_(row) {
+  const displayAt = fm_formatDisplayAt_(row[1], row[2]);
   return {
     seq: Number(row[0]) || 0,
-    date: row[1] != null ? String(row[1]) : '',
-    time: row[2] != null ? String(row[2]) : '',
+    date: row[1] != null && !(row[1] instanceof Date) ? String(row[1]) : '',
+    time: row[2] != null && !(row[2] instanceof Date) ? String(row[2]) : '',
+    displayAt: displayAt,
     memo1: row[3] != null ? String(row[3]) : '',
     memo2: row[4] != null ? String(row[4]) : '',
   };
@@ -2235,6 +2300,9 @@ function fm_ensureHeaders_(sheet) {
   }
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1, 1, width).setFontWeight('bold').setBackground('#f0f0f0');
+  const lastRow = Math.max(sheet.getLastRow(), 2);
+  sheet.getRange(2, 2, lastRow - 1, 1).setNumberFormat('yyyy-mm-dd');
+  sheet.getRange(2, 3, lastRow - 1, 1).setNumberFormat('hh:mm');
   return width;
 }
 
@@ -2321,6 +2389,7 @@ function fm_getMemoBySeq(label, seq) {
       seq: 0,
       date: '',
       time: '',
+      displayAt: '',
       memo1: '',
       memo2: '',
       latestSeq: 0,
@@ -2341,6 +2410,7 @@ function fm_getMemoBySeq(label, seq) {
     seq: memo.seq,
     date: memo.date,
     time: memo.time,
+    displayAt: memo.displayAt,
     memo1: memo.memo1,
     memo2: memo.memo2,
     latestSeq: stats.latestSeq,
@@ -2374,6 +2444,7 @@ function fm_updateMemo(label, seq, memo1, memo2) {
     seq: memo.seq,
     date: memo.date,
     time: memo.time,
+    displayAt: memo.displayAt,
     memo1: memo.memo1,
     memo2: memo.memo2,
     latestSeq: stats.latestSeq,
@@ -2396,15 +2467,20 @@ function fm_appendMemo(label, memo1, memo2) {
   const tz = Session.getScriptTimeZone();
   const dateStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
   const timeStr = Utilities.formatDate(now, tz, 'HH:mm:ss');
-  const row = [newSeq, dateStr, timeStr, memo1 != null ? String(memo1) : '', memo2 != null ? String(memo2) : ''];
+  const row = [newSeq, now, now, memo1 != null ? String(memo1) : '', memo2 != null ? String(memo2) : ''];
   sheet.appendRow(row);
+  const appendedRow = sheet.getLastRow();
+  sheet.getRange(appendedRow, 2).setNumberFormat('yyyy-mm-dd');
+  sheet.getRange(appendedRow, 3).setNumberFormat('hh:mm');
   const newStats = fm_sheetStats_(sheet);
+  const displayAt = fm_formatDisplayAt_(now, now);
   return {
     ok: true,
     label: label,
     seq: newSeq,
     date: dateStr,
     time: timeStr,
+    displayAt: displayAt,
     memo1: row[3],
     memo2: row[4],
     latestSeq: newStats.latestSeq,

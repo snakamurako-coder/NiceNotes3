@@ -594,7 +594,7 @@
       cursor: pointer;
     }
     .nn-fm-tab.nn-fm-tab-active { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: 600; }
-    .nn-fm-meta { font-size: 10px; color: #5f6368; background: #fff; border: 1px solid #dadce0; border-radius: 4px; padding: 2px 6px; }
+    .nn-fm-meta { font-size: 10px; color: #5f6368; background: #fff; border: 1px solid #dadce0; border-radius: 4px; padding: 2px 6px; white-space: pre-line; line-height: 1.35; }
     .nn-fm-nav {
       position: absolute;
       left: 0;
@@ -1097,7 +1097,7 @@
 
   <div id="nn-flip-memo-label-modal" aria-modal="true" role="dialog" onclick="if (event.target === this) nnFmCloseLabelModal()">
     <div role="dialog" aria-labelledby="nn-flip-memo-label-title" style="background:#fff;padding:20px;border-radius:12px;max-width:400px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
-      <div id="nn-flip-memo-label-title" style="font-weight:600;margin-bottom:8px;font-size:15px;color:#202124;">めくりメモのラベルを選択</div>
+      <div id="nn-flip-memo-label-title" style="font-weight:600;margin-bottom:8px;font-size:15px;color:#202124;">フリップメモのラベルを選択</div>
       <p style="font-size:13px;color:#5f6368;margin:0 0 12px;">ラベルはスプレッドシートのシート名に対応します。</p>
       <label style="display:block;font-size:12px;color:#5f6368;margin-bottom:4px;">既存ラベル</label>
       <select id="nn-fm-label-select" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #dadce0;border-radius:8px;font-size:14px;margin-bottom:12px;"></select>
@@ -1329,7 +1329,7 @@
       <button id="btn-eraser" onclick="setTool('eraser')">消しゴム</button>
       <button id="btn-laser" onclick="setTool('laser')">レーザー</button>
       <button type="button" id="nn-btn-place-textbox" class="file-btn-meet">テキストボックスを配置</button>
-      <button type="button" id="nn-btn-place-flip-memo" class="file-btn-meet" style="display:none" aria-hidden="true">スプレッドシート連携テキストボックスを配置</button>
+      <button type="button" id="nn-btn-place-flip-memo" class="file-btn-meet" style="display:none" aria-hidden="true">フリップメモを配置</button>
       <button type="button" id="nn-btn-partial-ink-recog" class="file-btn-meet" style="display:none" aria-hidden="true">部分手書きテキスト化</button>
       <button id="btn-textbox" style="display:none" aria-hidden="true">テキスト框</button>
       <button id="btn-select" style="display:none" aria-hidden="true">選択</button>
@@ -1418,7 +1418,7 @@
       <div class="nn-text-inspector-body" id="nn-text-inspector-body"></div>
       <div class="nn-ti-actions">
         <button type="button" id="nn-ti-edit-text">文字を編集</button>
-        <button type="button" id="nn-ti-convert-flip-memo" style="display:none;">スプレッドシート連携に変換</button>
+        <button type="button" id="nn-ti-convert-flip-memo" style="display:none;">フリップメモに変換</button>
         <button type="button" id="nn-ti-delete" class="nn-ti-danger">削除</button>
       </div>
     </div>
@@ -2379,7 +2379,7 @@
 
     function nnFmOnError(err) {
       var msg = err && err.message ? err.message : String(err || 'エラー');
-      if (statusDiv) statusDiv.textContent = 'めくりメモ: ' + msg;
+      if (statusDiv) statusDiv.textContent = 'フリップメモ: ' + msg;
     }
 
     function nnFmApplyMemoToLabelState(label, data, keepView) {
@@ -2391,6 +2391,7 @@
         seq: data.seq,
         date: data.date || '',
         time: data.time || '',
+        displayAt: data.displayAt != null ? String(data.displayAt) : '',
         memo1: data.memo1 != null ? String(data.memo1) : '',
         memo2: data.memo2 != null ? String(data.memo2) : '',
         latestSeq: data.latestSeq != null ? data.latestSeq : 0,
@@ -2449,6 +2450,7 @@
             seq: data.seq,
             date: data.date || '',
             time: data.time || '',
+            displayAt: data.displayAt != null ? String(data.displayAt) : '',
             memo1: data.memo1 != null ? String(data.memo1) : '',
             memo2: data.memo2 != null ? String(data.memo2) : '',
             latestSeq: data.latestSeq != null ? data.latestSeq : 0,
@@ -2555,7 +2557,7 @@
         if (pb) pb.classList.remove('nn-place-active');
         var fb = document.getElementById('nn-btn-place-flip-memo');
         if (fb) fb.classList.add('nn-place-active');
-        if (statusDiv) statusDiv.textContent = 'スプレッドシート連携テキストボックスを配置する場所をドラッグしてください';
+        if (statusDiv) statusDiv.textContent = 'フリップメモを配置する場所をドラッグしてください';
       });
     }
 
@@ -2578,8 +2580,8 @@
       if (tab2) tab2.classList.toggle('nn-fm-tab-active', !!(st && st.activeTab === 'memo2'));
       if (meta && st) {
         var pos = st.seq > 0 ? st.seq + ' / ' + st.latestSeq : '（未登録）';
-        var dt = st.date && st.time ? st.date + ' ' + st.time : '';
-        meta.textContent = label + ' · ' + pos + (dt ? ' · ' + dt : '');
+        var line1 = label + ' · ' + pos;
+        meta.textContent = st.displayAt ? line1 + '\n' + st.displayAt : line1;
       } else if (meta) {
         meta.textContent = label;
       }
@@ -2908,7 +2910,7 @@
       var scale = Math.min(600 / Math.max(maxX - minX, 1), 300 / Math.max(maxY - minY, 1));
       var apiInk = [];
       strokes.forEach(function (s) {
-        if (!s.points || s.points.length === 0) return;
+        if (!s.points || s.points.length < 2) return;
         var xArr = [];
         var yArr = [];
         var tArr = [];
@@ -2917,7 +2919,7 @@
           yArr.push(Math.round((p.y - minY) * scale));
           tArr.push(p.t != null ? p.t : i * 50);
         });
-        apiInk.push([xArr, yArr, tArr]);
+        if (xArr.length >= 2) apiInk.push([xArr, yArr, tArr]);
       });
       return apiInk;
     }
