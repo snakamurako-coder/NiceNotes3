@@ -629,6 +629,18 @@
       box-sizing: border-box;
     }
     #nn-flip-memo-label-modal.nn-show { display: flex; }
+    #nn-fm-paste-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 20001;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    #nn-fm-paste-modal.nn-show { display: flex; }
     #nn-btn-place-flip-memo.nn-place-active { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: 600; }
 
     .nn-dock-slot[data-edge="bottom"],
@@ -1111,14 +1123,35 @@
     </div>
   </div>
 
+  <div id="nn-fm-paste-modal" aria-modal="true" role="dialog" onclick="if (event.target === this) nnFmClosePasteModal()">
+    <div role="dialog" aria-labelledby="nn-fm-paste-title" style="background:#fff;padding:20px;border-radius:12px;max-width:420px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+      <div id="nn-fm-paste-title" style="font-weight:600;margin-bottom:8px;font-size:15px;color:#202124;">フリップメモに張り付け</div>
+      <p style="font-size:13px;color:#5f6368;margin:0 0 12px;">貼り付け先を選んでください（空欄は上書き、既存文は末尾に改行して追記）。</p>
+      <label style="display:block;font-size:12px;color:#5f6368;margin-bottom:4px;">ラベル（シート）</label>
+      <select id="nn-fm-paste-label" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #dadce0;border-radius:8px;font-size:14px;margin-bottom:12px;"></select>
+      <label style="display:block;font-size:12px;color:#5f6368;margin-bottom:4px;">行（通し番号）</label>
+      <select id="nn-fm-paste-target" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #dadce0;border-radius:8px;font-size:14px;margin-bottom:12px;"></select>
+      <label style="display:block;font-size:12px;color:#5f6368;margin-bottom:4px;">欄</label>
+      <select id="nn-fm-paste-field" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #dadce0;border-radius:8px;font-size:14px;margin-bottom:14px;">
+        <option value="memo1">メモ１</option>
+        <option value="memo2">メモ２</option>
+      </select>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button type="button" class="btn-meeting-action" style="width:100%;justify-content:center;background:#188038;" onclick="nnFmConfirmPaste()">張り付ける</button>
+        <button type="button" class="file-btn-meet" onclick="nnFmClosePasteModal()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
   <div id="nn-partial-ink-modal" aria-modal="true" role="dialog" onclick="if (event.target === this) nnClosePartialInkModal()">
     <div class="nn-partial-ink-inner" onclick="event.stopPropagation()">
-      <div style="font-weight:600;font-size:15px;color:#202124;">部分手書きテキスト化</div>
+      <div id="nn-partial-ink-title" style="font-weight:600;font-size:15px;color:#202124;">部分手書きテキスト化</div>
       <p style="font-size:13px;color:#5f6368;margin:8px 0 0;">認識結果（編集してから利用できます）</p>
       <textarea id="nn-partial-ink-result" aria-label="認識結果"></textarea>
       <div class="nn-partial-ink-actions">
         <button type="button" class="btn-meeting-action" id="nn-partial-ink-copy">コピー</button>
         <button type="button" class="btn-meeting-action" id="nn-partial-ink-to-textbox" style="background:#1a73e8;color:#fff;border:none;">テキスト框に貼って編集</button>
+        <button type="button" class="btn-meeting-action" id="nn-partial-ink-to-flipmemo" style="background:#188038;color:#fff;border:none;">フリップメモに張り付ける</button>
         <button type="button" class="file-btn-meet" onclick="nnClosePartialInkModal()">閉じる</button>
       </div>
     </div>
@@ -2244,6 +2277,8 @@
     var fmLabelState = {};
     var nnFmLabelModalCallback = null;
     var nnFmSaveTimer = null;
+    var nnFmPastePendingText = '';
+    var nnFmPasteTextGetter = null;
     var nnTextResize = null;
     var nnInspectorPinned = false;
     var nnInspectorManualPos = null;
@@ -2539,6 +2574,156 @@
         .fm_createLabel(name);
     }
 
+    function nnFmRefreshPasteTargetSelect(data) {
+      var sel = document.getElementById('nn-fm-paste-target');
+      if (!sel) return;
+      sel.innerHTML = '';
+      var optNew = document.createElement('option');
+      optNew.value = 'new';
+      optNew.textContent = '新規追加';
+      sel.appendChild(optNew);
+      var rows = (data && data.rows) || [];
+      rows.forEach(function (row) {
+        var opt = document.createElement('option');
+        opt.value = String(row.seq);
+        var line = '#' + row.seq;
+        if (row.displayAt) line += ' · ' + row.displayAt;
+        opt.textContent = line;
+        sel.appendChild(opt);
+      });
+    }
+
+    function nnFmRefreshPasteLabelSelect(labels) {
+      var sel = document.getElementById('nn-fm-paste-label');
+      if (!sel) return;
+      sel.innerHTML = '';
+      if (!labels || !labels.length) {
+        var o = document.createElement('option');
+        o.value = '';
+        o.textContent = '（ラベルがありません）';
+        sel.appendChild(o);
+        nnFmRefreshPasteTargetSelect({ rows: [] });
+        return;
+      }
+      labels.forEach(function (name) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+      });
+      nnFmLoadPasteTargetsForLabel(labels[0]);
+    }
+
+    function nnFmLoadPasteTargetsForLabel(label) {
+      if (!label) {
+        nnFmRefreshPasteTargetSelect({ rows: [] });
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(nnFmRefreshPasteTargetSelect)
+        .withFailureHandler(nnFmOnError)
+        .fm_listMemoTargets(label);
+    }
+
+    function nnOpenFmPasteModal(textOrGetter) {
+      if (typeof textOrGetter === 'function') {
+        nnFmPasteTextGetter = textOrGetter;
+        nnFmPastePendingText = String(textOrGetter() || '');
+      } else {
+        nnFmPasteTextGetter = null;
+        nnFmPastePendingText = String(textOrGetter || '');
+      }
+      if (!nnFmPastePendingText.trim()) {
+        alert('貼り付けるテキストが空です。');
+        return;
+      }
+      var modal = document.getElementById('nn-fm-paste-modal');
+      if (modal) modal.classList.add('nn-show');
+      google.script.run
+        .withSuccessHandler(function () {
+          google.script.run
+            .withSuccessHandler(function (labels) {
+              nnFmRefreshPasteLabelSelect(labels);
+            })
+            .withFailureHandler(nnFmOnError)
+            .fm_listLabels();
+        })
+        .withFailureHandler(nnFmOnError)
+        .fm_ensureBook();
+    }
+
+    function nnFmClosePasteModal() {
+      var modal = document.getElementById('nn-fm-paste-modal');
+      if (modal) modal.classList.remove('nn-show');
+      nnFmPastePendingText = '';
+      nnFmPasteTextGetter = null;
+    }
+
+    function nnFmConfirmPaste() {
+      var text = nnFmPasteTextGetter ? String(nnFmPasteTextGetter() || '') : nnFmPastePendingText;
+      if (!text.trim()) {
+        alert('貼り付けるテキストが空です。');
+        return;
+      }
+      var labelSel = document.getElementById('nn-fm-paste-label');
+      var targetSel = document.getElementById('nn-fm-paste-target');
+      var fieldSel = document.getElementById('nn-fm-paste-field');
+      var label = labelSel && labelSel.value ? String(labelSel.value).trim() : '';
+      var target = targetSel ? targetSel.value : 'new';
+      var field = fieldSel ? fieldSel.value : 'memo1';
+      if (!label) {
+        if (statusDiv) statusDiv.textContent = 'ラベルを選択してください';
+        return;
+      }
+      showLoader('フリップメモに張り付け中...');
+      google.script.run
+        .withSuccessHandler(function (data) {
+          hideLoader();
+          nnFmApplyMemoToLabelState(label, data);
+          if (fmLabelState[label]) {
+            fmLabelState[label].viewingSeq = data.seq;
+            fmLabelState[label].activeTab = field === 'memo2' ? 'memo2' : 'memo1';
+          }
+          nnFmSyncAllBoxesForLabel(label);
+          if (
+            nnSelectedTextRef &&
+            nnFmIsFlipMemoBox(nnSelectedTextRef.box) &&
+            nnFmGetLabel(nnSelectedTextRef.box) === label
+          ) {
+            nnFmSyncFlipMemoChrome();
+            nnSyncTextBoxChrome();
+          }
+          redraw();
+          nnFmClosePasteModal();
+          if (statusDiv) {
+            statusDiv.textContent =
+              'フリップメモ（' + label + ' #' + data.seq + '）に張り付けました';
+          }
+        })
+        .withFailureHandler(function (err) {
+          hideLoader();
+          nnFmOnError(err);
+        })
+        .fm_pasteTextToMemo(label, target, field, text);
+    }
+
+    function nnFmInitPasteModalUi() {
+      var labelSel = document.getElementById('nn-fm-paste-label');
+      if (labelSel && labelSel.dataset.nnFmWired !== '1') {
+        labelSel.dataset.nnFmWired = '1';
+        labelSel.addEventListener('change', function () {
+          nnFmLoadPasteTargetsForLabel(labelSel.value);
+        });
+      }
+    }
+
+    function nnPastePartialInkToFlipMemo() {
+      nnOpenFmPasteModal(function () {
+        var ta = document.getElementById('nn-partial-ink-result');
+        return ta ? String(ta.value) : '';
+      });
+    }
+
     function nnCancelFlipMemoPlacementMode(redrawCanvas) {
       nnFlipMemoPlacementMode = false;
       nnFlipMemoPlacementLabel = null;
@@ -2759,6 +2944,7 @@
     }
 
     function nnInitFlipMemoUi() {
+      nnFmInitPasteModalUi();
       var flipBtn = document.getElementById('nn-btn-place-flip-memo');
       if (flipBtn && flipBtn.dataset.nnFmWired !== '1') {
         flipBtn.dataset.nnFmWired = '1';
@@ -3002,6 +3188,11 @@
       nnPartialInkLastResult = { text: text, bbox: bbox };
       var ta = document.getElementById('nn-partial-ink-result');
       var modal = document.getElementById('nn-partial-ink-modal');
+      var title = document.getElementById('nn-partial-ink-title');
+      var tbBtn = document.getElementById('nn-partial-ink-to-textbox');
+      var hasBbox = !!(bbox && (bbox.w || bbox.h));
+      if (title) title.textContent = hasBbox ? '部分手書きテキスト化' : '文字起こし';
+      if (tbBtn) tbBtn.style.display = hasBbox ? '' : 'none';
       if (ta) ta.value = text || '';
       if (modal) modal.classList.add('nn-show');
     }
@@ -3107,6 +3298,7 @@
       }
       var cp = document.getElementById('nn-partial-ink-copy');
       var tb = document.getElementById('nn-partial-ink-to-textbox');
+      var fm = document.getElementById('nn-partial-ink-to-flipmemo');
       if (cp && cp.dataset.wired !== '1') {
         cp.dataset.wired = '1';
         cp.addEventListener('click', nnCopyPartialInkResult);
@@ -3114,6 +3306,10 @@
       if (tb && tb.dataset.wired !== '1') {
         tb.dataset.wired = '1';
         tb.addEventListener('click', nnCreateTextBoxFromPartialInk);
+      }
+      if (fm && fm.dataset.wired !== '1') {
+        fm.dataset.wired = '1';
+        fm.addEventListener('click', nnPastePartialInkToFlipMemo);
       }
     }
 
@@ -9010,15 +9206,12 @@
       google.script.run
         .withSuccessHandler(function (text) {
           hideLoader();
-          if (text) {
-            prompt('文字起こしの結果です。コピーしてご利用ください:', text);
-          } else {
-            alert('文字を認識できませんでした。');
-          }
+          if (text) nnOpenPartialInkResultModal(text, null);
+          else alert('文字を認識できませんでした。');
         })
         .withFailureHandler(function (err) {
           hideLoader();
-          alert('サーバーとの通信エラーが発生しました: ' + err.message);
+          alert('サーバーとの通信エラーが発生しました: ' + (err && err.message ? err.message : String(err)));
         })
         .recognizeSentence(apiInk);
     }

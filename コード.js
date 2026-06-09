@@ -2539,3 +2539,69 @@ function fm_updateLatestMemo1(label, memo1) {
   const memo2 = existing[4] != null ? String(existing[4]) : '';
   return fm_updateMemo(label, stats.latestSeq, memo1, memo2);
 }
+
+/**
+ * ラベル内のメモ行一覧（通し番号降順）。
+ * @param {string} label
+ * @return {{ ok: true, label: string, latestSeq: number, rows: Array<{ seq: number, displayAt: string, memo1: string, memo2: string }> }}
+ */
+function fm_listMemoTargets(label) {
+  const sheet = fm_openSheet_(label);
+  fm_ensureHeaders_(sheet);
+  const stats = fm_sheetStats_(sheet);
+  if (stats.totalRows === 0) {
+    return { ok: true, label: label, latestSeq: 0, rows: [] };
+  }
+  const lastRow = sheet.getLastRow();
+  const data = sheet.getRange(2, 1, lastRow - 1, FM_HEADERS.length).getValues();
+  const rows = data
+    .map(function (row) {
+      const memo = fm_rowToMemo_(row);
+      return {
+        seq: memo.seq,
+        displayAt: memo.displayAt,
+        memo1: memo.memo1,
+        memo2: memo.memo2,
+      };
+    })
+    .sort(function (a, b) {
+      return b.seq - a.seq;
+    });
+  return { ok: true, label: label, latestSeq: stats.latestSeq, rows: rows };
+}
+
+/**
+ * テキストをフリップメモの指定欄に貼り付け（空なら上書き、あれば改行追記）。
+ * @param {string} label
+ * @param {string|number} target 'new' または通し番号
+ * @param {string} field 'memo1' | 'memo2'
+ * @param {string} text
+ */
+function fm_pasteTextToMemo(label, target, field, text) {
+  const pasteText = text != null ? String(text) : '';
+  if (!pasteText.trim()) {
+    throw new Error('FM_E_EMPTY: 貼り付けるテキストが空です');
+  }
+  const fieldKey = field === 'memo2' ? 'memo2' : 'memo1';
+  const isNew = target === 'new' || target === '' || target == null;
+
+  if (isNew) {
+    const memo1 = fieldKey === 'memo1' ? pasteText : '';
+    const memo2 = fieldKey === 'memo2' ? pasteText : '';
+    return fm_appendMemo(label, memo1, memo2);
+  }
+
+  const seq = Number(target);
+  if (!seq || isNaN(seq)) {
+    throw new Error('FM_E_BAD_SEQ: 通し番号が不正です');
+  }
+  const data = fm_getMemoBySeq(label, seq);
+  let memo1 = data.memo1 != null ? String(data.memo1) : '';
+  let memo2 = data.memo2 != null ? String(data.memo2) : '';
+  const current = fieldKey === 'memo1' ? memo1 : memo2;
+  const merged =
+    current && String(current).trim() ? String(current) + '\n' + pasteText : pasteText;
+  if (fieldKey === 'memo1') memo1 = merged;
+  else memo2 = merged;
+  return fm_updateMemo(label, seq, memo1, memo2);
+}
