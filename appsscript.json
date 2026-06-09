@@ -10,8 +10,12 @@
     "https://www.googleapis.com/auth/tasks",
     "https://www.googleapis.com/auth/script.external_request"
   ],
+  "urlFetchWhitelist": [
+    "https://www.google.com/inputtools/",
+    "https://inputtools.google.com/"
+  ],
   "webapp": {
     "executeAs": "USER_ACCESSING",
-    "access": "ANYONE"
+    "access": "DOMAIN"
   }
 }

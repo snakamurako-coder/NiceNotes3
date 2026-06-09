@@ -420,6 +420,39 @@ function nn_getActiveUserEmail_() {
   }
 }
 
+/**
+ * Web アプリ起動時の認証・スコープ承認状態を返す（USER_ACCESSING 用）。
+ * @return {{ ok: boolean, email?: string, needsAuth?: boolean, authUrl?: string, error?: string }}
+ */
+function nn_getAuthStatus() {
+  try {
+    const authInfo = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL);
+    if (authInfo.getAuthorizationStatus() === ScriptApp.AuthorizationStatus.REQUIRED) {
+      return {
+        ok: false,
+        needsAuth: true,
+        authUrl: authInfo.getAuthorizationUrl(),
+        error: 'Drive・スプレッドシート等へのアクセス権限の承認が必要です。',
+      };
+    }
+    const email = nn_getActiveUserEmail_();
+    if (!email) {
+      return {
+        ok: false,
+        needsAuth: true,
+        error: 'Googleアカウントでログインしてください。組織（ドメイン）内のアカウントが必要です。',
+      };
+    }
+    return { ok: true, email: email };
+  } catch (e) {
+    return {
+      ok: false,
+      needsAuth: true,
+      error: e && e.message ? e.message : String(e),
+    };
+  }
+}
+
 function nn_parseUserFolderMap_(props) {
   const raw = props.getProperty(NN_USER_MAIN_FOLDER_IDS_KEY);
   if (!raw) return {};

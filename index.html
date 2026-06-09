@@ -6494,6 +6494,10 @@
       window.addEventListener('keydown', nnOnKeyDownTextSelect);
       nnPdfAnnRefreshUndoUi();
       applyRoleMeet();
+      nnBeginAppBootstrap();
+    };
+
+    function nnRunInitializeApp() {
       showLoader('システムを初期設定中...');
       google.script.run
         .withSuccessHandler(function (res) {
@@ -6509,12 +6513,49 @@
             showHomeMeet();
           }
         })
-        .withFailureHandler(function () {
+        .withFailureHandler(function (err) {
           hideLoader();
+          alert('初期化エラー: ' + (err && err.message ? err.message : String(err)));
           showHomeMeet();
         })
         .initializeApp();
-    };
+    }
+
+    function nnBeginAppBootstrap() {
+      showLoader('認証を確認中...');
+      google.script.run
+        .withSuccessHandler(function (auth) {
+          if (!auth || !auth.ok) {
+            hideLoader();
+            if (auth && auth.authUrl) {
+              if (
+                confirm(
+                  (auth.error || '権限の承認が必要です。') +
+                    '\n\n承認画面を開きますか？'
+                )
+              ) {
+                window.top.location.href = auth.authUrl;
+              }
+            } else {
+              alert(
+                (auth && auth.error) ||
+                  'ログインまたは権限の承認が必要です。組織（ドメイン）内の Google アカウントでアクセスしてください。'
+              );
+            }
+            return;
+          }
+          nnRunInitializeApp();
+        })
+        .withFailureHandler(function (err) {
+          hideLoader();
+          alert(
+            '認証の確認に失敗しました: ' +
+              (err && err.message ? err.message : String(err)) +
+              '\n\n組織（ドメイン）内のアカウントで Web アプリ URL にアクセスしているか確認してください。'
+          );
+        })
+        .nn_getAuthStatus();
+    }
     function showLoader(text) { loaderText.textContent = text; loader.style.display = 'flex'; }
     function hideLoader() { loader.style.display = 'none'; }
 
