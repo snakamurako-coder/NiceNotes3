@@ -435,15 +435,19 @@ function nn_getAuthStatus() {
         error: 'Drive・スプレッドシート等へのアクセス権限の承認が必要です。',
       };
     }
-    const email = nn_getActiveUserEmail_();
-    if (!email) {
+    // getActiveUser().getEmail() は Web アプリでログイン済みでも空になることがあるため、
+    // 未ログイン判定には使わず、Drive へ実際にアクセスできるかで確認する
+    try {
+      DriveApp.getRootFolder();
+    } catch (driveErr) {
       return {
         ok: false,
         needsAuth: true,
-        error: 'Googleアカウントでログインしてください。組織（ドメイン）内のアカウントが必要です。',
+        error: 'Google ドライブへのアクセスを確認できませんでした。権限の承認を完了してください。',
       };
     }
-    return { ok: true, email: email };
+    const email = nn_getActiveUserEmail_();
+    return { ok: true, email: email || undefined };
   } catch (e) {
     return {
       ok: false,
